@@ -539,7 +539,7 @@ class HttpPlugin(BasePlugin):
         # urllib's HTTPErrorProcessor accesses response.msg (the HTTP reason phrase).
         # addinfourl delegates unknown attributes to its fp (BytesIO), which has no 'msg'.
         # We set it directly so the standard urllib response-processing chain works.
-        response.msg = "OK"
+        setattr(response, "msg", "OK")  # addinfourl has no typed msg attr; urllib needs it
         return response
 
     # ------------------------------------------------------------------

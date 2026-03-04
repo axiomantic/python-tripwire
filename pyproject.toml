@@ -28,17 +28,25 @@ dependencies = []
 Homepage = "https://github.com/axiomantic/bigfoot"
 Repository = "https://github.com/axiomantic/bigfoot"
 Issues = "https://github.com/axiomantic/bigfoot/issues"
+Changelog = "https://github.com/axiomantic/bigfoot/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 http = [
     "httpx>=0.25.0",
     "requests>=2.31.0",
+    "types-requests>=2.31.0",
 ]
 matchers = [
     "dirty-equals>=0.7.0",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+    "mike>=2.1",
+]
 dev = [
-    "bigfoot[http,matchers]",
+    "bigfoot[http,matchers,docs]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
