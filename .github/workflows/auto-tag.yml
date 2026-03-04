@@ -1,0 +1,61 @@
+name: Auto Tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+
+jobs:
+  tag:
+    name: Create tag on version bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get current version
+        id: current
+        run: |
+          VERSION=$(python -c "
+          import re
+          with open('pyproject.toml') as f:
+              content = f.read()
+          match = re.search(r'^version\s*=\s*[\"\'](.*?)[\"\']', content, re.MULTILINE)
+          print(match.group(1) if match else '')
+          ")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get previous version
+        id: previous
+        run: |
+          git checkout HEAD~1 -- pyproject.toml 2>/dev/null || true
+          VERSION=$(python -c "
+          import re
+          with open('pyproject.toml') as f:
+              content = f.read()
+          match = re.search(r'^version\s*=\s*[\"\'](.*?)[\"\']', content, re.MULTILINE)
+          print(match.group(1) if match else '')
+          " 2>/dev/null || echo "")
+          git checkout HEAD -- pyproject.toml
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag if version changed
+        if: steps.current.outputs.version != steps.previous.outputs.version && steps.current.outputs.version != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.current.outputs.version }}"
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git config user.name "github-actions[bot]"
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created tag $TAG"
+          fi

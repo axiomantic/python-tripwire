@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "panoptest"
+name = "bigfoot"
 version = "0.1.0"
 description = "A pluggable interaction auditor for Python tests."
 requires-python = ">=3.11"
@@ -22,6 +22,11 @@ classifiers = [
     "Framework :: Pytest",
 ]
 
+[project.urls]
+Homepage = "https://github.com/axiomantic/bigfoot"
+Repository = "https://github.com/axiomantic/bigfoot"
+Issues = "https://github.com/axiomantic/bigfoot/issues"
+
 dependencies = []
 
 [project.optional-dependencies]
@@ -33,7 +38,7 @@ matchers = [
     "dirty-equals>=0.7.0",
 ]
 dev = [
-    "panoptest[http,matchers]",
+    "bigfoot[http,matchers]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
@@ -42,10 +47,10 @@ dev = [
 ]
 
 [project.entry-points."pytest11"]
-panoptest = "panoptest.pytest_plugin"
+bigfoot = "bigfoot.pytest_plugin"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/panoptest"]
+packages = ["src/bigfoot"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -53,11 +58,11 @@ asyncio_mode = "auto"
 markers = [
     "slow: tests that take >5 seconds",
     "integration: tests requiring real subsystem activation",
-    "network: tests that would make real network calls (should all be intercepted by panoptest)",
+    "network: tests that would make real network calls (should all be intercepted by bigfoot)",
 ]
 
 [tool.coverage.run]
-source_pkgs = ["panoptest"]
+source_pkgs = ["bigfoot"]
 branch = true
 
 [tool.coverage.report]
