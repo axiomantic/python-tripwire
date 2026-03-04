@@ -22,12 +22,12 @@ classifiers = [
     "Framework :: Pytest",
 ]
 
+dependencies = []
+
 [project.urls]
 Homepage = "https://github.com/axiomantic/bigfoot"
 Repository = "https://github.com/axiomantic/bigfoot"
 Issues = "https://github.com/axiomantic/bigfoot/issues"
-
-dependencies = []
 
 [project.optional-dependencies]
 http = [
