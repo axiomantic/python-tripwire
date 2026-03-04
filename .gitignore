@@ -44,3 +44,6 @@ coverage.xml
 
 # Logs
 logs/
+
+# MkDocs build output
+site/
