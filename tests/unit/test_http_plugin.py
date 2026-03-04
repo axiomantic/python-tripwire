@@ -1,4 +1,4 @@
-"""Unit tests for panoptest HttpPlugin.
+"""Unit tests for bigfoot HttpPlugin.
 
 Tests use unittest.mock.patch to avoid real network calls.
 httpx and requests are optional extras -- skip all tests if not installed.
@@ -11,12 +11,12 @@ httpx = pytest.importorskip("httpx")
 requests = pytest.importorskip("requests")
 import requests.adapters  # noqa: E402 -- importorskip guarantees requests is available
 
-from panoptest._base_plugin import BasePlugin
-from panoptest._context import _active_verifier
-from panoptest._errors import ConflictError, SandboxNotActiveError, UnmockedInteractionError
-from panoptest._timeline import Interaction
-from panoptest._verifier import StrictVerifier
-from panoptest.plugins.http import (
+from bigfoot._base_plugin import BasePlugin
+from bigfoot._context import _active_verifier
+from bigfoot._errors import ConflictError, SandboxNotActiveError, UnmockedInteractionError
+from bigfoot._timeline import Interaction
+from bigfoot._verifier import StrictVerifier
+from bigfoot.plugins.http import (
     _HTTPX_ORIGINAL_ASYNC_HANDLE,
     _HTTPX_ORIGINAL_HANDLE,
     _REQUESTS_ORIGINAL_SEND,
@@ -153,7 +153,7 @@ def test_deactivate_decrements_install_count() -> None:
 #   CLAIM: deactivate() on last reference restores original transport methods.
 #   PATH:  deactivate() -> _install_count == 0 -> _restore_patches().
 #   CHECK: handle_request is _HTTPX_ORIGINAL_HANDLE after full deactivate.
-#   MUTATION: Skipping _restore_patches() leaves panoptest patch in place.
+#   MUTATION: Skipping _restore_patches() leaves bigfoot patch in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against import-time constant.
 def test_deactivate_restores_patches_on_last_call() -> None:
     v, p = _make_verifier_with_plugin()
@@ -217,7 +217,7 @@ def test_nested_deactivate_only_uninstalls_on_last() -> None:
 
 # ESCAPE: test_check_conflicts_raises_when_httpx_sync_patched_by_foreign
 #   CLAIM: _check_conflicts raises ConflictError if httpx.HTTPTransport.handle_request
-#          is neither the import-time original nor our panoptest patch.
+#          is neither the import-time original nor our bigfoot patch.
 #   PATH:  _check_conflicts() -> identity check -> ConflictError.
 #   CHECK: ConflictError raised with target naming httpx sync handle.
 #   MUTATION: Skipping the sync handle check lets the conflict through silently.
@@ -703,7 +703,7 @@ def test_format_unused_mock_hint_includes_registration_traceback() -> None:
 
 
 def test_identify_patcher_recognises_respx() -> None:
-    from panoptest.plugins.http import _identify_patcher
+    from bigfoot.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "respx.mock"
@@ -712,7 +712,7 @@ def test_identify_patcher_recognises_respx() -> None:
 
 
 def test_identify_patcher_recognises_responses() -> None:
-    from panoptest.plugins.http import _identify_patcher
+    from bigfoot.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "responses"
@@ -721,7 +721,7 @@ def test_identify_patcher_recognises_responses() -> None:
 
 
 def test_identify_patcher_recognises_httpretty() -> None:
-    from panoptest.plugins.http import _identify_patcher
+    from bigfoot.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "httpretty.core"
@@ -730,7 +730,7 @@ def test_identify_patcher_recognises_httpretty() -> None:
 
 
 def test_identify_patcher_returns_unknown_for_unrecognised() -> None:
-    from panoptest.plugins.http import _identify_patcher
+    from bigfoot.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "some.other.lib"
@@ -744,7 +744,7 @@ def test_identify_patcher_returns_unknown_for_unrecognised() -> None:
 
 
 def test_find_http_plugin_raises_when_no_http_plugin_registered() -> None:
-    from panoptest.plugins.http import _find_http_plugin
+    from bigfoot.plugins.http import _find_http_plugin
 
     v = StrictVerifier()
     # No HttpPlugin registered; _find_http_plugin must raise
@@ -923,7 +923,7 @@ def test_format_mock_hint_returns_correct_snippet() -> None:
 
 def test_url_matches_returns_false_when_param_value_missing() -> None:
     """_url_matches returns False when a required param value is absent from the actual URL."""
-    from panoptest.plugins.http import HttpMockConfig
+    from bigfoot.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -941,7 +941,7 @@ def test_url_matches_returns_false_when_param_value_missing() -> None:
 
 def test_url_matches_returns_false_when_param_key_absent() -> None:
     """_url_matches returns False when a required param key is entirely absent."""
-    from panoptest.plugins.http import HttpMockConfig
+    from bigfoot.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -959,7 +959,7 @@ def test_url_matches_returns_false_when_param_key_absent() -> None:
 
 def test_url_matches_returns_true_with_empty_params_dict() -> None:
     """_url_matches returns True when params is an empty dict (no constraints)."""
-    from panoptest.plugins.http import HttpMockConfig
+    from bigfoot.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -976,7 +976,7 @@ def test_url_matches_returns_true_with_empty_params_dict() -> None:
 
 def test_url_matches_returns_false_when_val_not_in_actual_param_values() -> None:
     """_url_matches returns False when the param key is present but value doesn't match."""
-    from panoptest.plugins.http import HttpMockConfig
+    from bigfoot.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -994,7 +994,7 @@ def test_url_matches_returns_false_when_val_not_in_actual_param_values() -> None
 
 def test_url_matches_returns_false_when_scheme_differs() -> None:
     """_url_matches returns False immediately when schemes differ (short-circuit)."""
-    from panoptest.plugins.http import HttpMockConfig
+    from bigfoot.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 

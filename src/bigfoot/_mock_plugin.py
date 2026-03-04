@@ -6,12 +6,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from panoptest._base_plugin import BasePlugin
-from panoptest._errors import UnmockedInteractionError
-from panoptest._timeline import Interaction
+from bigfoot._base_plugin import BasePlugin
+from bigfoot._errors import UnmockedInteractionError
+from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
-    from panoptest._verifier import StrictVerifier
+    from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # Side effect sentinel types
@@ -60,7 +60,7 @@ class MethodProxy:
     """Interceptor + source filter for a single mock method.
 
     Attribute access on MockProxy returns a MethodProxy. Calling it routes
-    through the panoptest interceptor.
+    through the bigfoot interceptor.
     """
 
     def __init__(self, mock_name: str, method_name: str, plugin: "MockPlugin") -> None:
@@ -113,8 +113,8 @@ class MethodProxy:
         return self
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        """Called when the mock is invoked. Routes through panoptest interceptor."""
-        from panoptest._context import _get_verifier_or_raise
+        """Called when the mock is invoked. Routes through bigfoot interceptor."""
+        from bigfoot._context import _get_verifier_or_raise
 
         # Step 1: Verify sandbox is active (raises SandboxNotActiveError if not)
         _get_verifier_or_raise(self.source_id)

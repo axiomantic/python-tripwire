@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from panoptest._timeline import Interaction
+from bigfoot._timeline import Interaction
 
 # ---------------------------------------------------------------------------
 # Stubs for StrictVerifier (not yet implemented; we only need duck-typed interface)
@@ -65,7 +65,7 @@ class ConcretePlugin:
 # ---------------------------------------------------------------------------
 
 
-from panoptest._base_plugin import BasePlugin  # noqa: E402
+from bigfoot._base_plugin import BasePlugin  # noqa: E402
 
 
 class ConcretePlugin(BasePlugin):  # type: ignore[no-redef]

@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from panoptest._base_plugin import BasePlugin
+    from bigfoot._base_plugin import BasePlugin
 
 
 @dataclass
 class Interaction:
-    """A single recorded event in the panoptest timeline."""
+    """A single recorded event in the bigfoot timeline."""
 
     source_id: str
     # sequence=0 is a placeholder; Timeline.append() assigns the real number atomically.

@@ -1,4 +1,4 @@
-# panoptest
+# bigfoot
 
 A pluggable interaction auditor for Python tests. Enforces a closed-loop contract:
 
@@ -9,53 +9,53 @@ A pluggable interaction auditor for Python tests. Enforces a closed-loop contrac
 ## Installation
 
 ```bash
-pip install panoptest           # Core: MockPlugin
-pip install panoptest[http]     # + HttpPlugin (httpx, requests, urllib)
-pip install panoptest[matchers] # + dirty-equals matchers
-pip install panoptest[dev]      # All of the above + pytest, mypy, ruff
+pip install bigfoot           # Core: MockPlugin
+pip install bigfoot[http]     # + HttpPlugin (httpx, requests, urllib)
+pip install bigfoot[matchers] # + dirty-equals matchers
+pip install bigfoot[dev]      # All of the above + pytest, mypy, ruff
 ```
 
 ## Quick Start
 
 ```python
 import httpx
-from panoptest.plugins.http import HttpPlugin
+from bigfoot.plugins.http import HttpPlugin
 
-def test_payment_flow(panoptest_verifier):
-    http = HttpPlugin(panoptest_verifier)
+def test_payment_flow(bigfoot_verifier):
+    http = HttpPlugin(bigfoot_verifier)
     http.mock_response("POST", "https://api.stripe.com/v1/charges",
                        json={"id": "ch_123"}, status=200)
 
-    with panoptest_verifier.sandbox():
+    with bigfoot_verifier.sandbox():
         response = httpx.post("https://api.stripe.com/v1/charges",
                               json={"amount": 5000})
-        panoptest_verifier.assert_interaction(
+        bigfoot_verifier.assert_interaction(
             http.request,
             method="POST",
             url="https://api.stripe.com/v1/charges",
         )
 
     assert response.json()["id"] == "ch_123"
-    # verify_all() called automatically by panoptest_verifier fixture
+    # verify_all() called automatically by bigfoot_verifier fixture
 ```
 
 ## Mock Plugin
 
 ```python
-def test_service_calls(panoptest_verifier):
-    payment = panoptest_verifier.mock("PaymentService")
+def test_service_calls(bigfoot_verifier):
+    payment = bigfoot_verifier.mock("PaymentService")
     payment.charge.returns({"status": "ok"})
     payment.refund.required(False).returns(None)  # optional mock
 
-    with panoptest_verifier.sandbox():
+    with bigfoot_verifier.sandbox():
         result = payment.charge(order_id=42)
-        panoptest_verifier.assert_interaction(payment.charge)
+        bigfoot_verifier.assert_interaction(payment.charge)
 ```
 
 The `mock()` shorthand on `StrictVerifier` lazily creates a `MockPlugin` on first use. For explicit control:
 
 ```python
-from panoptest import StrictVerifier, MockPlugin
+from bigfoot import StrictVerifier, MockPlugin
 
 verifier = StrictVerifier()
 mock_plugin = MockPlugin(verifier)
@@ -75,17 +75,17 @@ proxy.log.required(False).returns(None)     # Optional: no UnusedMocksError if n
 
 ## Async Tests
 
-The `panoptest_verifier` fixture and `sandbox()` context manager both support async:
+The `bigfoot_verifier` fixture and `sandbox()` context manager both support async:
 
 ```python
-async def test_async_flow(panoptest_verifier):
-    http = HttpPlugin(panoptest_verifier)
+async def test_async_flow(bigfoot_verifier):
+    http = HttpPlugin(bigfoot_verifier)
     http.mock_response("GET", "https://api.example.com/items", json=[])
 
-    async with panoptest_verifier.sandbox():
+    async with bigfoot_verifier.sandbox():
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/items")
-        panoptest_verifier.assert_interaction(http.request, method="GET")
+        bigfoot_verifier.assert_interaction(http.request, method="GET")
 ```
 
 ## Concurrent Assertions
@@ -93,27 +93,27 @@ async def test_async_flow(panoptest_verifier):
 When tests make concurrent HTTP requests (e.g., via `asyncio.TaskGroup`), use `in_any_order()` to relax the FIFO ordering requirement:
 
 ```python
-async def test_concurrent(panoptest_verifier):
-    http = HttpPlugin(panoptest_verifier)
+async def test_concurrent(bigfoot_verifier):
+    http = HttpPlugin(bigfoot_verifier)
     http.mock_response("GET", "https://api.example.com/a", json={"a": 1})
     http.mock_response("GET", "https://api.example.com/b", json={"b": 2})
 
-    async with panoptest_verifier.sandbox():
+    async with bigfoot_verifier.sandbox():
         # ... make concurrent requests ...
 
-    with panoptest_verifier.in_any_order():
-        panoptest_verifier.assert_interaction(http.request, url="https://api.example.com/a")
-        panoptest_verifier.assert_interaction(http.request, url="https://api.example.com/b")
+    with bigfoot_verifier.in_any_order():
+        bigfoot_verifier.assert_interaction(http.request, url="https://api.example.com/a")
+        bigfoot_verifier.assert_interaction(http.request, url="https://api.example.com/b")
 ```
 
 `in_any_order()` operates globally across all plugin types (mock and HTTP).
 
 ## pytest Integration
 
-The `panoptest_verifier` fixture is registered automatically via the `pytest11` entry point. No import required:
+The `bigfoot_verifier` fixture is registered automatically via the `pytest11` entry point. No import required:
 
 ```python
-def test_something(panoptest_verifier):
+def test_something(bigfoot_verifier):
     ...
     # verify_all() runs at teardown automatically
 ```
@@ -130,7 +130,7 @@ Not intercepted: `httpx.ASGITransport`, `httpx.WSGITransport`, `aiohttp`.
 
 ## Error Messages
 
-panoptest errors include copy-pasteable remediation hints:
+bigfoot errors include copy-pasteable remediation hints:
 
 ```
 UnmockedInteractionError: source_id='mock:PaymentService.charge', args=('order_42',), kwargs={},
@@ -148,12 +148,12 @@ hint='Unexpected call to PaymentService.charge
 ## Public API
 
 ```python
-from panoptest import (
+from bigfoot import (
     StrictVerifier,
     SandboxContext,
     InAnyOrderContext,
     MockPlugin,
-    PanoptestError,
+    bigfootError,
     UnmockedInteractionError,
     UnassertedInteractionsError,
     UnusedMocksError,
@@ -162,13 +162,13 @@ from panoptest import (
     SandboxNotActiveError,
     ConflictError,
 )
-from panoptest.plugins.http import HttpPlugin  # requires panoptest[http]
+from bigfoot.plugins.http import HttpPlugin  # requires bigfoot[http]
 ```
 
 ## Requirements
 
 - Python 3.11+
-- pytest (for `panoptest_verifier` fixture)
+- pytest (for `bigfoot_verifier` fixture)
 
 ## License
 

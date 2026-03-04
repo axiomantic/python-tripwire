@@ -1,19 +1,19 @@
-"""Dogfood tests: panoptest uses itself to test panoptest.
+"""Dogfood tests: bigfoot uses itself to test bigfoot.
 
-These tests exercise panoptest's own internals via panoptest's MockPlugin and
+These tests exercise bigfoot's own internals via bigfoot's MockPlugin and
 HttpPlugin, validating production-style usage rather than isolated unit behavior.
 """
 
 import pytest
 
-from panoptest import (
+from bigfoot import (
     MockPlugin,
     StrictVerifier,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from panoptest._mock_plugin import MockProxy
+from bigfoot._mock_plugin import MockProxy
 
 pytestmark = pytest.mark.integration
 
@@ -344,7 +344,7 @@ def test_get_or_create_proxy_returns_same_instance() -> None:
 
 
 async def test_mock_plugin_works_in_async_context() -> None:
-    """panoptest MockPlugin correctly records interactions inside an async test."""
+    """bigfoot MockPlugin correctly records interactions inside an async test."""
     verifier = StrictVerifier()
     mock_plugin = MockPlugin(verifier)
     proxy = mock_plugin.get_or_create_proxy("AsyncService")
@@ -368,12 +368,12 @@ async def test_mock_plugin_works_in_async_context() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_http_plugin_full_cycle_httpx(panoptest_verifier: StrictVerifier) -> None:
+def test_http_plugin_full_cycle_httpx(bigfoot_verifier: StrictVerifier) -> None:
     """Full mock + assert + verify cycle using httpx GET."""
     httpx = pytest.importorskip("httpx")
-    from panoptest.plugins.http import HttpPlugin
+    from bigfoot.plugins.http import HttpPlugin
 
-    http = HttpPlugin(panoptest_verifier)
+    http = HttpPlugin(bigfoot_verifier)
     http.mock_response(
         "GET",
         "https://api.stripe.com/v1/charges",
@@ -381,9 +381,9 @@ def test_http_plugin_full_cycle_httpx(panoptest_verifier: StrictVerifier) -> Non
         status=200,
     )
 
-    with panoptest_verifier.sandbox():
+    with bigfoot_verifier.sandbox():
         response = httpx.get("https://api.stripe.com/v1/charges")
-        panoptest_verifier.assert_interaction(
+        bigfoot_verifier.assert_interaction(
             http.request,
             method="GET",
             url="https://api.stripe.com/v1/charges",
@@ -392,7 +392,7 @@ def test_http_plugin_full_cycle_httpx(panoptest_verifier: StrictVerifier) -> Non
 
     assert response.status_code == 200
     assert response.json() == {"id": "ch_123", "amount": 5000}
-    # panoptest_verifier fixture calls verify_all() at teardown
+    # bigfoot_verifier fixture calls verify_all() at teardown
 
 
 # ---------------------------------------------------------------------------
@@ -401,14 +401,14 @@ def test_http_plugin_full_cycle_httpx(panoptest_verifier: StrictVerifier) -> Non
 
 
 def test_mock_and_http_plugins_tracked_in_global_fifo_order(
-    panoptest_verifier: StrictVerifier,
+    bigfoot_verifier: StrictVerifier,
 ) -> None:
     """MockPlugin and HttpPlugin interactions share a global FIFO timeline."""
     httpx = pytest.importorskip("httpx")
-    from panoptest.plugins.http import HttpPlugin
+    from bigfoot.plugins.http import HttpPlugin
 
-    mock_plugin = MockPlugin(panoptest_verifier)
-    http = HttpPlugin(panoptest_verifier)
+    mock_plugin = MockPlugin(bigfoot_verifier)
+    http = HttpPlugin(bigfoot_verifier)
 
     service_proxy = mock_plugin.get_or_create_proxy("AuthService")
     service_proxy.authenticate.returns({"token": "tok_abc"})
@@ -420,19 +420,19 @@ def test_mock_and_http_plugins_tracked_in_global_fifo_order(
         status=201,
     )
 
-    with panoptest_verifier.sandbox():
+    with bigfoot_verifier.sandbox():
         # Call mock first, then HTTP
         auth_result = service_proxy.authenticate("user_x")
         http_response = httpx.post("https://api.example.com/data", json={})
 
         # Assert in the same FIFO order they were called
-        panoptest_verifier.assert_interaction(
+        bigfoot_verifier.assert_interaction(
             service_proxy.authenticate,
             method_name="authenticate",
             args="('user_x',)",
             kwargs="{}",
         )
-        panoptest_verifier.assert_interaction(
+        bigfoot_verifier.assert_interaction(
             http.request,
             method="POST",
             url="https://api.example.com/data",

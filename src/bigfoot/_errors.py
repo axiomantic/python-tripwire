@@ -1,17 +1,17 @@
-"""All panoptest exception classes.
+"""All bigfoot exception classes.
 
-This module imports NOTHING from other panoptest modules to prevent circular imports.
+This module imports NOTHING from other bigfoot modules to prevent circular imports.
 """
 from __future__ import annotations
 
 from typing import Any
 
 
-class PanoptestError(Exception):
-    """Base class for all panoptest errors."""
+class bigfootError(Exception):
+    """Base class for all bigfoot errors."""
 
 
-class UnmockedInteractionError(PanoptestError):
+class UnmockedInteractionError(bigfootError):
     """Raised at call time: an interaction fired with no matching registered mock.
 
     Message includes: source description, args/kwargs, copy-pasteable mock hint.
@@ -35,7 +35,7 @@ class UnmockedInteractionError(PanoptestError):
         )
 
 
-class UnassertedInteractionsError(PanoptestError):
+class UnassertedInteractionsError(bigfootError):
     """Raised at teardown: timeline contains interactions not matched by assert_interaction().
 
     Message lists each unasserted interaction with copy-pasteable assert hint.
@@ -50,7 +50,7 @@ class UnassertedInteractionsError(PanoptestError):
         )
 
 
-class UnusedMocksError(PanoptestError):
+class UnusedMocksError(bigfootError):
     """Raised at teardown: registered mocks with required=True were never triggered.
 
     Message lists each unused mock with hint to either remove or set required=False.
@@ -65,7 +65,7 @@ class UnusedMocksError(PanoptestError):
         )
 
 
-class VerificationError(PanoptestError):
+class VerificationError(bigfootError):
     """Raised at teardown when BOTH UnassertedInteractionsError and UnusedMocksError apply.
 
     Contains both reports in separate sections.
@@ -94,7 +94,7 @@ class VerificationError(PanoptestError):
         super().__init__(message)
 
 
-class InteractionMismatchError(PanoptestError):
+class InteractionMismatchError(bigfootError):
     """Raised by assert_interaction() when expected source/fields don't match
     the next interaction in the timeline.
 
@@ -118,24 +118,24 @@ class InteractionMismatchError(PanoptestError):
         )
 
 
-class SandboxNotActiveError(PanoptestError):
+class SandboxNotActiveError(bigfootError):
     """Raised when an intercepted call fires but no sandbox is active.
 
     Attributes:
         source_id: Identifier of the interceptor that fired without a sandbox.
 
-    Message includes hint: 'Did you forget panoptest_verifier fixture or sandbox() CM?'
+    Message includes hint: 'Did you forget bigfoot_verifier fixture or sandbox() CM?'
     """
 
     def __init__(self, source_id: str) -> None:
         self.source_id = source_id
         super().__init__(
             f"SandboxNotActiveError: source_id={source_id!r}, "
-            "hint='Did you forget panoptest_verifier fixture or sandbox() CM?'"
+            "hint='Did you forget bigfoot_verifier fixture or sandbox() CM?'"
         )
 
 
-class ConflictError(PanoptestError):
+class ConflictError(bigfootError):
     """Raised at activate() time if target method is already patched by another library.
 
     Message names the conflicting library and the patched target.

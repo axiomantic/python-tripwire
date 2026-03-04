@@ -1,5 +1,5 @@
 # tests/unit/test_pytest_plugin.py
-"""Unit tests for panoptest_verifier pytest fixture.
+"""Unit tests for bigfoot_verifier pytest fixture.
 
 Tests verify the fixture's structural contract directly:
 - returns a StrictVerifier instance
@@ -10,9 +10,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from panoptest._errors import UnassertedInteractionsError
-from panoptest._verifier import StrictVerifier
-from panoptest.pytest_plugin import panoptest_verifier
+from bigfoot._errors import UnassertedInteractionsError
+from bigfoot._verifier import StrictVerifier
+from bigfoot.pytest_plugin import bigfoot_verifier
 
 
 def _make_mock_request() -> MagicMock:
@@ -22,32 +22,32 @@ def _make_mock_request() -> MagicMock:
     return req
 
 
-def test_panoptest_verifier_returns_strict_verifier() -> None:
+def test_bigfoot_verifier_returns_strict_verifier() -> None:
     """The fixture must return a StrictVerifier instance."""
     # ESCAPE: if the fixture returned a subclass or unrelated object this would fail
     req = _make_mock_request()
 
-    result = panoptest_verifier.__wrapped__(req)  # type: ignore[attr-defined]
+    result = bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
 
     assert isinstance(result, StrictVerifier)
 
 
-def test_panoptest_verifier_calls_addfinalizer_once() -> None:
+def test_bigfoot_verifier_calls_addfinalizer_once() -> None:
     """addfinalizer must be called exactly once during fixture setup."""
     # ESCAPE: if addfinalizer was never called teardown would silently not run
     req = _make_mock_request()
 
-    panoptest_verifier.__wrapped__(req)  # type: ignore[attr-defined]
+    bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
 
     assert req.addfinalizer.call_count == 1
 
 
-def test_panoptest_verifier_finalizer_calls_verify_all() -> None:
+def test_bigfoot_verifier_finalizer_calls_verify_all() -> None:
     """The registered finalizer must call verifier.verify_all()."""
     # ESCAPE: if finalizer called a different method verify_all wouldn't run at teardown
     req = _make_mock_request()
 
-    result = panoptest_verifier.__wrapped__(req)  # type: ignore[attr-defined]
+    result = bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
 
     # Extract the finalizer that was registered
     (finalizer,), _ = req.addfinalizer.call_args
@@ -59,12 +59,12 @@ def test_panoptest_verifier_finalizer_calls_verify_all() -> None:
     result.verify_all.assert_called_once_with()
 
 
-def test_panoptest_verifier_finalizer_propagates_verify_all_exception() -> None:
+def test_bigfoot_verifier_finalizer_propagates_verify_all_exception() -> None:
     """If verify_all() raises, the exception must propagate from the finalizer."""
     # ESCAPE: if the finalizer swallowed exceptions test failures would be silenced
     req = _make_mock_request()
 
-    result = panoptest_verifier.__wrapped__(req)  # type: ignore[attr-defined]
+    result = bigfoot_verifier.__wrapped__(req)  # type: ignore[attr-defined]
 
     (finalizer,), _ = req.addfinalizer.call_args
 

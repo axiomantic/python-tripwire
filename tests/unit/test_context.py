@@ -5,14 +5,14 @@ import contextvars
 
 import pytest
 
-from panoptest._context import (
+from bigfoot._context import (
     _active_verifier,
     _any_order_depth,
     _get_verifier_or_raise,
     get_active_verifier,
     is_in_any_order,
 )
-from panoptest._errors import SandboxNotActiveError
+from bigfoot._errors import SandboxNotActiveError
 
 # ---------------------------------------------------------------------------
 # ContextVar defaults

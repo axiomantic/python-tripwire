@@ -1,22 +1,22 @@
-# src/panoptest/_verifier.py
+# src/bigfoot/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
-from panoptest._context import _active_verifier, _any_order_depth
-from panoptest._errors import (
+from bigfoot._context import _active_verifier, _any_order_depth
+from bigfoot._errors import (
     InteractionMismatchError,
     UnassertedInteractionsError,
     UnusedMocksError,
     VerificationError,
 )
-from panoptest._timeline import Interaction, Timeline
+from bigfoot._timeline import Interaction, Timeline
 
 if TYPE_CHECKING:
     import contextvars
 
-    from panoptest._base_plugin import BasePlugin
-    from panoptest._mock_plugin import MockProxy
+    from bigfoot._base_plugin import BasePlugin
+    from bigfoot._mock_plugin import MockProxy
 
 
 class _HasSourceId(Protocol):
@@ -43,7 +43,7 @@ class StrictVerifier:
 
     def mock(self, name: str) -> "MockProxy":
         """Create or retrieve a named MockProxy. Lazily creates MockPlugin."""
-        from panoptest._mock_plugin import MockPlugin
+        from bigfoot._mock_plugin import MockPlugin
 
         # Find existing MockPlugin or create one
         mock_plugin: MockPlugin | None = None
@@ -229,7 +229,7 @@ class SandboxContext:
                     errors.append(cleanup_e)
             if self._token is not None:
                 _active_verifier.reset(self._token)
-            raise BaseExceptionGroup("panoptest sandbox activation failed", errors)
+            raise BaseExceptionGroup("bigfoot sandbox activation failed", errors)
 
         return self._verifier
 
@@ -243,7 +243,7 @@ class SandboxContext:
         if self._token is not None:
             _active_verifier.reset(self._token)
         if errors:
-            raise BaseExceptionGroup("panoptest sandbox deactivation failed", errors)
+            raise BaseExceptionGroup("bigfoot sandbox deactivation failed", errors)
 
     def __enter__(self) -> StrictVerifier:
         return self._enter()

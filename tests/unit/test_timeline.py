@@ -2,7 +2,7 @@
 import threading
 from unittest.mock import MagicMock
 
-from panoptest._timeline import Interaction, Timeline
+from bigfoot._timeline import Interaction, Timeline
 
 
 def _make_interaction(source_id: str = "mock:Svc.method", seq: int = 0) -> Interaction:

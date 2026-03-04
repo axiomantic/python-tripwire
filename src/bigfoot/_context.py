@@ -1,7 +1,7 @@
-"""Module-level ContextVars for panoptest.
+"""Module-level ContextVars for bigfoot.
 
 Import this module first to avoid circular imports. It has no dependencies
-on other panoptest modules at import time (only deferred imports in functions).
+on other bigfoot modules at import time (only deferred imports in functions).
 """
 from __future__ import annotations
 
@@ -9,18 +9,18 @@ import contextvars
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from panoptest._verifier import StrictVerifier
+    from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # Module-level ContextVars
 # ---------------------------------------------------------------------------
 
 _active_verifier: contextvars.ContextVar[StrictVerifier | None] = contextvars.ContextVar(
-    "panoptest_active_verifier", default=None
+    "bigfoot_active_verifier", default=None
 )
 
 _any_order_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
-    "panoptest_any_order_depth", default=0
+    "bigfoot_any_order_depth", default=0
 )
 
 
@@ -41,7 +41,7 @@ def _get_verifier_or_raise(source_id: str) -> StrictVerifier:
     SandboxNotActiveError with the given source_id so the user knows which
     interceptor fired outside a sandbox.
     """
-    from panoptest._errors import SandboxNotActiveError
+    from bigfoot._errors import SandboxNotActiveError
 
     verifier = _active_verifier.get()
     if verifier is None:

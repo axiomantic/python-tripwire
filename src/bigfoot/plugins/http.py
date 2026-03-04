@@ -17,17 +17,17 @@ try:
     import requests.adapters
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "panoptest[http] extra is required to use HttpPlugin. "
-        "Install with: pip install panoptest[http]"
+        "bigfoot[http] extra is required to use HttpPlugin. "
+        "Install with: pip install bigfoot[http]"
     ) from exc
 
-from panoptest._base_plugin import BasePlugin
-from panoptest._context import _get_verifier_or_raise
-from panoptest._errors import ConflictError, UnmockedInteractionError
-from panoptest._timeline import Interaction
+from bigfoot._base_plugin import BasePlugin
+from bigfoot._context import _get_verifier_or_raise
+from bigfoot._errors import ConflictError, UnmockedInteractionError
+from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
-    from panoptest._verifier import StrictVerifier
+    from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # Import-time constants — captured BEFORE any patches are installed.
@@ -40,13 +40,13 @@ _REQUESTS_ORIGINAL_SEND: Any = requests.adapters.HTTPAdapter.send
 
 # ---------------------------------------------------------------------------
 # Module-level references to our own interceptors.
-# Set during _install_patches so _check_conflicts can distinguish panoptest
+# Set during _install_patches so _check_conflicts can distinguish bigfoot
 # patches from foreign patches during nested sandbox activations.
 # ---------------------------------------------------------------------------
 
-_panoptest_httpx_handle: Any = None
-_panoptest_httpx_async_handle: Any = None
-_panoptest_requests_send: Any = None
+_bigfoot_httpx_handle: Any = None
+_bigfoot_httpx_async_handle: Any = None
+_bigfoot_requests_send: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ def _find_http_plugin(verifier: "StrictVerifier") -> "HttpPlugin":
         if isinstance(plugin, HttpPlugin):
             return plugin
     raise RuntimeError(
-        "BUG: panoptest HttpPlugin interceptor is active but no HttpPlugin "
+        "BUG: bigfoot HttpPlugin interceptor is active but no HttpPlugin "
         "is registered on the current verifier."
     )
 
@@ -116,7 +116,7 @@ def _identify_patcher(method: object) -> str:
 
 
 class HttpPlugin(BasePlugin):
-    """HTTP interception plugin. Requires panoptest[http] extra.
+    """HTTP interception plugin. Requires bigfoot[http] extra.
 
     Patches httpx sync/async transports, requests HTTPAdapter, urllib openers,
     and asyncio.BaseEventLoop.run_in_executor at the class level. Uses
@@ -209,7 +209,7 @@ class HttpPlugin(BasePlugin):
         current_httpx_sync = httpx.HTTPTransport.handle_request
         if (
             current_httpx_sync is not _HTTPX_ORIGINAL_HANDLE
-            and current_httpx_sync is not _panoptest_httpx_handle
+            and current_httpx_sync is not _bigfoot_httpx_handle
         ):
             patcher = _identify_patcher(current_httpx_sync)
             raise ConflictError(
@@ -220,7 +220,7 @@ class HttpPlugin(BasePlugin):
         current_httpx_async = httpx.AsyncHTTPTransport.handle_async_request
         if (
             current_httpx_async is not _HTTPX_ORIGINAL_ASYNC_HANDLE
-            and current_httpx_async is not _panoptest_httpx_async_handle
+            and current_httpx_async is not _bigfoot_httpx_async_handle
         ):
             patcher = _identify_patcher(current_httpx_async)
             raise ConflictError(
@@ -231,7 +231,7 @@ class HttpPlugin(BasePlugin):
         current_requests = requests.adapters.HTTPAdapter.send
         if (
             current_requests is not _REQUESTS_ORIGINAL_SEND
-            and current_requests is not _panoptest_requests_send
+            and current_requests is not _bigfoot_requests_send
         ):
             patcher = _identify_patcher(current_requests)
             raise ConflictError(
@@ -244,7 +244,7 @@ class HttpPlugin(BasePlugin):
     # ------------------------------------------------------------------
 
     def _install_patches(self) -> None:
-        global _panoptest_httpx_handle, _panoptest_httpx_async_handle, _panoptest_requests_send
+        global _bigfoot_httpx_handle, _bigfoot_httpx_async_handle, _bigfoot_requests_send
 
         # Save originals so we can restore them later.
         HttpPlugin._original_httpx_transport_handle = httpx.HTTPTransport.handle_request
@@ -281,9 +281,9 @@ class HttpPlugin(BasePlugin):
             plugin = _find_http_plugin(verifier)
             return plugin._handle_requests_request(request)
 
-        _panoptest_httpx_handle = _sync_interceptor
-        _panoptest_httpx_async_handle = _async_interceptor
-        _panoptest_requests_send = _requests_interceptor
+        _bigfoot_httpx_handle = _sync_interceptor
+        _bigfoot_httpx_async_handle = _async_interceptor
+        _bigfoot_requests_send = _requests_interceptor
 
         httpx.HTTPTransport.handle_request = _sync_interceptor  # type: ignore[assignment]
         httpx.AsyncHTTPTransport.handle_async_request = _async_interceptor  # type: ignore[assignment]
@@ -293,7 +293,7 @@ class HttpPlugin(BasePlugin):
         self._patch_run_in_executor()
 
     def _restore_patches(self) -> None:
-        global _panoptest_httpx_handle, _panoptest_httpx_async_handle, _panoptest_requests_send
+        global _bigfoot_httpx_handle, _bigfoot_httpx_async_handle, _bigfoot_requests_send
 
         if HttpPlugin._original_httpx_transport_handle is not None:
             httpx.HTTPTransport.handle_request = HttpPlugin._original_httpx_transport_handle  # type: ignore[method-assign]
@@ -320,30 +320,30 @@ class HttpPlugin(BasePlugin):
             asyncio.BaseEventLoop.run_in_executor = HttpPlugin._original_run_in_executor  # type: ignore[method-assign]
             HttpPlugin._original_run_in_executor = None
 
-        _panoptest_httpx_handle = None
-        _panoptest_httpx_async_handle = None
-        _panoptest_requests_send = None
+        _bigfoot_httpx_handle = None
+        _bigfoot_httpx_async_handle = None
+        _bigfoot_requests_send = None
 
     def _install_urllib(self) -> None:
         HttpPlugin._original_urllib_opener = urllib.request._opener  # type: ignore[attr-defined]
 
-        class _PanoptestHandler(urllib.request.BaseHandler):
+        class _bigfootHandler(urllib.request.BaseHandler):
             handler_order = 100
 
             def http_open(self, req: urllib.request.Request) -> urllib.response.addinfourl:
-                return _panoptest_urllib_dispatch(req)
+                return _bigfoot_urllib_dispatch(req)
 
             def https_open(self, req: urllib.request.Request) -> urllib.response.addinfourl:
-                return _panoptest_urllib_dispatch(req)
+                return _bigfoot_urllib_dispatch(req)
 
-        def _panoptest_urllib_dispatch(
+        def _bigfoot_urllib_dispatch(
             req: urllib.request.Request,
         ) -> urllib.response.addinfourl:
             verifier = _get_verifier_or_raise("http:request")
             plugin = _find_http_plugin(verifier)
             return plugin._handle_urllib_request(req)
 
-        opener = urllib.request.build_opener(_PanoptestHandler)
+        opener = urllib.request.build_opener(_bigfootHandler)
         urllib.request.install_opener(opener)
 
     def _patch_run_in_executor(self) -> None:

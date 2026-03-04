@@ -1,20 +1,20 @@
-"""panoptest: a pluggable interaction auditor for Python tests."""
+"""bigfoot: a pluggable interaction auditor for Python tests."""
 
-from panoptest._errors import (
+from bigfoot._errors import (
     ConflictError,
     InteractionMismatchError,
-    PanoptestError,
+    bigfootError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,
     VerificationError,
 )
-from panoptest._mock_plugin import MockPlugin
-from panoptest._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
+from bigfoot._mock_plugin import MockPlugin
+from bigfoot._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 
 try:
-    from panoptest.plugins.http import HttpPlugin  # noqa: F401
+    from bigfoot.plugins.http import HttpPlugin  # noqa: F401
 except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
@@ -23,7 +23,7 @@ __all__ = [
     "SandboxContext",
     "InAnyOrderContext",
     "MockPlugin",
-    "PanoptestError",
+    "bigfootError",
     "UnmockedInteractionError",
     "UnassertedInteractionsError",
     "UnusedMocksError",

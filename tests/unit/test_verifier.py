@@ -4,15 +4,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from panoptest._context import _active_verifier, _any_order_depth
-from panoptest._errors import (
+from bigfoot._context import _active_verifier, _any_order_depth
+from bigfoot._errors import (
     InteractionMismatchError,
     UnassertedInteractionsError,
     UnusedMocksError,
     VerificationError,
 )
-from panoptest._timeline import Interaction, Timeline
-from panoptest._verifier import StrictVerifier
+from bigfoot._timeline import Interaction, Timeline
+from bigfoot._verifier import StrictVerifier
 
 # --- Helpers ---
 
@@ -241,7 +241,7 @@ def test_in_any_order_depth_resets_after_exit() -> None:
 
 def test_mock_reuses_existing_mock_plugin() -> None:
     """verifier.mock() called twice finds the existing MockPlugin and doesn't create a second."""
-    from panoptest._mock_plugin import MockPlugin
+    from bigfoot._mock_plugin import MockPlugin
 
     v = StrictVerifier()
     # First call creates MockPlugin and proxy
@@ -262,7 +262,7 @@ def test_mock_reuses_existing_mock_plugin() -> None:
 
 def test_mock_skips_non_mock_plugins_when_searching() -> None:
     """verifier.mock() iterates past non-MockPlugin entries to find an existing MockPlugin."""
-    from panoptest._mock_plugin import MockPlugin
+    from bigfoot._mock_plugin import MockPlugin
 
     v = StrictVerifier()
     # Register a non-MockPlugin first (a raw MagicMock that passes type() check)
@@ -285,7 +285,7 @@ def test_sandbox_activation_failure_deactivates_already_activated_plugins() -> N
     p2 = _make_mock_plugin(v)
     p2.activate.side_effect = RuntimeError("activation failed")
 
-    with pytest.raises(BaseExceptionGroup, match="panoptest sandbox activation failed"):
+    with pytest.raises(BaseExceptionGroup, match="bigfoot sandbox activation failed"):
         with v.sandbox():
             pass  # pragma: no cover - never reached
 
@@ -333,7 +333,7 @@ def test_sandbox_deactivation_failure_still_resets_context_var() -> None:
     p = _make_mock_plugin(v)
     p.deactivate.side_effect = RuntimeError("deactivate failed")
 
-    with pytest.raises(BaseExceptionGroup, match="panoptest sandbox deactivation failed"):
+    with pytest.raises(BaseExceptionGroup, match="bigfoot sandbox deactivation failed"):
         with v.sandbox():
             pass
 

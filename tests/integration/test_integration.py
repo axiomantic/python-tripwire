@@ -1,4 +1,4 @@
-"""Integration tests: exercise the full panoptest system end-to-end.
+"""Integration tests: exercise the full bigfoot system end-to-end.
 
 Each test is self-contained. No real network calls are made.
 """
@@ -7,7 +7,7 @@ import concurrent.futures
 
 import pytest
 
-from panoptest import (
+from bigfoot import (
     MockPlugin,
     SandboxNotActiveError,
     StrictVerifier,
@@ -15,7 +15,7 @@ from panoptest import (
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from panoptest._context import _active_verifier, _get_verifier_or_raise
+from bigfoot._context import _active_verifier, _get_verifier_or_raise
 
 pytestmark = pytest.mark.integration
 
@@ -232,7 +232,7 @@ def test_get_verifier_or_raise_raises_sandbox_not_active_error() -> None:
 def test_http_plugin_mock_response_full_round_trip() -> None:
     """Full httpx round-trip: register mock, call inside sandbox, assert, verify_all passes."""
     httpx = pytest.importorskip("httpx")
-    from panoptest.plugins.http import HttpPlugin
+    from bigfoot.plugins.http import HttpPlugin
 
     verifier = StrictVerifier()
     http = HttpPlugin(verifier)
@@ -267,8 +267,8 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
     is already patched by a third-party library before HttpPlugin activates.
     """
     httpx = pytest.importorskip("httpx")
-    from panoptest._errors import ConflictError
-    from panoptest.plugins.http import HttpPlugin
+    from bigfoot._errors import ConflictError
+    from bigfoot.plugins.http import HttpPlugin
 
     original = httpx.HTTPTransport.handle_request
 
@@ -300,7 +300,7 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
 async def test_run_in_executor_propagates_context_var_via_http_plugin() -> None:
     """When HttpPlugin is active, run_in_executor propagates ContextVars to thread pool workers."""
     pytest.importorskip("httpx")
-    from panoptest.plugins.http import HttpPlugin
+    from bigfoot.plugins.http import HttpPlugin
 
     sentinel = object()
     token = _active_verifier.set(sentinel)  # type: ignore[arg-type]

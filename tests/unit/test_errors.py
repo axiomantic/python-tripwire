@@ -1,15 +1,15 @@
-"""Tests for Task 2: panoptest error classes.
+"""Tests for Task 2: bigfoot error classes.
 
-All 7 error types plus PanoptestError base. Tests follow TDD protocol:
+All 7 error types plus bigfootError base. Tests follow TDD protocol:
 each test must fail before implementation exists.
 """
 
 import pytest
 
-from panoptest._errors import (
+from bigfoot._errors import (
     ConflictError,
     InteractionMismatchError,
-    PanoptestError,
+    bigfootError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
@@ -22,20 +22,20 @@ from panoptest._errors import (
 # ---------------------------------------------------------------------------
 
 
-def test_panoptest_error_is_exception() -> None:
-    """PanoptestError is the base and must be a proper Exception."""
-    assert issubclass(PanoptestError, Exception)
+def test_bigfoot_error_is_exception() -> None:
+    """bigfootError is the base and must be a proper Exception."""
+    assert issubclass(bigfootError, Exception)
 
 
-def test_all_errors_subclass_panoptest_error() -> None:
-    """Every domain error must be catchable as PanoptestError."""
-    assert issubclass(UnmockedInteractionError, PanoptestError)
-    assert issubclass(UnassertedInteractionsError, PanoptestError)
-    assert issubclass(UnusedMocksError, PanoptestError)
-    assert issubclass(VerificationError, PanoptestError)
-    assert issubclass(InteractionMismatchError, PanoptestError)
-    assert issubclass(SandboxNotActiveError, PanoptestError)
-    assert issubclass(ConflictError, PanoptestError)
+def test_all_errors_subclass_bigfoot_error() -> None:
+    """Every domain error must be catchable as bigfootError."""
+    assert issubclass(UnmockedInteractionError, bigfootError)
+    assert issubclass(UnassertedInteractionsError, bigfootError)
+    assert issubclass(UnusedMocksError, bigfootError)
+    assert issubclass(VerificationError, bigfootError)
+    assert issubclass(InteractionMismatchError, bigfootError)
+    assert issubclass(SandboxNotActiveError, bigfootError)
+    assert issubclass(ConflictError, bigfootError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -60,12 +60,12 @@ def test_unmocked_interaction_error_fields() -> None:
         source_id="http.get",
         args=("https://example.com",),
         kwargs={"timeout": 5},
-        hint="Register a mock with panoptest.mock('http.get', ...)",
+        hint="Register a mock with bigfoot.mock('http.get', ...)",
     )
     assert err.source_id == "http.get"
     assert err.args_tuple == ("https://example.com",)
     assert err.kwargs == {"timeout": 5}
-    assert err.hint == "Register a mock with panoptest.mock('http.get', ...)"
+    assert err.hint == "Register a mock with bigfoot.mock('http.get', ...)"
 
 
 def test_unmocked_interaction_error_missing_fields_raises_type_error() -> None:
@@ -74,9 +74,9 @@ def test_unmocked_interaction_error_missing_fields_raises_type_error() -> None:
         UnmockedInteractionError()  # type: ignore[call-arg]
 
 
-def test_unmocked_interaction_error_is_catchable_as_panoptest_error() -> None:
+def test_unmocked_interaction_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise UnmockedInteractionError(
             source_id="db.query",
             args=(),
@@ -123,9 +123,9 @@ def test_unasserted_interactions_error_missing_fields_raises_type_error() -> Non
         UnassertedInteractionsError()  # type: ignore[call-arg]
 
 
-def test_unasserted_interactions_error_is_catchable_as_panoptest_error() -> None:
+def test_unasserted_interactions_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise UnassertedInteractionsError(interactions=[], hint="No hint.")
 
 
@@ -168,9 +168,9 @@ def test_unused_mocks_error_missing_fields_raises_type_error() -> None:
         UnusedMocksError()  # type: ignore[call-arg]
 
 
-def test_unused_mocks_error_is_catchable_as_panoptest_error() -> None:
+def test_unused_mocks_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise UnusedMocksError(mocks=[], hint="No hint.")
 
 
@@ -233,9 +233,9 @@ def test_verification_error_missing_fields_raises_type_error() -> None:
         VerificationError()  # type: ignore[call-arg]
 
 
-def test_verification_error_is_catchable_as_panoptest_error() -> None:
+def test_verification_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise VerificationError(unasserted=None, unused=None)
 
 
@@ -321,9 +321,9 @@ def test_interaction_mismatch_error_missing_fields_raises_type_error() -> None:
         InteractionMismatchError()  # type: ignore[call-arg]
 
 
-def test_interaction_mismatch_error_is_catchable_as_panoptest_error() -> None:
+def test_interaction_mismatch_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise InteractionMismatchError(
             expected={"source_id": "http.get"},
             actual={"source_id": "db.read"},
@@ -364,9 +364,9 @@ def test_sandbox_not_active_error_missing_fields_raises_type_error() -> None:
         SandboxNotActiveError()  # type: ignore[call-arg]
 
 
-def test_sandbox_not_active_error_is_catchable_as_panoptest_error() -> None:
+def test_sandbox_not_active_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise SandboxNotActiveError(source_id="db.write")
 
 
@@ -376,7 +376,7 @@ def test_sandbox_not_active_error_str() -> None:
     result = str(err)
     assert result == (
         "SandboxNotActiveError: source_id='http.get', "
-        "hint='Did you forget panoptest_verifier fixture or sandbox() CM?'"
+        "hint='Did you forget bigfoot_verifier fixture or sandbox() CM?'"
     )
 
 
@@ -398,9 +398,9 @@ def test_conflict_error_missing_fields_raises_type_error() -> None:
         ConflictError()  # type: ignore[call-arg]
 
 
-def test_conflict_error_is_catchable_as_panoptest_error() -> None:
+def test_conflict_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(PanoptestError):
+    with pytest.raises(bigfootError):
         raise ConflictError(target="httpx.Client.send", patcher="httpretty")
 
 

@@ -1,14 +1,14 @@
-"""BasePlugin abstract base class for all panoptest plugins."""
+"""BasePlugin abstract base class for all bigfoot plugins."""
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from panoptest._timeline import Interaction
-    from panoptest._verifier import StrictVerifier
+    from bigfoot._timeline import Interaction
+    from bigfoot._verifier import StrictVerifier
 
 
 class BasePlugin(ABC):
-    """Abstract base for all panoptest plugins.
+    """Abstract base for all bigfoot plugins.
 
     Subclasses must implement all abstract methods and maintain class-level
     _install_count and _install_lock for reference-counted activation.

@@ -3,11 +3,11 @@ from typing import Any
 
 import pytest
 
-from panoptest._context import _active_verifier
-from panoptest._errors import SandboxNotActiveError, UnmockedInteractionError
-from panoptest._mock_plugin import MethodProxy, MockConfig, MockPlugin, MockProxy
-from panoptest._timeline import Interaction
-from panoptest._verifier import StrictVerifier
+from bigfoot._context import _active_verifier
+from bigfoot._errors import SandboxNotActiveError, UnmockedInteractionError
+from bigfoot._mock_plugin import MethodProxy, MockConfig, MockPlugin, MockProxy
+from bigfoot._timeline import Interaction
+from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # MockPlugin registration
@@ -1124,7 +1124,7 @@ def test_mock_plugin_implements_all_abstract_methods() -> None:
     # MUTATION: Removing any method implementation from MockPlugin would raise TypeError.
     # ESCAPE: If the test itself instantiates MockPlugin, a TypeError would prevent the test from running.
     # IMPACT: MockPlugin would be unusable if any abstract method is missing.
-    from panoptest._base_plugin import BasePlugin
+    from bigfoot._base_plugin import BasePlugin
 
     v = StrictVerifier()
     p = MockPlugin(v)  # Would raise TypeError if any abstract method unimplemented
@@ -1143,7 +1143,7 @@ def test_method_proxy_call_raises_runtime_error_on_unknown_side_effect() -> None
     somehow constructed with a side_effect that isn't _ReturnValue, _RaiseException,
     or _CallFn, the error surface is explicit rather than silent.
     """
-    from panoptest._mock_plugin import MockConfig, _ReturnValue
+    from bigfoot._mock_plugin import MockConfig, _ReturnValue
 
     v = StrictVerifier()
     p = MockPlugin(v)
