@@ -7,11 +7,11 @@ from __future__ import annotations
 from typing import Any
 
 
-class bigfootError(Exception):
+class BigfootError(Exception):
     """Base class for all bigfoot errors."""
 
 
-class UnmockedInteractionError(bigfootError):
+class UnmockedInteractionError(BigfootError):
     """Raised at call time: an interaction fired with no matching registered mock.
 
     Message includes: source description, args/kwargs, copy-pasteable mock hint.
@@ -35,7 +35,7 @@ class UnmockedInteractionError(bigfootError):
         )
 
 
-class UnassertedInteractionsError(bigfootError):
+class UnassertedInteractionsError(BigfootError):
     """Raised at teardown: timeline contains interactions not matched by assert_interaction().
 
     Message lists each unasserted interaction with copy-pasteable assert hint.
@@ -50,7 +50,7 @@ class UnassertedInteractionsError(bigfootError):
         )
 
 
-class UnusedMocksError(bigfootError):
+class UnusedMocksError(BigfootError):
     """Raised at teardown: registered mocks with required=True were never triggered.
 
     Message lists each unused mock with hint to either remove or set required=False.
@@ -65,7 +65,7 @@ class UnusedMocksError(bigfootError):
         )
 
 
-class VerificationError(bigfootError):
+class VerificationError(BigfootError):
     """Raised at teardown when BOTH UnassertedInteractionsError and UnusedMocksError apply.
 
     Contains both reports in separate sections.
@@ -94,7 +94,7 @@ class VerificationError(bigfootError):
         super().__init__(message)
 
 
-class InteractionMismatchError(bigfootError):
+class InteractionMismatchError(BigfootError):
     """Raised by assert_interaction() when expected source/fields don't match
     the next interaction in the timeline.
 
@@ -118,7 +118,7 @@ class InteractionMismatchError(bigfootError):
         )
 
 
-class SandboxNotActiveError(bigfootError):
+class SandboxNotActiveError(BigfootError):
     """Raised when an intercepted call fires but no sandbox is active.
 
     Attributes:
@@ -135,7 +135,7 @@ class SandboxNotActiveError(bigfootError):
         )
 
 
-class ConflictError(bigfootError):
+class ConflictError(BigfootError):
     """Raised at activate() time if target method is already patched by another library.
 
     Message names the conflicting library and the patched target.

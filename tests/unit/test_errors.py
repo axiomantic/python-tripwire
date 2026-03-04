@@ -1,6 +1,6 @@
 """Tests for Task 2: bigfoot error classes.
 
-All 7 error types plus bigfootError base. Tests follow TDD protocol:
+All 7 error types plus BigfootError base. Tests follow TDD protocol:
 each test must fail before implementation exists.
 """
 
@@ -9,7 +9,7 @@ import pytest
 from bigfoot._errors import (
     ConflictError,
     InteractionMismatchError,
-    bigfootError,
+    BigfootError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
@@ -23,19 +23,19 @@ from bigfoot._errors import (
 
 
 def test_bigfoot_error_is_exception() -> None:
-    """bigfootError is the base and must be a proper Exception."""
-    assert issubclass(bigfootError, Exception)
+    """BigfootError is the base and must be a proper Exception."""
+    assert issubclass(BigfootError, Exception)
 
 
 def test_all_errors_subclass_bigfoot_error() -> None:
-    """Every domain error must be catchable as bigfootError."""
-    assert issubclass(UnmockedInteractionError, bigfootError)
-    assert issubclass(UnassertedInteractionsError, bigfootError)
-    assert issubclass(UnusedMocksError, bigfootError)
-    assert issubclass(VerificationError, bigfootError)
-    assert issubclass(InteractionMismatchError, bigfootError)
-    assert issubclass(SandboxNotActiveError, bigfootError)
-    assert issubclass(ConflictError, bigfootError)
+    """Every domain error must be catchable as BigfootError."""
+    assert issubclass(UnmockedInteractionError, BigfootError)
+    assert issubclass(UnassertedInteractionsError, BigfootError)
+    assert issubclass(UnusedMocksError, BigfootError)
+    assert issubclass(VerificationError, BigfootError)
+    assert issubclass(InteractionMismatchError, BigfootError)
+    assert issubclass(SandboxNotActiveError, BigfootError)
+    assert issubclass(ConflictError, BigfootError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -76,7 +76,7 @@ def test_unmocked_interaction_error_missing_fields_raises_type_error() -> None:
 
 def test_unmocked_interaction_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise UnmockedInteractionError(
             source_id="db.query",
             args=(),
@@ -125,7 +125,7 @@ def test_unasserted_interactions_error_missing_fields_raises_type_error() -> Non
 
 def test_unasserted_interactions_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise UnassertedInteractionsError(interactions=[], hint="No hint.")
 
 
@@ -170,7 +170,7 @@ def test_unused_mocks_error_missing_fields_raises_type_error() -> None:
 
 def test_unused_mocks_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise UnusedMocksError(mocks=[], hint="No hint.")
 
 
@@ -235,7 +235,7 @@ def test_verification_error_missing_fields_raises_type_error() -> None:
 
 def test_verification_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise VerificationError(unasserted=None, unused=None)
 
 
@@ -323,7 +323,7 @@ def test_interaction_mismatch_error_missing_fields_raises_type_error() -> None:
 
 def test_interaction_mismatch_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise InteractionMismatchError(
             expected={"source_id": "http.get"},
             actual={"source_id": "db.read"},
@@ -366,7 +366,7 @@ def test_sandbox_not_active_error_missing_fields_raises_type_error() -> None:
 
 def test_sandbox_not_active_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise SandboxNotActiveError(source_id="db.write")
 
 
@@ -400,7 +400,7 @@ def test_conflict_error_missing_fields_raises_type_error() -> None:
 
 def test_conflict_error_is_catchable_as_bigfoot_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(bigfootError):
+    with pytest.raises(BigfootError):
         raise ConflictError(target="httpx.Client.send", patcher="httpretty")
 
 

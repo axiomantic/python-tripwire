@@ -19,7 +19,7 @@ def test_all_contains_expected_names() -> None:
         "SandboxContext",
         "InAnyOrderContext",
         "MockPlugin",
-        "bigfootError",
+        "BigfootError",
         "UnmockedInteractionError",
         "UnassertedInteractionsError",
         "UnusedMocksError",
@@ -65,11 +65,11 @@ def test_mock_plugin_importable() -> None:
 
 
 def test_bigfoot_error_importable() -> None:
-    """bigfootError must be importable from the top-level package."""
-    from bigfoot import bigfootError
-    from bigfoot._errors import bigfootError as _bigfootError
+    """BigfootError must be importable from the top-level package."""
+    from bigfoot import BigfootError
+    from bigfoot._errors import BigfootError as _BigfootError
 
-    assert bigfootError is _bigfootError
+    assert BigfootError is _BigfootError
 
 
 def test_unmocked_interaction_error_importable() -> None:

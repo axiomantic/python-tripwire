@@ -3,7 +3,7 @@
 from bigfoot._errors import (
     ConflictError,
     InteractionMismatchError,
-    bigfootError,
+    BigfootError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
@@ -23,7 +23,7 @@ __all__ = [
     "SandboxContext",
     "InAnyOrderContext",
     "MockPlugin",
-    "bigfootError",
+    "BigfootError",
     "UnmockedInteractionError",
     "UnassertedInteractionsError",
     "UnusedMocksError",
