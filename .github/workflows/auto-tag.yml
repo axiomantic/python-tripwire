@@ -11,12 +11,17 @@ jobs:
   tag:
     name: Create tag on version bump
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AXIOMANTIC_APP_ID }}
+          private-key: ${{ secrets.AXIOMANTIC_PRIVATE_KEY }}
 
       - name: Get current version
         id: current
@@ -47,7 +52,7 @@ jobs:
       - name: Create tag if version changed
         if: steps.current.outputs.version != steps.previous.outputs.version && steps.current.outputs.version != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           TAG="v${{ steps.current.outputs.version }}"
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then

@@ -71,14 +71,19 @@ jobs:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     needs: publish
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AXIOMANTIC_APP_ID }}
+          private-key: ${{ secrets.AXIOMANTIC_PRIVATE_KEY }}
+
       - name: Create release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           gh release create "${{ github.ref_name }}" \
             --title "${{ github.ref_name }}" \
