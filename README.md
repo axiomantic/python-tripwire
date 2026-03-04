@@ -18,49 +18,40 @@ pip install bigfoot[dev]      # All of the above + pytest, mypy, ruff
 ## Quick Start
 
 ```python
-import httpx
-from bigfoot.plugins.http import HttpPlugin
+import bigfoot
 
-def test_payment_flow(bigfoot_verifier):
-    http = HttpPlugin(bigfoot_verifier)
-    http.mock_response("POST", "https://api.stripe.com/v1/charges",
-                       json={"id": "ch_123"}, status=200)
+def test_payment_flow():
+    bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
+                               json={"id": "ch_123"}, status=200)
 
-    with bigfoot_verifier.sandbox():
+    with bigfoot.sandbox():
+        import httpx
         response = httpx.post("https://api.stripe.com/v1/charges",
                               json={"amount": 5000})
-        bigfoot_verifier.assert_interaction(
-            http.request,
-            method="POST",
-            url="https://api.stripe.com/v1/charges",
-        )
 
+    bigfoot.assert_interaction(
+        bigfoot.http.request,
+        method="POST",
+        url="https://api.stripe.com/v1/charges",
+    )
     assert response.json()["id"] == "ch_123"
-    # verify_all() called automatically by bigfoot_verifier fixture
+    # verify_all() called automatically at test teardown
 ```
 
 ## Mock Plugin
 
 ```python
-def test_service_calls(bigfoot_verifier):
-    payment = bigfoot_verifier.mock("PaymentService")
+import bigfoot
+
+def test_service_calls():
+    payment = bigfoot.mock("PaymentService")
     payment.charge.returns({"status": "ok"})
     payment.refund.required(False).returns(None)  # optional mock
 
-    with bigfoot_verifier.sandbox():
+    with bigfoot.sandbox():
         result = payment.charge(order_id=42)
-        bigfoot_verifier.assert_interaction(payment.charge)
-```
 
-The `mock()` shorthand on `StrictVerifier` lazily creates a `MockPlugin` on first use. For explicit control:
-
-```python
-from bigfoot import StrictVerifier, MockPlugin
-
-verifier = StrictVerifier()
-mock_plugin = MockPlugin(verifier)
-proxy = mock_plugin.get_or_create_proxy("MyService")
-proxy.fetch.returns({"data": []})
+    bigfoot.assert_interaction(payment.charge)
 ```
 
 ### Side Effects
@@ -75,17 +66,20 @@ proxy.log.required(False).returns(None)     # Optional: no UnusedMocksError if n
 
 ## Async Tests
 
-The `bigfoot_verifier` fixture and `sandbox()` context manager both support async:
+`sandbox()` and `in_any_order()` both support `async with`:
 
 ```python
-async def test_async_flow(bigfoot_verifier):
-    http = HttpPlugin(bigfoot_verifier)
-    http.mock_response("GET", "https://api.example.com/items", json=[])
+import bigfoot
+import httpx
 
-    async with bigfoot_verifier.sandbox():
+async def test_async_flow():
+    bigfoot.http.mock_response("GET", "https://api.example.com/items", json=[])
+
+    async with bigfoot.sandbox():
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/items")
-        bigfoot_verifier.assert_interaction(http.request, method="GET")
+
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET")
 ```
 
 ## Concurrent Assertions
@@ -93,30 +87,44 @@ async def test_async_flow(bigfoot_verifier):
 When tests make concurrent HTTP requests (e.g., via `asyncio.TaskGroup`), use `in_any_order()` to relax the FIFO ordering requirement:
 
 ```python
-async def test_concurrent(bigfoot_verifier):
-    http = HttpPlugin(bigfoot_verifier)
-    http.mock_response("GET", "https://api.example.com/a", json={"a": 1})
-    http.mock_response("GET", "https://api.example.com/b", json={"b": 2})
+import bigfoot
+import asyncio, httpx
 
-    async with bigfoot_verifier.sandbox():
-        # ... make concurrent requests ...
+async def test_concurrent():
+    bigfoot.http.mock_response("GET", "https://api.example.com/a", json={"a": 1})
+    bigfoot.http.mock_response("GET", "https://api.example.com/b", json={"b": 2})
 
-    with bigfoot_verifier.in_any_order():
-        bigfoot_verifier.assert_interaction(http.request, url="https://api.example.com/a")
-        bigfoot_verifier.assert_interaction(http.request, url="https://api.example.com/b")
+    async with bigfoot.sandbox():
+        async with asyncio.TaskGroup() as tg:
+            ta = tg.create_task(httpx.AsyncClient().get("https://api.example.com/a"))
+            tb = tg.create_task(httpx.AsyncClient().get("https://api.example.com/b"))
+
+    with bigfoot.in_any_order():
+        bigfoot.assert_interaction(bigfoot.http.request, url="https://api.example.com/a")
+        bigfoot.assert_interaction(bigfoot.http.request, url="https://api.example.com/b")
 ```
 
 `in_any_order()` operates globally across all plugin types (mock and HTTP).
 
 ## pytest Integration
 
-The `bigfoot_verifier` fixture is registered automatically via the `pytest11` entry point. No import required:
+No fixture injection required. Install bigfoot and `import bigfoot` in any test:
 
 ```python
-def test_something(bigfoot_verifier):
-    ...
+import bigfoot
+
+def test_something():
+    svc = bigfoot.mock("MyService")
+    svc.call.returns("ok")
+
+    with bigfoot.sandbox():
+        result = svc.call()
+
+    bigfoot.assert_interaction(svc.call)
     # verify_all() runs at teardown automatically
 ```
+
+An explicit `bigfoot_verifier` fixture is available as an escape hatch when you need direct access to the `StrictVerifier` object.
 
 ## HTTP Interception Scope
 
@@ -125,6 +133,7 @@ def test_something(bigfoot_verifier):
 - `httpx.Client` and `httpx.AsyncClient` (class-level transport patch)
 - `requests.get()`, `requests.Session`, etc. (class-level adapter patch)
 - `urllib.request.urlopen()` (via `install_opener`)
+- `asyncio.BaseEventLoop.run_in_executor` (propagates context to thread pool executors)
 
 Not intercepted: `httpx.ASGITransport`, `httpx.WSGITransport`, `aiohttp`.
 
@@ -139,21 +148,35 @@ hint='Unexpected call to PaymentService.charge
   Called with: args=('order_42',), kwargs={}
 
   To mock this interaction, add before your sandbox:
-    verifier.mock("PaymentService").charge.returns(<value>)
+    bigfoot.mock("PaymentService").charge.returns(<value>)
 
   Or to mark it optional:
-    verifier.mock("PaymentService").charge.required(False).returns(<value>)'
+    bigfoot.mock("PaymentService").charge.required(False).returns(<value>)'
 ```
 
 ## Public API
 
 ```python
+import bigfoot
+
+# Module-level (preferred in pytest)
+bigfoot.mock("Name")           # create/retrieve a named MockProxy
+bigfoot.sandbox()              # context manager: activate all plugins
+bigfoot.assert_interaction(source, **fields)  # assert next interaction
+bigfoot.in_any_order()         # relax FIFO ordering for assertions
+bigfoot.verify_all()           # explicit verification (automatic in pytest)
+bigfoot.current_verifier()     # access the StrictVerifier directly
+bigfoot.http                   # proxy to the HttpPlugin for this test
+
+# Classes (for manual use or custom plugins)
 from bigfoot import (
     StrictVerifier,
     SandboxContext,
     InAnyOrderContext,
     MockPlugin,
-    bigfootError,
+    BigfootError,
+    AssertionInsideSandboxError,
+    NoActiveVerifierError,
     UnmockedInteractionError,
     UnassertedInteractionsError,
     UnusedMocksError,
@@ -168,7 +191,7 @@ from bigfoot.plugins.http import HttpPlugin  # requires bigfoot[http]
 ## Requirements
 
 - Python 3.11+
-- pytest (for `bigfoot_verifier` fixture)
+- pytest (for automatic per-test verifier and `verify_all()` at teardown)
 
 ## License
 

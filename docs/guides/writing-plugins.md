@@ -213,7 +213,28 @@ class DatabasePlugin(BasePlugin):
 
 ## Registering and using the plugin
 
+In pytest, use `bigfoot.current_verifier()` to register the plugin against the autouse verifier:
+
 ```python
+import bigfoot
+
+def test_db_query():
+    db = DatabasePlugin(bigfoot.current_verifier(), my_connection)
+    db.mock_query("SELECT * FROM users", result=[{"id": 1}])
+
+    with bigfoot.sandbox():
+        rows = my_connection.execute("SELECT * FROM users")
+        assert rows == [{"id": 1}]
+
+    bigfoot.assert_interaction(db_sentinel, query="SELECT * FROM users")
+    # verify_all() called automatically at teardown
+```
+
+For manual use outside pytest:
+
+```python
+from bigfoot import StrictVerifier
+
 verifier = StrictVerifier()
 db = DatabasePlugin(verifier, my_connection)
 db.mock_query("SELECT * FROM users", result=[{"id": 1}])

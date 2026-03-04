@@ -12,10 +12,24 @@ This installs `httpx>=0.25.0` and `requests>=2.31.0`.
 
 ## Setup
 
-Construct `HttpPlugin` with a `StrictVerifier`. The plugin registers itself with the verifier:
+In pytest, access `HttpPlugin` through the `bigfoot.http` proxy. It auto-creates the plugin for the current test on first use — no explicit instantiation needed:
 
 ```python
-import httpx
+import bigfoot
+
+def test_api():
+    bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
+
+    with bigfoot.sandbox():
+        import httpx
+        response = httpx.get("https://api.example.com/users")
+
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET")
+```
+
+For manual use outside pytest, construct `HttpPlugin` explicitly:
+
+```python
 from bigfoot import StrictVerifier
 from bigfoot.plugins.http import HttpPlugin
 
@@ -27,10 +41,10 @@ Each verifier may have at most one `HttpPlugin`. A second `HttpPlugin(verifier)`
 
 ## Registering mock responses
 
-Use `http.mock_response(method, url, ...)` to register a response before entering the sandbox:
+Use `bigfoot.http.mock_response(method, url, ...)` to register a response before entering the sandbox:
 
 ```python
-http.mock_response("GET", "https://api.example.com/users", json={"users": []})
+bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
 ```
 
 Parameters:
@@ -53,8 +67,8 @@ Parameters:
 Multiple `mock_response()` calls for the same method+URL are consumed in registration order. The first matching request gets the first registered response, and so on. If a request arrives with no matching mock remaining, `UnmockedInteractionError` is raised.
 
 ```python
-http.mock_response("GET", "https://api.example.com/token", json={"token": "first"})
-http.mock_response("GET", "https://api.example.com/token", json={"token": "second"})
+bigfoot.http.mock_response("GET", "https://api.example.com/token", json={"token": "first"})
+bigfoot.http.mock_response("GET", "https://api.example.com/token", json={"token": "second"})
 ```
 
 ## Optional responses
@@ -62,7 +76,7 @@ http.mock_response("GET", "https://api.example.com/token", json={"token": "secon
 Mark a mock response as optional with `required=False`:
 
 ```python
-http.mock_response("GET", "https://api.example.com/health", json={"ok": True}, required=False)
+bigfoot.http.mock_response("GET", "https://api.example.com/health", json={"ok": True}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
@@ -73,19 +87,23 @@ bigfoot matches on scheme, host, path, and (if `params` is provided) query param
 
 ```python
 # Matches https://api.example.com/search?q=hello&page=2 if params={"q": "hello"}
-http.mock_response("GET", "https://api.example.com/search", json={...}, params={"q": "hello"})
+bigfoot.http.mock_response("GET", "https://api.example.com/search", json={...}, params={"q": "hello"})
 ```
 
 ## Asserting HTTP interactions
 
-Use `http.request` as the source in `assert_interaction()`. The `http.request` property returns an `HttpRequestSentinel` with `source_id = "http:request"`.
+Use `bigfoot.http.request` as the source in `assert_interaction()`. Assertions must happen after the sandbox exits:
 
 ```python
-with verifier.sandbox():
-    response = httpx.get("https://api.example.com/users")
+import bigfoot, httpx
 
-verifier.assert_interaction(http.request, method="GET", url="https://api.example.com/users", status=200)
-verifier.verify_all()
+def test_users():
+    bigfoot.http.mock_response("GET", "https://api.example.com/users", json=[])
+
+    with bigfoot.sandbox():
+        response = httpx.get("https://api.example.com/users")
+
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users", status=200)
 ```
 
 Fields available in `assert_interaction()` keyword arguments:
@@ -101,48 +119,48 @@ Fields available in `assert_interaction()` keyword arguments:
 ## Using with httpx sync
 
 ```python
-import httpx
+import bigfoot, httpx
 
-http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
+def test_httpx_sync():
+    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
 
-with verifier.sandbox():
-    response = httpx.get("https://api.example.com/data")
-    assert response.status_code == 200
-    assert response.json() == {"value": 42}
+    with bigfoot.sandbox():
+        response = httpx.get("https://api.example.com/data")
+        assert response.status_code == 200
+        assert response.json() == {"value": 42}
 
-verifier.assert_interaction(http.request, method="GET", url="https://api.example.com/data")
-verifier.verify_all()
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/data")
 ```
 
 ## Using with httpx async
 
 ```python
-import httpx
+import bigfoot, httpx
 
-http.mock_response("POST", "https://api.example.com/items", json={"id": 1}, status=201)
+async def test_httpx_async():
+    bigfoot.http.mock_response("POST", "https://api.example.com/items", json={"id": 1}, status=201)
 
-async with verifier.sandbox():
-    async with httpx.AsyncClient() as client:
-        response = await client.post("https://api.example.com/items", json={"name": "widget"})
-    assert response.status_code == 201
+    async with bigfoot.sandbox():
+        async with httpx.AsyncClient() as client:
+            response = await client.post("https://api.example.com/items", json={"name": "widget"})
+        assert response.status_code == 201
 
-verifier.assert_interaction(http.request, method="POST", url="https://api.example.com/items", status=201)
-verifier.verify_all()
+    bigfoot.assert_interaction(bigfoot.http.request, method="POST", url="https://api.example.com/items", status=201)
 ```
 
 ## Using with requests
 
 ```python
-import requests
+import bigfoot, requests
 
-http.mock_response("DELETE", "https://api.example.com/items/99", status=204)
+def test_requests():
+    bigfoot.http.mock_response("DELETE", "https://api.example.com/items/99", status=204)
 
-with verifier.sandbox():
-    response = requests.delete("https://api.example.com/items/99")
-    assert response.status_code == 204
+    with bigfoot.sandbox():
+        response = requests.delete("https://api.example.com/items/99")
+        assert response.status_code == 204
 
-verifier.assert_interaction(http.request, method="DELETE", url="https://api.example.com/items/99", status=204)
-verifier.verify_all()
+    bigfoot.assert_interaction(bigfoot.http.request, method="DELETE", url="https://api.example.com/items/99", status=204)
 ```
 
 ## UnmockedInteractionError for HTTP
@@ -153,10 +171,10 @@ When HTTP code fires a request with no matching mock, bigfoot raises `UnmockedIn
 Unexpected HTTP request: GET https://api.example.com/data
 
   To mock this request, add before your sandbox:
-    http.mock_response("GET", "https://api.example.com/data", json={...})
+    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={...})
 
   Or to mark it optional:
-    http.mock_response("GET", "https://api.example.com/data", json={...}, required=False)
+    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={...}, required=False)
 ```
 
 ## ConflictError
