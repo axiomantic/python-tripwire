@@ -9,6 +9,7 @@ from bigfoot._errors import (
     BigfootError,
     ConflictError,
     InteractionMismatchError,
+    InvalidStateError,
     MissingAssertionFieldsError,
     NoActiveVerifierError,
     SandboxNotActiveError,
@@ -41,6 +42,7 @@ __all__ = [
     # Errors
     "BigfootError",
     "AssertionInsideSandboxError",
+    "InvalidStateError",
     "NoActiveVerifierError",
     "UnmockedInteractionError",
     "UnassertedInteractionsError",

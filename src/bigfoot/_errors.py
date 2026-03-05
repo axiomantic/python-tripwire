@@ -193,3 +193,29 @@ class MissingAssertionFieldsError(BigfootError):
             f"Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
             f"if the value is not the focus of this assertion."
         )
+
+
+class InvalidStateError(BigfootError):
+    """Raised when a state-machine method is called from an invalid state.
+
+    Attributes:
+        source_id: Identifier of the source that triggered the call.
+        method: Name of the method that was called.
+        current_state: The state the machine was in when the call was made.
+        valid_states: The frozenset of states from which the call is permitted.
+    """
+
+    def __init__(
+        self,
+        source_id: str,
+        method: str,
+        current_state: str,
+        valid_states: frozenset[str],
+    ) -> None:
+        self.source_id = source_id
+        self.method = method
+        self.current_state = current_state
+        self.valid_states = valid_states
+        super().__init__(
+            f"'{method}' called in state '{current_state}'; valid from: {valid_states!r}"
+        )

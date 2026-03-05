@@ -525,3 +525,53 @@ def test_missing_assertion_fields_error_is_raiseable() -> None:
     """Must be raiseable and catchable via the base class."""
     with pytest.raises(BigfootError):
         raise MissingAssertionFieldsError(frozenset({"args"}))
+
+
+# ---------------------------------------------------------------------------
+# InvalidStateError
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_state_error_message_format() -> None:
+    """__str__ matches the exact required format."""
+    from bigfoot._errors import InvalidStateError
+
+    err = InvalidStateError(
+        source_id="my_source",
+        method="start",
+        current_state="stopped",
+        valid_states=frozenset({"idle", "paused"}),
+    )
+    result = str(err)
+    assert result == (
+        f"'start' called in state 'stopped'; valid from: {frozenset({'idle', 'paused'})!r}"
+    )
+
+
+def test_invalid_state_error_attributes() -> None:
+    """All four constructor arguments are stored as attributes."""
+    from bigfoot._errors import InvalidStateError
+
+    err = InvalidStateError(
+        source_id="src_abc",
+        method="stop",
+        current_state="running",
+        valid_states=frozenset({"idle"}),
+    )
+    assert err.source_id == "src_abc"
+    assert err.method == "stop"
+    assert err.current_state == "running"
+    assert err.valid_states == frozenset({"idle"})
+
+
+def test_invalid_state_error_catchable_as_bigfoot_error() -> None:
+    """InvalidStateError must be catchable as BigfootError."""
+    from bigfoot._errors import InvalidStateError
+
+    with pytest.raises(BigfootError):
+        raise InvalidStateError(
+            source_id="s",
+            method="m",
+            current_state="c",
+            valid_states=frozenset({"v"}),
+        )
