@@ -26,6 +26,7 @@ def test_all_contains_expected_names() -> None:
         "SocketPlugin",
         "AsyncWebSocketPlugin",
         "SyncWebSocketPlugin",
+        "RedisPlugin",
         # Errors
         "BigfootError",
         "AssertionInsideSandboxError",
@@ -55,6 +56,7 @@ def test_all_contains_expected_names() -> None:
         "db_mock",
         "async_websocket_mock",
         "sync_websocket_mock",
+        "redis_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 

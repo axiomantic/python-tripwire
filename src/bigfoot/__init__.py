@@ -29,6 +29,7 @@ except ImportError:  # pragma: no cover
 
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
+from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
 from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
@@ -45,6 +46,7 @@ SmtpPlugin = _SmtpPlugin
 SocketPlugin = _SocketPlugin
 AsyncWebSocketPlugin = _AsyncWebSocketPlugin
 SyncWebSocketPlugin = _SyncWebSocketPlugin
+RedisPlugin = _RedisPlugin
 
 if TYPE_CHECKING:
     from bigfoot._mock_plugin import MethodProxy, MockProxy
@@ -63,6 +65,7 @@ __all__ = [
     "SocketPlugin",
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
+    "RedisPlugin",
     # Errors
     "BigfootError",
     "AssertionInsideSandboxError",
@@ -92,6 +95,7 @@ __all__ = [
     "db_mock",
     "async_websocket_mock",
     "sync_websocket_mock",
+    "redis_mock",
 ]
 
 
@@ -359,3 +363,37 @@ class _SyncWebSocketProxy:
 
 
 sync_websocket_mock = _SyncWebSocketProxy()
+
+
+# ---------------------------------------------------------------------------
+# Redis proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _RedisProxy:
+    """Proxy to the RedisPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the redis extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.redis_plugin import _REDIS_AVAILABLE
+
+        if not _REDIS_AVAILABLE:
+            raise ImportError(
+                "bigfoot[redis] is required to use bigfoot.redis_mock. "
+                "Install it with: pip install bigfoot[redis]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin: _RedisPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _RedisPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _RedisPlugin(verifier)
+        return getattr(plugin, name)
+
+
+redis_mock = _RedisProxy()

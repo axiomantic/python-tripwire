@@ -1,0 +1,249 @@
+"""RedisPlugin: intercepts redis.Redis.execute_command with a per-command FIFO queue."""
+
+from __future__ import annotations
+
+import threading
+import traceback
+from collections import deque
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, ClassVar
+
+from bigfoot._base_plugin import BasePlugin
+from bigfoot._context import _get_verifier_or_raise
+from bigfoot._errors import UnmockedInteractionError
+from bigfoot._timeline import Interaction
+
+if TYPE_CHECKING:
+    from bigfoot._verifier import StrictVerifier
+
+# ---------------------------------------------------------------------------
+# Optional dependency guard
+# ---------------------------------------------------------------------------
+
+try:
+    import redis as redis_lib
+
+    _REDIS_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _REDIS_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# RedisMockConfig
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RedisMockConfig:
+    """Configuration for a single mocked Redis command invocation.
+
+    Attributes:
+        command: The Redis command name, normalized to uppercase.
+        returns: The value to return when this mock is consumed.
+            There is no default; callers must be explicit.
+        raises: If not None, this exception is raised instead of returning.
+        required: If True, the mock is reported as unused if never triggered.
+        registration_traceback: Captured automatically at creation time
+            for use in error messages.
+    """
+
+    command: str
+    returns: Any  # noqa: ANN401
+    raises: BaseException | None = None
+    required: bool = True
+    registration_traceback: str = field(default_factory=lambda: "".join(traceback.format_stack()))
+
+
+# ---------------------------------------------------------------------------
+# Module-level helper: find the RedisPlugin on the active verifier
+# ---------------------------------------------------------------------------
+
+
+def _get_redis_plugin() -> RedisPlugin:
+    verifier = _get_verifier_or_raise("redis:execute_command")
+    for plugin in verifier._plugins:
+        if isinstance(plugin, RedisPlugin):
+            return plugin
+    raise RuntimeError(
+        "BUG: bigfoot RedisPlugin interceptor is active but no "
+        "RedisPlugin is registered on the current verifier."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Patched execute_command
+# ---------------------------------------------------------------------------
+
+
+def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+    plugin = _get_redis_plugin()
+    cmd_upper = command.upper()
+    with plugin._registry_lock:
+        queue = plugin._queues.get(cmd_upper)
+        if not queue:
+            source_id = f"redis:{cmd_upper.lower()}"
+            hint = plugin.format_unmocked_hint(source_id, args, kwargs)
+            raise UnmockedInteractionError(
+                source_id=source_id,
+                args=args,
+                kwargs=kwargs,
+                hint=hint,
+            )
+        config = queue.popleft()
+
+    # Record interaction on the shared timeline and immediately mark asserted.
+    interaction = Interaction(
+        source_id=f"redis:{cmd_upper.lower()}",
+        sequence=0,
+        details={"command": cmd_upper, "args": args, "kwargs": kwargs},
+        plugin=plugin,
+    )
+    plugin.record(interaction)
+    plugin.verifier._timeline.mark_asserted(interaction)
+
+    if config.raises is not None:
+        raise config.raises
+    return config.returns
+
+
+# ---------------------------------------------------------------------------
+# RedisPlugin
+# ---------------------------------------------------------------------------
+
+
+class RedisPlugin(BasePlugin):
+    """Redis interception plugin.
+
+    Patches redis.Redis.execute_command at the class level.
+    Uses reference counting so nested sandboxes work correctly.
+
+    Each command name (uppercase) has its own FIFO deque of RedisMockConfig
+    objects. Calls are stateless -- there are no state transitions.
+    """
+
+    # Class-level reference counting -- shared across all instances/verifiers.
+    _install_count: ClassVar[int] = 0
+    _install_lock: ClassVar[threading.Lock] = threading.Lock()
+
+    # Saved original, restored when count reaches 0.
+    _original_execute_command: ClassVar[Any] = None
+
+    def __init__(self, verifier: StrictVerifier) -> None:
+        super().__init__(verifier)
+        self._queues: dict[str, deque[RedisMockConfig]] = {}
+        self._registry_lock: threading.Lock = threading.Lock()
+
+    # ------------------------------------------------------------------
+    # Public API: register mock commands
+    # ------------------------------------------------------------------
+
+    def mock_command(
+        self,
+        command: str,
+        *,
+        returns: Any,  # noqa: ANN401
+        raises: BaseException | None = None,
+        required: bool = True,
+    ) -> None:
+        """Register a mock for a single Redis command invocation.
+
+        Args:
+            command: The Redis command name (case-insensitive).
+            returns: Value to return when this mock is consumed.
+            raises: If provided, this exception is raised instead of returning.
+            required: If False, the mock is not reported as unused at teardown.
+        """
+        cmd_upper = command.upper()
+        config = RedisMockConfig(
+            command=cmd_upper,
+            returns=returns,
+            raises=raises,
+            required=required,
+        )
+        with self._registry_lock:
+            if cmd_upper not in self._queues:
+                self._queues[cmd_upper] = deque()
+            self._queues[cmd_upper].append(config)
+
+    # ------------------------------------------------------------------
+    # BasePlugin lifecycle
+    # ------------------------------------------------------------------
+
+    def activate(self) -> None:
+        """Reference-counted class-level patch installation."""
+        if not _REDIS_AVAILABLE:
+            raise ImportError(
+                "Install bigfoot[redis] to use RedisPlugin: pip install bigfoot[redis]"
+            )
+        with RedisPlugin._install_lock:
+            if RedisPlugin._install_count == 0:
+                RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
+                redis_lib.Redis.execute_command = _patched_execute_command  # type: ignore[assignment]
+            RedisPlugin._install_count += 1
+
+    def deactivate(self) -> None:
+        with RedisPlugin._install_lock:
+            RedisPlugin._install_count = max(0, RedisPlugin._install_count - 1)
+            if RedisPlugin._install_count == 0:
+                if RedisPlugin._original_execute_command is not None:
+                    redis_lib.Redis.execute_command = RedisPlugin._original_execute_command  # type: ignore[method-assign]
+                    RedisPlugin._original_execute_command = None
+
+    # ------------------------------------------------------------------
+    # BasePlugin abstract method implementations
+    # ------------------------------------------------------------------
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Always returns True -- Redis interactions are auto-matched."""
+        return True
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Returns empty frozenset -- no fields are required in assert_interaction()."""
+        return frozenset()
+
+    def get_unused_mocks(self) -> list[RedisMockConfig]:
+        """Return all RedisMockConfig with required=True still in any queue."""
+        unused: list[RedisMockConfig] = []
+        with self._registry_lock:
+            for queue in self._queues.values():
+                for config in queue:
+                    if config.required:
+                        unused.append(config)
+        return unused
+
+    def format_interaction(self, interaction: Interaction) -> str:
+        command = interaction.details.get("command", "?")
+        args = interaction.details.get("args", ())
+        parts = [repr(a) for a in args]
+        return f"[RedisPlugin] redis.{command}({', '.join(parts)})"
+
+    def format_mock_hint(self, interaction: Interaction) -> str:
+        command = interaction.details.get("command", "?")
+        return f"    bigfoot.redis_mock.mock_command({command!r}, returns=...)"
+
+    def format_unmocked_hint(
+        self,
+        source_id: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> str:
+        # source_id is like "redis:get"; reconstruct the uppercase command name.
+        cmd = source_id.split(":", 1)[-1].upper() if ":" in source_id else source_id.upper()
+        return (
+            f"redis.{cmd}(...) was called but no mock was registered.\n"
+            f"Register a mock with:\n"
+            f"    bigfoot.redis_mock.mock_command({cmd!r}, returns=...)"
+        )
+
+    def format_assert_hint(self, interaction: Interaction) -> str:
+        command = interaction.details.get("command", "?")
+        return f"    # bigfoot.redis_mock: command {command!r} recorded (stateless, auto-asserted)"
+
+    def format_unused_mock_hint(self, mock_config: object) -> str:
+        config: RedisMockConfig = mock_config  # type: ignore[assignment]
+        command = getattr(config, "command", "?")
+        tb = getattr(config, "registration_traceback", "")
+        return (
+            f"redis.{command}(...) was mocked (required=True) but never called.\n"
+            f"Registered at:\n{tb}"
+        )
