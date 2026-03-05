@@ -23,6 +23,7 @@ def test_all_contains_expected_names() -> None:
         # Errors
         "BigfootError",
         "AssertionInsideSandboxError",
+        "InvalidStateError",
         "NoActiveVerifierError",
         "UnmockedInteractionError",
         "UnassertedInteractionsError",
@@ -166,6 +167,7 @@ def test_http_plugin_importable_if_http_extra_installed() -> None:
     try:
         import httpx  # noqa: F401
         import requests  # noqa: F401
+
         http_available = True
     except ImportError:
         http_available = False
