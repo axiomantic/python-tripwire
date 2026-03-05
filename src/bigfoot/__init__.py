@@ -9,6 +9,7 @@ from bigfoot._errors import (
     BigfootError,
     ConflictError,
     InteractionMismatchError,
+    MissingAssertionFieldsError,
     NoActiveVerifierError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
@@ -45,6 +46,7 @@ __all__ = [
     "InteractionMismatchError",
     "SandboxNotActiveError",
     "ConflictError",
+    "MissingAssertionFieldsError",
     # Module-level API
     "mock",
     "sandbox",
@@ -52,6 +54,7 @@ __all__ = [
     "in_any_order",
     "verify_all",
     "current_verifier",
+    "spy",
     "http",
 ]
 
@@ -61,9 +64,22 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def mock(name: str) -> MockProxy:
-    """Create or retrieve a named mock on the current test verifier."""
-    return _get_test_verifier_or_raise().mock(name)
+def mock(name: str, wraps: object = None) -> MockProxy:
+    """Create or retrieve a named mock on the current test verifier.
+
+    If wraps is provided, method calls with an empty queue are delegated to
+    the wrapped object instead of raising UnmockedInteractionError.
+    """
+    return _get_test_verifier_or_raise().mock(name, wraps=wraps)
+
+
+def spy(name: str, real: object) -> MockProxy:
+    """Create a spy on the current test verifier (syntactic sugar for mock(name, wraps=real)).
+
+    The proxy delegates all calls to real, recording every interaction on the
+    timeline without requiring explicit mock configurations.
+    """
+    return _get_test_verifier_or_raise().spy(name, real)
 
 
 def sandbox() -> SandboxContext:
