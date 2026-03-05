@@ -7,6 +7,7 @@ from bigfoot._context import _active_verifier, _any_order_depth
 from bigfoot._errors import (
     AssertionInsideSandboxError,
     InteractionMismatchError,
+    MissingAssertionFieldsError,
     UnassertedInteractionsError,
     UnusedMocksError,
     VerificationError,
@@ -42,8 +43,13 @@ class StrictVerifier:
                 )
         self._plugins.append(plugin)
 
-    def mock(self, name: str) -> "MockProxy":
-        """Create or retrieve a named MockProxy. Lazily creates MockPlugin."""
+    def mock(self, name: str, wraps: object = None) -> "MockProxy":
+        """Create or retrieve a named MockProxy. Lazily creates MockPlugin.
+
+        If wraps is provided, method calls on the proxy with an empty queue
+        are delegated to the wrapped object instead of raising
+        UnmockedInteractionError. The interaction is still recorded.
+        """
         from bigfoot._mock_plugin import MockPlugin
 
         # Find existing MockPlugin or create one
@@ -55,7 +61,15 @@ class StrictVerifier:
         if mock_plugin is None:
             mock_plugin = MockPlugin(self)
 
-        return mock_plugin.get_or_create_proxy(name)
+        return mock_plugin.get_or_create_proxy(name, wraps=wraps)
+
+    def spy(self, name: str, real: object) -> "MockProxy":
+        """Syntactic sugar for mock(name, wraps=real).
+
+        Creates a MockProxy that always delegates to real, recording every
+        call on the timeline without requiring mock configurations.
+        """
+        return self.mock(name, wraps=real)
 
     def _assert_no_active_sandbox(self) -> None:
         """Raise AssertionInsideSandboxError if this verifier's sandbox is currently active."""
@@ -67,11 +81,38 @@ class StrictVerifier:
         source: _HasSourceId,
         **expected: object,
     ) -> None:
-        """Assert the next interaction matches source and expected fields."""
+        """Assert the next interaction matches source and expected fields.
+
+        Completeness enforcement: after matching by source_id, the interaction's
+        plugin.assertable_fields() is called. Any field in the returned set that
+        is absent from **expected raises MissingAssertionFieldsError immediately,
+        before the field-value match check.
+        """
         self._assert_no_active_sandbox()
         source_id: str = source.source_id
 
         if _any_order_depth.get() > 0:
+            # Two-pass in_any_order: Pass 1 — find an interaction matching source_id only,
+            # then enforce completeness. Pass 2 — verify full field-value match.
+            candidate = self._timeline.find_any_unasserted(
+                lambda i: i.source_id == source_id
+            )
+            if candidate is None:
+                remaining = self._timeline.all_unasserted()
+                hint = self._format_mismatch_error(
+                    source_id, expected, actual=None, remaining=remaining
+                )
+                raise InteractionMismatchError(
+                    expected={"source_id": source_id, **expected},
+                    actual=None,
+                    hint=hint,
+                )
+            # Completeness check against the candidate
+            required_fields = candidate.plugin.assertable_fields(candidate)
+            missing = required_fields - set(expected.keys())
+            if missing:
+                raise MissingAssertionFieldsError(missing_fields=frozenset(missing))
+            # Pass 2 — full field-value match (searching all unasserted, not just candidate)
             interaction = self._timeline.find_any_unasserted(
                 lambda i: i.source_id == source_id and i.plugin.matches(i, expected)
             )
@@ -97,6 +138,11 @@ class StrictVerifier:
                     actual=interaction,
                     hint=hint,
                 )
+            # Completeness enforcement: check for missing required fields
+            required_fields = interaction.plugin.assertable_fields(interaction)
+            missing = required_fields - set(expected.keys())
+            if missing:
+                raise MissingAssertionFieldsError(missing_fields=frozenset(missing))
             if not interaction.plugin.matches(interaction, expected):
                 remaining = self._timeline.all_unasserted()
                 hint = self._format_mismatch_error(
