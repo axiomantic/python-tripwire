@@ -102,7 +102,7 @@ def test_recv_before_connect():
         sock = socket.socket()
         # Bind the session without connecting first by directly using _bind_connection:
         from bigfoot.plugins.socket_plugin import SocketPlugin
-        plugin = bigfoot.current_verifier()._plugins[-1]
+        plugin = next(p for p in bigfoot.current_verifier()._plugins if isinstance(p, SocketPlugin))
         handle = plugin._bind_connection(sock)
         # handle._state == "disconnected"
 

@@ -161,12 +161,13 @@ class _FakePopen:
         return out_bytes, err_bytes
 
     def wait(self, timeout: float | None = None) -> int:
+        if self.returncode is not None:
+            return self.returncode
         plugin = _find_popen_plugin()
         handle = plugin._lookup_session(self)
         result = plugin._execute_step(handle, "wait", (), {}, _SOURCE_WAIT)
         # result is returncode int
         self.returncode = int(result)
-        plugin._release_session(self)
         return self.returncode
 
     def poll(self) -> int | None:

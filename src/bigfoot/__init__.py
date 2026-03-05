@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from bigfoot._context import _get_test_verifier_or_raise
 from bigfoot._errors import (
@@ -100,6 +100,21 @@ __all__ = [
 
 
 # ---------------------------------------------------------------------------
+# Plugin lookup helper
+# ---------------------------------------------------------------------------
+
+_T = TypeVar("_T")
+
+
+def _get_or_create_plugin(verifier: StrictVerifier, plugin_type: type[_T]) -> _T:
+    """Return the first plugin of plugin_type on verifier, creating it if absent."""
+    for p in verifier._plugins:
+        if isinstance(p, plugin_type):
+            return p
+    return plugin_type(verifier)  # type: ignore[call-arg]
+
+
+# ---------------------------------------------------------------------------
 # Module-level implicit API
 # ---------------------------------------------------------------------------
 
@@ -170,13 +185,7 @@ class _HttpProxy:
                 "Install it with: pip install bigfoot[http]"
             ) from None
         verifier = _get_test_verifier_or_raise()
-        plugin: _HttpPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _HttpPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _HttpPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _HttpPlugin)
         return getattr(plugin, name)
 
 
@@ -196,13 +205,7 @@ class _SubprocessProxy:
 
     def __getattr__(self, name: str) -> object:
         verifier = _get_test_verifier_or_raise()
-        plugin: _SubprocessPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _SubprocessPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _SubprocessPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _SubprocessPlugin)
         return getattr(plugin, name)
 
 
@@ -222,13 +225,7 @@ class _PopenProxy:
 
     def __getattr__(self, name: str) -> object:
         verifier = _get_test_verifier_or_raise()
-        plugin: _PopenPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _PopenPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _PopenPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _PopenPlugin)
         return getattr(plugin, name)
 
 
@@ -248,13 +245,7 @@ class _SmtpProxy:
 
     def __getattr__(self, name: str) -> object:
         verifier = _get_test_verifier_or_raise()
-        plugin: _SmtpPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _SmtpPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _SmtpPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _SmtpPlugin)
         return getattr(plugin, name)
 
 
@@ -274,13 +265,7 @@ class _SocketProxy:
 
     def __getattr__(self, name: str) -> object:
         verifier = _get_test_verifier_or_raise()
-        plugin: _SocketPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _SocketPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _SocketPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _SocketPlugin)
         return getattr(plugin, name)
 
 
@@ -300,13 +285,7 @@ class _DatabaseProxy:
 
     def __getattr__(self, name: str) -> object:
         verifier = _get_test_verifier_or_raise()
-        plugin: _DatabasePlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _DatabasePlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _DatabasePlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _DatabasePlugin)
         return getattr(plugin, name)
 
 
@@ -334,13 +313,7 @@ class _AsyncWebSocketProxy:
                 "Install it with: pip install bigfoot[websockets]"
             )
         verifier = _get_test_verifier_or_raise()
-        plugin: _AsyncWebSocketPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _AsyncWebSocketPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _AsyncWebSocketPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _AsyncWebSocketPlugin)
         return getattr(plugin, name)
 
 
@@ -368,13 +341,7 @@ class _SyncWebSocketProxy:
                 "Install it with: pip install bigfoot[websocket-client]"
             )
         verifier = _get_test_verifier_or_raise()
-        plugin: _SyncWebSocketPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _SyncWebSocketPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _SyncWebSocketPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _SyncWebSocketPlugin)
         return getattr(plugin, name)
 
 
@@ -402,13 +369,7 @@ class _RedisProxy:
                 "Install it with: pip install bigfoot[redis]"
             )
         verifier = _get_test_verifier_or_raise()
-        plugin: _RedisPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _RedisPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _RedisPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _RedisPlugin)
         return getattr(plugin, name)
 
 

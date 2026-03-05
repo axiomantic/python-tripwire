@@ -324,14 +324,15 @@ def test_communicate_nonzero_returncode() -> None:
 
 # ESCAPE: test_wait_step
 #   CLAIM: proc.wait() inside a sandbox consumes the "wait" step, returns the
-#          configured returncode int, sets proc.returncode, releases the session,
-#          and transitions state to "terminated".
+#          configured returncode int, sets proc.returncode, and transitions state
+#          to "terminated". The session remains in _active_sessions (wait() is
+#          idempotent and does not release the session).
 #   PATH:  _FakePopen.__init__ -> init step; wait -> _execute_step
 #          (handle, "wait", ...) -> int returncode -> proc.returncode set ->
-#          _release_session called -> session removed from _active_sessions.
-#   CHECK: wait_result == 42; proc.returncode == 42; _active_sessions is empty.
-#   MUTATION: Not calling _release_session would leave session in _active_sessions.
-#   ESCAPE: Returning 0 instead of 42 would fail wait_result and returncode checks.
+#          state = "terminated".
+#   CHECK: wait_result == 42; proc.returncode == 42; session state == "terminated".
+#   MUTATION: Returning 0 instead of 42 would fail wait_result and returncode checks.
+#   ESCAPE: Nothing reasonable -- exact integer equality.
 def test_wait_step() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -344,7 +345,36 @@ def test_wait_step() -> None:
 
     assert wait_result == 42
     assert proc.returncode == 42
-    assert len(p._active_sessions) == 0
+    handle = list(p._active_sessions.values())[0]
+    assert handle._state == "terminated"
+
+
+# ESCAPE: test_wait_is_idempotent
+#   CLAIM: Calling proc.wait() multiple times returns the same returncode on each
+#          call without consuming additional script steps.
+#   PATH:  First wait() -> _execute_step -> returncode set -> state "terminated".
+#          Second wait() -> self.returncode is not None -> early return, no step consumed.
+#   CHECK: Both calls return 7; proc.returncode == 7 after both calls; only one
+#          script step consumed (the session script is empty after the first wait).
+#   MUTATION: Not guarding against repeated calls would attempt to consume a second
+#             step from an empty script, raising UnmockedInteractionError.
+#   ESCAPE: Returning different values on successive calls fails the equality checks.
+def test_wait_is_idempotent() -> None:
+    v, p = _make_verifier_with_plugin()
+    session = p.new_session()
+    session.expect("init", returns=None)
+    session.expect("wait", returns=7)
+
+    with v.sandbox():
+        proc = subprocess.Popen(["cmd"])
+        first = proc.wait()
+        second = proc.wait()
+        third = proc.wait()
+
+    assert first == 7
+    assert second == 7
+    assert third == 7
+    assert proc.returncode == 7
 
 
 # ---------------------------------------------------------------------------
