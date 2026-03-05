@@ -28,6 +28,7 @@ except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
+from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
 from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
 from bigfoot.plugins.websocket_plugin import (
@@ -38,6 +39,7 @@ from bigfoot.plugins.websocket_plugin import (
 )
 
 DatabasePlugin = _DatabasePlugin
+PopenPlugin = _PopenPlugin
 SocketPlugin = _SocketPlugin
 AsyncWebSocketPlugin = _AsyncWebSocketPlugin
 SyncWebSocketPlugin = _SyncWebSocketPlugin
@@ -54,6 +56,7 @@ __all__ = [
     "InAnyOrderContext",
     "MockPlugin",
     "DatabasePlugin",
+    "PopenPlugin",
     "SocketPlugin",
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
@@ -80,6 +83,7 @@ __all__ = [
     "spy",
     "http",
     "subprocess_mock",
+    "popen_mock",
     "socket_mock",
     "db_mock",
     "async_websocket_mock",
@@ -195,6 +199,32 @@ class _SubprocessProxy:
 
 
 subprocess_mock = _SubprocessProxy()
+
+
+# ---------------------------------------------------------------------------
+# Popen proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _PopenProxy:
+    """Proxy to the PopenPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _PopenPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _PopenPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _PopenPlugin(verifier)
+        return getattr(plugin, name)
+
+
+popen_mock = _PopenProxy()
 
 
 # ---------------------------------------------------------------------------
