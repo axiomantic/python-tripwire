@@ -138,6 +138,7 @@ class HttpPlugin(BasePlugin):
         super().__init__(verifier)
         self._mock_queue: list[HttpMockConfig] = []
         self._sentinel = HttpRequestSentinel(self)
+        self._pass_through_rules: list[tuple[str, str]] = []
 
     @property
     def request(self) -> HttpRequestSentinel:
@@ -180,6 +181,33 @@ class HttpPlugin(BasePlugin):
                 required=required,
             )
         )
+
+    def pass_through(self, method: str, url: str) -> None:
+        """Register a permanent pass-through rule for the given method + URL.
+
+        Requests matching this rule are forwarded to the real backend instead
+        of raising UnmockedInteractionError. The interaction is still recorded
+        on the timeline and must be asserted.
+
+        The URL must match exactly (scheme, host, path). Query parameters are
+        not considered for pass-through rule matching.
+        """
+        self._pass_through_rules.append((method.upper(), url))
+
+    def _matches_pass_through_rule(self, method: str, url: str) -> bool:
+        """Return True if method + url match any registered pass-through rule."""
+        parsed_actual = urlparse(url)
+        for rule_method, rule_url in self._pass_through_rules:
+            if rule_method != method.upper():
+                continue
+            parsed_rule = urlparse(rule_url)
+            if (
+                parsed_rule.scheme == parsed_actual.scheme
+                and parsed_rule.netloc == parsed_actual.netloc
+                and parsed_rule.path == parsed_actual.path
+            ):
+                return True
+        return False
 
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
@@ -260,16 +288,16 @@ class HttpPlugin(BasePlugin):
         ) -> httpx.Response:
             verifier = _get_verifier_or_raise("http:request")
             plugin = _find_http_plugin(verifier)
-            return plugin._handle_httpx_request(request)
+            return plugin._handle_httpx_request(transport_self, request)
 
-        # httpx async interceptor
+        # httpx async interceptor (NOTE: must call the async handler, not the sync one)
         async def _async_interceptor(
             transport_self: httpx.AsyncHTTPTransport,
             request: httpx.Request,
         ) -> httpx.Response:
             verifier = _get_verifier_or_raise("http:request")
             plugin = _find_http_plugin(verifier)
-            return plugin._handle_httpx_request(request)
+            return await plugin._handle_httpx_async_request(transport_self, request)
 
         # requests interceptor
         def _requests_interceptor(
@@ -279,7 +307,7 @@ class HttpPlugin(BasePlugin):
         ) -> requests.Response:
             verifier = _get_verifier_or_raise("http:request")
             plugin = _find_http_plugin(verifier)
-            return plugin._handle_requests_request(request)
+            return plugin._handle_requests_request(adapter_self, request, **kwargs)
 
         _bigfoot_httpx_handle = _sync_interceptor
         _bigfoot_httpx_async_handle = _async_interceptor
@@ -425,9 +453,15 @@ class HttpPlugin(BasePlugin):
     # Request handlers — one per backend
     # ------------------------------------------------------------------
 
-    def _handle_httpx_request(self, request: httpx.Request) -> httpx.Response:
+    def _handle_httpx_request(
+        self, transport_self: httpx.HTTPTransport, request: httpx.Request
+    ) -> httpx.Response:
         method = request.method
         url = str(request.url)
+
+        if self._matches_pass_through_rule(method, url):
+            return self._execute_httpx_pass_through(transport_self, request)
+
         config = self._find_matching_config(method, url)
 
         if config is None:
@@ -454,9 +488,84 @@ class HttpPlugin(BasePlugin):
             content=config.response_body,
         )
 
-    def _handle_requests_request(self, request: requests.PreparedRequest) -> requests.Response:
+    def _execute_httpx_pass_through(
+        self, transport_self: httpx.HTTPTransport, request: httpx.Request
+    ) -> httpx.Response:
+        """Forward an httpx request to the real backend and record the interaction."""
+        original = HttpPlugin._original_httpx_transport_handle
+        response: httpx.Response = original(transport_self, request)
+        self._record_http_interaction(
+            method=request.method,
+            url=str(request.url),
+            headers=dict(request.headers),
+            body=request.content.decode("utf-8", errors="replace"),
+            status=response.status_code,
+        )
+        return response
+
+    async def _handle_httpx_async_request(
+        self, transport_self: httpx.AsyncHTTPTransport, request: httpx.Request
+    ) -> httpx.Response:
+        """Async variant of _handle_httpx_request."""
+        method = request.method
+        url = str(request.url)
+
+        if self._matches_pass_through_rule(method, url):
+            return await self._execute_httpx_async_pass_through(transport_self, request)
+
+        config = self._find_matching_config(method, url)
+
+        if config is None:
+            hint = self.format_unmocked_hint("http:request", (method, url), {})
+            raise UnmockedInteractionError(
+                source_id="http:request",
+                args=(method, url),
+                kwargs={},
+                hint=hint,
+            )
+
+        body_str = request.content.decode("utf-8", errors="replace")
+        self._record_http_interaction(
+            method=method,
+            url=url,
+            headers=dict(request.headers),
+            body=body_str,
+            status=config.response_status,
+        )
+
+        return httpx.Response(
+            status_code=config.response_status,
+            headers=config.response_headers,
+            content=config.response_body,
+        )
+
+    async def _execute_httpx_async_pass_through(
+        self, transport_self: httpx.AsyncHTTPTransport, request: httpx.Request
+    ) -> httpx.Response:
+        """Forward an async httpx request to the real backend and record the interaction."""
+        original = HttpPlugin._original_httpx_async_transport_handle
+        response: httpx.Response = await original(transport_self, request)
+        self._record_http_interaction(
+            method=request.method,
+            url=str(request.url),
+            headers=dict(request.headers),
+            body=request.content.decode("utf-8", errors="replace"),
+            status=response.status_code,
+        )
+        return response
+
+    def _handle_requests_request(
+        self,
+        adapter_self: requests.adapters.HTTPAdapter,
+        request: requests.PreparedRequest,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> requests.Response:
         method = (request.method or "GET").upper()
         url = request.url or ""
+
+        if self._matches_pass_through_rule(method, url):
+            return self._execute_requests_pass_through(adapter_self, request, **kwargs)
+
         config = self._find_matching_config(method, url)
 
         if config is None:
@@ -492,11 +601,41 @@ class HttpPlugin(BasePlugin):
         response.request = request
         return response
 
+    def _execute_requests_pass_through(
+        self,
+        adapter_self: requests.adapters.HTTPAdapter,
+        request: requests.PreparedRequest,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> requests.Response:
+        """Forward a requests request to the real backend and record the interaction."""
+        original = HttpPlugin._original_requests_adapter_send
+        response: requests.Response = original(adapter_self, request, **kwargs)
+        method = (request.method or "GET").upper()
+        url = request.url or ""
+        body_str = ""
+        if request.body:
+            if isinstance(request.body, bytes):
+                body_str = request.body.decode("utf-8", errors="replace")
+            else:
+                body_str = str(request.body)
+        self._record_http_interaction(
+            method=method,
+            url=url,
+            headers=dict(request.headers),
+            body=body_str,
+            status=response.status_code,
+        )
+        return response
+
     def _handle_urllib_request(
         self, req: urllib.request.Request
     ) -> urllib.response.addinfourl:
         method = (req.get_method() or "GET").upper()
         url = req.full_url
+
+        if self._matches_pass_through_rule(method, url):
+            return self._execute_urllib_pass_through(req)
+
         config = self._find_matching_config(method, url)
 
         if config is None:
@@ -542,6 +681,56 @@ class HttpPlugin(BasePlugin):
         setattr(response, "msg", "OK")  # addinfourl has no typed msg attr; urllib needs it
         return response
 
+    def _execute_urllib_pass_through(
+        self, req: urllib.request.Request
+    ) -> urllib.response.addinfourl:
+        """Forward a urllib request to the real backend and record the interaction."""
+        original_opener = HttpPlugin._original_urllib_opener
+        # Restore original opener temporarily, make the real request, then reinstall bigfoot's
+        urllib.request.install_opener(original_opener)
+        try:
+            response: urllib.response.addinfourl = urllib.request.urlopen(req)
+        finally:
+            # Reinstall bigfoot's opener regardless of outcome
+            from bigfoot.plugins.http import HttpPlugin as _Self  # noqa: PLC0415
+
+            _Self._reinstall_urllib_opener()
+        method = (req.get_method() or "GET").upper()
+        url = req.full_url
+        self._record_http_interaction(
+            method=method,
+            url=url,
+            headers=dict(req.headers),
+            body="",
+            status=response.getcode() or 200,
+        )
+        return response
+
+    @classmethod
+    def _reinstall_urllib_opener(cls) -> None:
+        """Reinstall bigfoot's urllib opener after a pass-through call."""
+        # Build a fresh handler using the same dispatch function used in _install_urllib
+        # We call _install_urllib again but only the opener part.
+        # This is safe because _original_urllib_opener is still set at the class level.
+        class _BigfootHandler(urllib.request.BaseHandler):
+            handler_order = 100
+
+            def http_open(self, req: urllib.request.Request) -> urllib.response.addinfourl:
+                return _bigfoot_urllib_dispatch_ref(req)
+
+            def https_open(self, req: urllib.request.Request) -> urllib.response.addinfourl:
+                return _bigfoot_urllib_dispatch_ref(req)
+
+        def _bigfoot_urllib_dispatch_ref(
+            req: urllib.request.Request,
+        ) -> urllib.response.addinfourl:
+            verifier = _get_verifier_or_raise("http:request")
+            plugin = _find_http_plugin(verifier)
+            return plugin._handle_urllib_request(req)
+
+        opener = urllib.request.build_opener(_BigfootHandler)
+        urllib.request.install_opener(opener)
+
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations
     # ------------------------------------------------------------------
@@ -583,11 +772,23 @@ class HttpPlugin(BasePlugin):
     def format_assert_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "GET")
         url = interaction.details.get("url", "?")
+        headers = interaction.details.get("headers", {})
+        body = interaction.details.get("body", "")
         status = interaction.details.get("status", 200)
         return (
-            f'verifier.assert_interaction(http.request, method="{method}", '
-            f'url="{url}", status={status})'
+            f'verifier.assert_interaction(\n'
+            f'    http.request,\n'
+            f'    method="{method}",\n'
+            f'    url="{url}",\n'
+            f'    headers={headers!r},\n'
+            f'    body={body!r},\n'
+            f'    status={status},\n'
+            f')'
         )
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return the field names required in **expected when asserting an HTTP interaction."""
+        return frozenset({"method", "url", "headers", "body", "status"})
 
     def get_unused_mocks(self) -> list[HttpMockConfig]:
         return [c for c in self._mock_queue if c.required]
