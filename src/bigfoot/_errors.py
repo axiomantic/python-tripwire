@@ -174,3 +174,22 @@ class ConflictError(BigfootError):
         super().__init__(
             f"ConflictError: target={target!r}, patcher={patcher!r}"
         )
+
+
+class MissingAssertionFieldsError(BigfootError):
+    """Raised by assert_interaction() when the caller omits one or more assertable
+    fields from **expected.
+
+    Attributes:
+        missing_fields: frozenset of field names that were required but absent.
+    """
+
+    def __init__(self, missing_fields: frozenset[str]) -> None:
+        self.missing_fields = missing_fields
+        fields_str = ", ".join(sorted(missing_fields))
+        super().__init__(
+            f"MissingAssertionFieldsError: the following assertable fields were not "
+            f"included in the assertion: {fields_str}. "
+            f"Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
+            f"if the value is not the focus of this assertion."
+        )
