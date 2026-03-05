@@ -4,7 +4,7 @@ bigfoot's plugin system allows you to add interception for any type of interacti
 
 ## BasePlugin contract
 
-All plugins must subclass `BasePlugin` and implement nine abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
+All plugins must subclass `BasePlugin` and implement ten abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
 
 ```python
 from bigfoot._base_plugin import BasePlugin
@@ -262,3 +262,194 @@ with verifier.sandbox():
 verifier.assert_interaction(db_sentinel, query="SELECT * FROM users")
 verifier.verify_all()
 ```
+
+---
+
+## StateMachinePlugin
+
+Use `StateMachinePlugin` when the protocol your plugin models has a defined sequence of states — a connection that must be established before messages can flow, and closed before the object is discarded. Use `BasePlugin` directly when calls are stateless (HTTP requests, Redis GET/SET, arbitrary method mocks that carry no ordering constraint).
+
+### When to choose StateMachinePlugin
+
+| Situation | Base class |
+|---|---|
+| Socket (connect → send/recv → close) | `StateMachinePlugin` |
+| Database (connect → execute → commit → close) | `StateMachinePlugin` |
+| WebSocket (open → send/recv → close) | `StateMachinePlugin` |
+| SMTP (connect → ehlo → login → sendmail → quit) | `StateMachinePlugin` |
+| HTTP request/response cycle | `BasePlugin` |
+| Redis commands (GET, SET, DEL — stateless) | `BasePlugin` |
+| Generic method mock | `BasePlugin` via `MockPlugin` |
+
+`StateMachinePlugin` enforces that method calls happen from the correct state. Calling `recv` before `connect` raises `InvalidStateError` immediately, making bugs visible at the call site rather than as mysterious data corruption later.
+
+### Abstract methods
+
+`StateMachinePlugin` requires seven abstract methods from `BasePlugin` (`activate`, `deactivate`, `format_interaction`, `format_mock_hint`, `format_unmocked_hint`, `format_assert_hint`, and `format_unused_mock_hint`) plus three of its own:
+
+#### `_initial_state(self) -> str`
+
+Return the name of the state a fresh connection starts in.
+
+```python
+def _initial_state(self) -> str:
+    return "disconnected"
+```
+
+#### `_transitions(self) -> dict[str, dict[str, str]]`
+
+Return the full transition table as a nested dict:
+
+```python
+{method_name: {from_state: to_state, ...}, ...}
+```
+
+A method may appear in multiple from-states (for example, a `close` that is valid from either `connected` or `in_transaction`). A method that stays in the same state (like `send` while connected) uses `{current: current}` as the from/to pair.
+
+```python
+def _transitions(self) -> dict[str, dict[str, str]]:
+    return {
+        "connect":  {"disconnected": "connected"},
+        "send":     {"connected": "connected"},
+        "recv":     {"connected": "connected"},
+        "close":    {"connected": "closed"},
+    }
+```
+
+#### `_unmocked_source_id(self) -> str`
+
+Return the source ID string reported in `UnmockedInteractionError` when `new_session()` has not been called before a connection attempt. Conventionally matches the "entry point" interceptor.
+
+```python
+def _unmocked_source_id(self) -> str:
+    return "myprotocol:connect"
+```
+
+### Session scripting API
+
+Before the sandbox runs, register one session per expected connection:
+
+```python
+handle = bigfoot.socket_mock.new_session()
+handle.expect("connect", returns=None)
+handle.expect("recv",    returns=b"pong")
+handle.expect("close",   returns=None)
+```
+
+`new_session()` returns a `SessionHandle`. `expect()` appends one `ScriptStep` to the handle's FIFO script and returns the handle, so calls chain naturally:
+
+```python
+(bigfoot.socket_mock
+    .new_session()
+    .expect("connect", returns=None)
+    .expect("send",    returns=4)
+    .expect("recv",    returns=b"pong")
+    .expect("close",   returns=None))
+```
+
+`expect` parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `method` | `str` | required | Method name, must match a key in `_transitions()` |
+| `returns` | `Any` | required | Value returned when this step executes |
+| `raises` | `BaseException \| None` | `None` | Exception raised instead of returning |
+| `required` | `bool` | `True` | When `True`, teardown reports the step as unused if never consumed |
+
+Sessions are consumed in FIFO order. The first call to the connection entry point (e.g., `socket.connect()`) pops the first queued `SessionHandle` and binds it to that connection object. All subsequent method calls on the same connection object consume steps from that handle in order.
+
+### Interaction recording and assertions
+
+State machine plugins auto-assert every interaction at the time it is recorded. You do not call `bigfoot.assert_interaction()` for stateful plugins — there is nothing to assert after the sandbox. `verify_all()` still runs at teardown and will report any `required=True` steps that were configured but never consumed.
+
+### Minimal implementation example
+
+```python
+import threading
+from typing import Any, ClassVar
+
+from bigfoot._state_machine_plugin import StateMachinePlugin
+from bigfoot._timeline import Interaction
+
+
+class FtpPlugin(StateMachinePlugin):
+    """Mock plugin for a simple two-state FTP-like protocol."""
+
+    _install_count: ClassVar[int] = 0
+    _install_lock: ClassVar[threading.Lock] = threading.Lock()
+    _original_connect: ClassVar[Any] = None
+
+    # -- StateMachinePlugin abstract methods --------------------------------
+
+    def _initial_state(self) -> str:
+        return "disconnected"
+
+    def _transitions(self) -> dict[str, dict[str, str]]:
+        return {
+            "connect":  {"disconnected": "connected"},
+            "list":     {"connected": "connected"},
+            "get":      {"connected": "connected"},
+            "put":      {"connected": "connected"},
+            "quit":     {"connected": "closed"},
+        }
+
+    def _unmocked_source_id(self) -> str:
+        return "ftp:connect"
+
+    # -- BasePlugin lifecycle -----------------------------------------------
+
+    def activate(self) -> None:
+        with FtpPlugin._install_lock:
+            if FtpPlugin._install_count == 0:
+                import ftplib
+                FtpPlugin._original_connect = ftplib.FTP.connect
+                # ... install interceptors ...
+            FtpPlugin._install_count += 1
+
+    def deactivate(self) -> None:
+        with FtpPlugin._install_lock:
+            FtpPlugin._install_count = max(0, FtpPlugin._install_count - 1)
+            if FtpPlugin._install_count == 0 and FtpPlugin._original_connect is not None:
+                import ftplib
+                ftplib.FTP.connect = FtpPlugin._original_connect
+                FtpPlugin._original_connect = None
+
+    # -- BasePlugin format methods ------------------------------------------
+
+    def format_interaction(self, interaction: Interaction) -> str:
+        method = interaction.details.get("method", "?")
+        return f"[FtpPlugin] ftp.{method}(...)"
+
+    def format_mock_hint(self, interaction: Interaction) -> str:
+        method = interaction.details.get("method", "?")
+        return f"    bigfoot.ftp_mock.new_session().expect({method!r}, returns=...)"
+
+    def format_unmocked_hint(self, source_id: str, args: tuple, kwargs: dict) -> str:
+        method = source_id.split(":")[-1] if ":" in source_id else source_id
+        return (
+            f"ftp.{method}(...) was called but no session was queued.\n"
+            f"Register a session with:\n"
+            f"    bigfoot.ftp_mock.new_session().expect({method!r}, returns=...)"
+        )
+
+    def format_assert_hint(self, interaction: Interaction) -> str:
+        method = interaction.details.get("method", "?")
+        return f"    # ftp_mock: session step '{method}' recorded (state-machine, auto-asserted)"
+
+    def format_unused_mock_hint(self, mock_config: object) -> str:
+        method = getattr(mock_config, "method", "?")
+        tb = getattr(mock_config, "registration_traceback", "")
+        return (
+            f"ftp.{method}(...) was mocked (required=True) but never called.\n"
+            f"Registered at:\n{tb}"
+        )
+```
+
+Key implementation rules:
+
+- Capture originals at **import time** (module-level constants) or store them in class variables only after the first `activate()`. Never look up originals inside an interceptor function.
+- Increment `_install_count` **after** installing patches; decrement **before** restoring them (or in a pattern where the decrement and restore are atomic under the lock).
+- Call `_bind_connection(conn_obj)` at the connection entry point (e.g., inside the patched `connect()` method) to pop the next queued session.
+- Call `_lookup_session(conn_obj)` inside each subsequent method interceptor to retrieve the bound session.
+- Call `_release_session(conn_obj)` at the close/quit/disconnect point to free the session slot.
+- Call `_execute_step(handle, method, args, kwargs, source_id)` to validate the state transition, pop the next script step, advance the state, record the interaction, and return the configured value.

@@ -20,9 +20,17 @@ def test_all_contains_expected_names() -> None:
         "SandboxContext",
         "InAnyOrderContext",
         "MockPlugin",
+        "DatabasePlugin",
+        "PopenPlugin",
+        "SmtpPlugin",
+        "SocketPlugin",
+        "AsyncWebSocketPlugin",
+        "SyncWebSocketPlugin",
+        "RedisPlugin",
         # Errors
         "BigfootError",
         "AssertionInsideSandboxError",
+        "InvalidStateError",
         "NoActiveVerifierError",
         "UnmockedInteractionError",
         "UnassertedInteractionsError",
@@ -42,6 +50,13 @@ def test_all_contains_expected_names() -> None:
         "spy",
         "http",
         "subprocess_mock",
+        "popen_mock",
+        "smtp_mock",
+        "socket_mock",
+        "db_mock",
+        "async_websocket_mock",
+        "sync_websocket_mock",
+        "redis_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 
@@ -166,6 +181,7 @@ def test_http_plugin_importable_if_http_extra_installed() -> None:
     try:
         import httpx  # noqa: F401
         import requests  # noqa: F401
+
         http_available = True
     except ImportError:
         http_available = False
@@ -299,3 +315,57 @@ def test_mock_accepts_wraps_parameter() -> None:
 
     sig = inspect.signature(bigfoot.mock)
     assert "wraps" in sig.parameters
+
+
+def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """async_websocket_mock.__getattr__ raises ImportError with install instructions when websockets is not installed.
+
+    ESCAPE: async_websocket_mock
+      CLAIM: Accessing any attribute on async_websocket_mock raises ImportError with
+             instructions when bigfoot.plugins.websocket_plugin._WEBSOCKETS_AVAILABLE is False.
+      PATH:  _AsyncWebSocketProxy.__getattr__ -> checks _WEBSOCKETS_AVAILABLE -> raises ImportError.
+      CHECK: Raises ImportError with message containing "bigfoot[websockets]" and "pip install".
+      MUTATION: If __getattr__ does not check _WEBSOCKETS_AVAILABLE, the error is deferred to
+                activate() time (inside a test context), and the message will be different or absent.
+      ESCAPE: A proxy that checks availability but emits a wrong message would still pass the
+              attribute access but fail only the message assertion -- caught by exact string check.
+    """
+    import bigfoot
+    import bigfoot.plugins.websocket_plugin as ws_mod
+
+    monkeypatch.setattr(ws_mod, "_WEBSOCKETS_AVAILABLE", False)
+
+    with pytest.raises(ImportError) as exc_info:
+        _ = bigfoot.async_websocket_mock.new_session  # noqa: B018
+
+    assert "bigfoot[websockets]" in str(exc_info.value)
+    assert "pip install" in str(exc_info.value)
+
+
+def test_sync_websocket_mock_raises_import_error_when_websocket_client_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """sync_websocket_mock.__getattr__ raises ImportError with install instructions when websocket-client is not installed.
+
+    ESCAPE: sync_websocket_mock
+      CLAIM: Accessing any attribute on sync_websocket_mock raises ImportError with
+             instructions when bigfoot.plugins.websocket_plugin._WEBSOCKET_CLIENT_AVAILABLE is False.
+      PATH:  _SyncWebSocketProxy.__getattr__ -> checks _WEBSOCKET_CLIENT_AVAILABLE -> raises ImportError.
+      CHECK: Raises ImportError with message containing "bigfoot[websocket-client]" and "pip install".
+      MUTATION: If __getattr__ does not check _WEBSOCKET_CLIENT_AVAILABLE, the error is deferred
+                to activate() time (inside a test context), and the message will be different or absent.
+      ESCAPE: A proxy that checks availability but emits a wrong message would still pass the
+              attribute access but fail only the message assertion -- caught by exact string check.
+    """
+    import bigfoot
+    import bigfoot.plugins.websocket_plugin as ws_mod
+
+    monkeypatch.setattr(ws_mod, "_WEBSOCKET_CLIENT_AVAILABLE", False)
+
+    with pytest.raises(ImportError) as exc_info:
+        _ = bigfoot.sync_websocket_mock.new_session  # noqa: B018
+
+    assert "bigfoot[websocket-client]" in str(exc_info.value)
+    assert "pip install" in str(exc_info.value)

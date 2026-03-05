@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bigfoot"
-version = "0.3.0"
+version = "0.4.0"
 description = "A pluggable interaction auditor for Python tests."
 requires-python = ">=3.11"
 readme = "README.md"
@@ -39,6 +39,15 @@ http = [
 matchers = [
     "dirty-equals>=0.7.0",
 ]
+websockets = [
+    "websockets>=13.0",
+]
+"websocket-client" = [
+    "websocket-client>=1.7.0",
+]
+redis = [
+    "redis>=5.0.0",
+]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
@@ -46,7 +55,7 @@ docs = [
     "mike>=2.1",
 ]
 dev = [
-    "bigfoot[http,matchers,docs]",
+    "bigfoot[http,matchers,docs,websockets,websocket-client,redis]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",

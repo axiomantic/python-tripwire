@@ -1,4 +1,5 @@
 """BasePlugin abstract base class for all bigfoot plugins."""
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 

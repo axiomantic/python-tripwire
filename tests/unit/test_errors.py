@@ -194,8 +194,7 @@ def test_unused_mocks_error_str() -> None:
     )
     result = str(err)
     assert result == (
-        "UnusedMocksError: 1 unused mock(s), "
-        "hint='Remove or set required=False for unused mocks.'"
+        "UnusedMocksError: 1 unused mock(s), hint='Remove or set required=False for unused mocks.'"
     )
 
 
@@ -293,9 +292,7 @@ def test_verification_error_str_only_unused() -> None:
     err = VerificationError(unasserted=None, unused=unused)
     result = str(err)
     assert result == (
-        "VerificationError:\n"
-        "  [UnusedMocks] UnusedMocksError: 1 unused mock(s), "
-        "hint='Fix unused.'"
+        "VerificationError:\n  [UnusedMocks] UnusedMocksError: 1 unused mock(s), hint='Fix unused.'"
     )
 
 
@@ -417,9 +414,7 @@ def test_conflict_error_str() -> None:
     """__str__ names the conflicting target and patcher library."""
     err = ConflictError(target="urllib.request.urlopen", patcher="responses")
     result = str(err)
-    assert result == (
-        "ConflictError: target='urllib.request.urlopen', patcher='responses'"
-    )
+    assert result == ("ConflictError: target='urllib.request.urlopen', patcher='responses'")
 
 
 # ---------------------------------------------------------------------------
@@ -430,7 +425,11 @@ def test_conflict_error_str() -> None:
 def test_assertion_inside_sandbox_error_takes_no_arguments() -> None:
     """AssertionInsideSandboxError must be constructable with no arguments."""
     err = AssertionInsideSandboxError()
-    assert isinstance(err, AssertionInsideSandboxError)
+    assert str(err) == (
+        "AssertionInsideSandboxError: assert_interaction(), in_any_order(), and verify_all() "
+        "must be called after the sandbox has exited, not while it is active. "
+        "Exit the sandbox first, then make assertions."
+    )
 
 
 def test_assertion_inside_sandbox_error_is_catchable_as_bigfoot_error() -> None:
@@ -443,11 +442,11 @@ def test_assertion_inside_sandbox_error_str() -> None:
     """__str__ mentions all three guarded methods and explains the constraint."""
     err = AssertionInsideSandboxError()
     result = str(err)
-    assert "AssertionInsideSandboxError" in result
-    assert "assert_interaction()" in result
-    assert "in_any_order()" in result
-    assert "verify_all()" in result
-    assert "sandbox" in result
+    assert result == (
+        "AssertionInsideSandboxError: assert_interaction(), in_any_order(), and verify_all() "
+        "must be called after the sandbox has exited, not while it is active. "
+        "Exit the sandbox first, then make assertions."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -458,7 +457,12 @@ def test_assertion_inside_sandbox_error_str() -> None:
 def test_no_active_verifier_error_takes_no_arguments() -> None:
     """NoActiveVerifierError must be constructable with no arguments."""
     err = NoActiveVerifierError()
-    assert isinstance(err, NoActiveVerifierError)
+    assert str(err) == (
+        "NoActiveVerifierError: no active bigfoot verifier. "
+        "Module-level bigfoot functions (mock, sandbox, assert_interaction, etc.) "
+        "require an active test context. Ensure bigfoot is installed as a pytest "
+        "plugin (it registers automatically) and you are running inside a pytest test."
+    )
 
 
 def test_no_active_verifier_error_is_catchable_as_bigfoot_error() -> None:
@@ -471,9 +475,12 @@ def test_no_active_verifier_error_str() -> None:
     """__str__ explains the missing verifier context and how to fix it."""
     err = NoActiveVerifierError()
     result = str(err)
-    assert "NoActiveVerifierError" in result
-    assert "no active bigfoot verifier" in result
-    assert "pytest" in result
+    assert result == (
+        "NoActiveVerifierError: no active bigfoot verifier. "
+        "Module-level bigfoot functions (mock, sandbox, assert_interaction, etc.) "
+        "require an active test context. Ensure bigfoot is installed as a pytest "
+        "plugin (it registers automatically) and you are running inside a pytest test."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -525,3 +532,53 @@ def test_missing_assertion_fields_error_is_raiseable() -> None:
     """Must be raiseable and catchable via the base class."""
     with pytest.raises(BigfootError):
         raise MissingAssertionFieldsError(frozenset({"args"}))
+
+
+# ---------------------------------------------------------------------------
+# InvalidStateError
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_state_error_message_format() -> None:
+    """__str__ matches the exact required format."""
+    from bigfoot._errors import InvalidStateError
+
+    err = InvalidStateError(
+        source_id="my_source",
+        method="start",
+        current_state="stopped",
+        valid_states=frozenset({"idle", "paused"}),
+    )
+    result = str(err)
+    assert result == (
+        f"'start' called in state 'stopped'; valid from: {frozenset({'idle', 'paused'})!r}"
+    )
+
+
+def test_invalid_state_error_attributes() -> None:
+    """All four constructor arguments are stored as attributes."""
+    from bigfoot._errors import InvalidStateError
+
+    err = InvalidStateError(
+        source_id="src_abc",
+        method="stop",
+        current_state="running",
+        valid_states=frozenset({"idle"}),
+    )
+    assert err.source_id == "src_abc"
+    assert err.method == "stop"
+    assert err.current_state == "running"
+    assert err.valid_states == frozenset({"idle"})
+
+
+def test_invalid_state_error_catchable_as_bigfoot_error() -> None:
+    """InvalidStateError must be catchable as BigfootError."""
+    from bigfoot._errors import InvalidStateError
+
+    with pytest.raises(BigfootError):
+        raise InvalidStateError(
+            source_id="s",
+            method="m",
+            current_state="c",
+            valid_states=frozenset({"v"}),
+        )

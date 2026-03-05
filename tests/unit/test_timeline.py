@@ -1,4 +1,5 @@
 """Tests for Task 4: _timeline.py — Interaction dataclass and Timeline class."""
+
 import threading
 from unittest.mock import MagicMock
 

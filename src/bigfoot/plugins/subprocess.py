@@ -1,4 +1,5 @@
 """SubprocessPlugin: intercepts subprocess.run and shutil.which."""
+
 import shutil
 import subprocess
 import threading

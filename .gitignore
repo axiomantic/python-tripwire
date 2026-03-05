@@ -47,3 +47,6 @@ logs/
 
 # MkDocs build output
 site/
+
+# Git worktrees
+.worktrees/

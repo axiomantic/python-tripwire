@@ -1,5 +1,6 @@
 # src/bigfoot/pytest_plugin.py
 """pytest fixture registration for bigfoot."""
+
 from collections.abc import Generator
 
 import pytest

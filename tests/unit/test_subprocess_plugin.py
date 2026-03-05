@@ -1,4 +1,5 @@
 """Unit tests for bigfoot SubprocessPlugin."""
+
 import shutil
 import subprocess
 from subprocess import TimeoutExpired
@@ -46,6 +47,7 @@ def _reset_install_count() -> None:
             SubprocessPlugin._original_shutil_which = None
         # Reset module-level interceptor references
         import bigfoot.plugins.subprocess as _sp_mod
+
         _sp_mod._bigfoot_subprocess_run = None
         _sp_mod._bigfoot_shutil_which = None
 
@@ -61,6 +63,7 @@ def clean_install_count():
 # ---------------------------------------------------------------------------
 # Activation and reference counting
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_activate_installs_patches
 #   CLAIM: After activate(), subprocess.run is replaced with bigfoot's interceptor.
@@ -130,6 +133,7 @@ def test_install_noop() -> None:
 # ---------------------------------------------------------------------------
 # mock_run basic behavior
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_mock_run_returns_completed_process
 #   CLAIM: After mock_run registration, subprocess.run inside sandbox returns
@@ -250,6 +254,7 @@ def test_mock_run_raises_exception() -> None:
 # mock_run with BigFoot sandbox (module-level API)
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_mock_run_in_sandbox
 #   CLAIM: Using bigfoot.sandbox() context manager with mock_run registered before;
 #          assert_interaction passes after sandbox exits.
@@ -319,6 +324,7 @@ def test_unused_required_run_raises() -> None:
 # mock_which behavior
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_mock_which_registered_returns_path
 #   CLAIM: After mock_which("git", returns="/usr/bin/git"), shutil.which("git")
 #          returns "/usr/bin/git" inside the sandbox.
@@ -385,6 +391,7 @@ def test_mock_which_registered_none_returns_none() -> None:
 # Timeline and assertions
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_assert_interaction_run
 #   CLAIM: After sandbox with mock_run, assert_interaction(subprocess_mock.run, command=...)
 #          passes without raising.
@@ -424,6 +431,7 @@ def test_assert_interaction_which(bigfoot_verifier: StrictVerifier) -> None:
 # ---------------------------------------------------------------------------
 # ConflictError detection
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_conflict_error_subprocess_run_already_patched
 #   CLAIM: If subprocess.run is replaced with a MagicMock before bigfoot.sandbox(),
@@ -468,6 +476,7 @@ def test_conflict_error_shutil_which_already_patched() -> None:
 # Singleton behavior
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_subprocess_mock_proxy_raises_outside_sandbox
 #   CLAIM: Accessing bigfoot.subprocess_mock.mock_run outside a pytest test context
 #          raises NoActiveVerifierError (because _current_test_verifier is not set).
@@ -491,6 +500,7 @@ def test_subprocess_mock_proxy_raises_outside_sandbox() -> None:
 # ---------------------------------------------------------------------------
 # assertable_fields
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_assertable_fields_run
 #   CLAIM: SubprocessPlugin.assertable_fields(interaction) returns frozenset({"command"})
@@ -537,6 +547,7 @@ def test_assertable_fields_unknown_source() -> None:
 # ---------------------------------------------------------------------------
 # format_assert_hint (C-2 path) and unused-which tracking (C-3 path)
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_unasserted_interaction_raises_correctly
 #   CLAIM: If subprocess.run is called inside a sandbox and assert_interaction is never called,

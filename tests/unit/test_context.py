@@ -1,4 +1,5 @@
 """Tests for Task 3: _context.py — ContextVars."""
+
 from __future__ import annotations
 
 import contextvars
@@ -132,5 +133,3 @@ def test_active_verifier_isolated_per_context() -> None:
     finally:
         _active_verifier.reset(token)
     assert _active_verifier.get() is None
-
-

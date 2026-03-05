@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-05
+
+### Added
+
+- `StateMachinePlugin` — abstract base class for stateful protocol plugins; provides FIFO session queue, state-transition validation via `_transitions()`, `new_session()` / `_bind_connection()` / `_execute_step()` / `_release_session()` lifecycle, and automatic interaction assertion at step execution time
+- `InvalidStateError` — raised when a method is called from a state not listed as a valid from-state in the plugin's transition table; carries `source_id`, `method`, `current_state`, and `valid_states` attributes
+- `SocketPlugin` — mocks `socket.socket` connect/send/sendall/recv/close with state machine `disconnected → connected → closed`; accessible via `bigfoot.socket_mock`
+- `DatabasePlugin` — mocks `sqlite3.connect()` with full execute/commit/rollback/close lifecycle and state machine `connected → in_transaction → connected/closed`; returns fake cursor objects supporting `fetchone()`, `fetchall()`, `fetchmany()`, and iteration; accessible via `bigfoot.db_mock`
+- `AsyncWebSocketPlugin` — mocks `websockets.connect` async context manager with state machine `connecting → open → closed`; requires `bigfoot[websockets]`; accessible via `bigfoot.async_websocket_mock`
+- `SyncWebSocketPlugin` — mocks `websocket.create_connection` (websocket-client library) with state machine `connecting → open → closed`; requires `bigfoot[websocket-client]`; accessible via `bigfoot.sync_websocket_mock`
+- `PopenPlugin` — mocks `subprocess.Popen` with stdin/stdout/stderr stream scripting and `communicate()`/`wait()` lifecycle; state machine `created → running → terminated`; coexists with `SubprocessPlugin`; accessible via `bigfoot.popen_mock`
+- `SmtpPlugin` — mocks `smtplib.SMTP` with full state machine including optional `starttls`/`login` branches; supports both authenticated and unauthenticated send flows; accessible via `bigfoot.smtp_mock`
+- `RedisPlugin` — mocks `redis.Redis.execute_command` with per-command FIFO queues; stateless (no state machine); requires `bigfoot[redis]`; accessible via `bigfoot.redis_mock`
+- `bigfoot[websockets]` optional extra — adds `websockets>=13.0` dependency for `AsyncWebSocketPlugin`
+- `bigfoot[websocket-client]` optional extra — adds `websocket-client>=1.7.0` dependency for `SyncWebSocketPlugin`
+- `bigfoot[redis]` optional extra — adds `redis>=5.0.0` dependency for `RedisPlugin`
+
 ## [0.3.0] - 2026-03-05
 
 ### Added
@@ -61,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.4.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.0
 [0.3.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.3.0
 [0.2.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.2.0
 [0.1.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.1.1

@@ -17,6 +17,7 @@ from bigfoot._verifier import StrictVerifier
 
 # --- Helpers ---
 
+
 def _make_mock_plugin(verifier: StrictVerifier) -> MagicMock:
     """Create a mock plugin that is properly registered on the verifier."""
     plugin = MagicMock()
@@ -32,7 +33,9 @@ def _make_mock_plugin(verifier: StrictVerifier) -> MagicMock:
     return plugin
 
 
-def _inject_interaction(verifier: StrictVerifier, source_id: str, plugin: Any = None) -> Interaction:
+def _inject_interaction(
+    verifier: StrictVerifier, source_id: str, plugin: Any = None
+) -> Interaction:
     if plugin is None:
         plugin = MagicMock()
         plugin.matches.return_value = True
@@ -45,6 +48,7 @@ def _inject_interaction(verifier: StrictVerifier, source_id: str, plugin: Any = 
 
 
 # --- StrictVerifier basic tests ---
+
 
 def test_verifier_init_empty() -> None:
     v = StrictVerifier()
@@ -104,6 +108,7 @@ def test_verify_all_raises_verification_error_when_both_fail() -> None:
 
 # --- sandbox() tests ---
 
+
 def test_sandbox_sets_active_verifier() -> None:
     v = StrictVerifier()
     assert _active_verifier.get() is None
@@ -155,6 +160,7 @@ async def test_sandbox_async_protocol() -> None:
 
 # --- assert_interaction() tests ---
 
+
 def test_assert_interaction_fifo_matches_next() -> None:
     v = StrictVerifier()
     plugin = _make_mock_plugin(v)
@@ -200,6 +206,7 @@ def test_assert_interaction_fifo_raises_when_fields_no_match() -> None:
 
 # --- in_any_order() tests ---
 
+
 def test_in_any_order_allows_unordered_assertion() -> None:
     v = StrictVerifier()
     plugin = _make_mock_plugin(v)
@@ -244,6 +251,7 @@ def test_in_any_order_depth_resets_after_exit() -> None:
 
 # --- Coverage gap: verifier.mock() reuses existing MockPlugin ---
 
+
 def test_mock_reuses_existing_mock_plugin() -> None:
     """verifier.mock() called twice finds the existing MockPlugin and doesn't create a second."""
     from bigfoot._mock_plugin import MockPlugin
@@ -282,6 +290,7 @@ def test_mock_skips_non_mock_plugins_when_searching() -> None:
 
 
 # --- Coverage gap: SandboxContext._enter() activation failure recovery ---
+
 
 def test_sandbox_activation_failure_deactivates_already_activated_plugins() -> None:
     """When plugin.activate() raises, previously-activated plugins are deactivated."""
@@ -347,6 +356,7 @@ def test_sandbox_deactivation_failure_still_resets_context_var() -> None:
 
 # --- Coverage gap: async InAnyOrderContext ---
 
+
 @pytest.mark.asyncio
 async def test_in_any_order_async_protocol() -> None:
     """InAnyOrderContext supports async with syntax."""
@@ -369,6 +379,7 @@ async def test_in_any_order_async_protocol() -> None:
 
 
 # --- Coverage gap: _format_mismatch_error with non-empty remaining list ---
+
 
 def test_format_mismatch_error_with_empty_timeline() -> None:
     """_format_mismatch_error with actual=None and empty remaining produces clean hint."""

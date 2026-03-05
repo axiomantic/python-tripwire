@@ -1,4 +1,5 @@
 """MockPlugin, MockProxy, MethodProxy, MockConfig."""
+
 import threading
 import traceback
 from collections import deque
@@ -320,11 +321,11 @@ class MockPlugin(BasePlugin):
         args = interaction.details.get("args", ())
         kwargs = interaction.details.get("kwargs", {})
         return (
-            f'verifier.assert_interaction(\n'
+            f"verifier.assert_interaction(\n"
             f'    verifier.mock("{mock_name}").{method_name},\n'
-            f'    args={args!r},\n'
-            f'    kwargs={kwargs!r},\n'
-            f')'
+            f"    args={args!r},\n"
+            f"    kwargs={kwargs!r},\n"
+            f")"
         )
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:

@@ -5,6 +5,7 @@ Tests verify the structural contracts of both fixtures:
 - _bigfoot_auto_verifier: autouse generator, sets ContextVar, calls verify_all() at teardown
 - bigfoot_verifier: explicit fixture that returns the auto-verifier
 """
+
 from unittest.mock import MagicMock
 
 import pytest

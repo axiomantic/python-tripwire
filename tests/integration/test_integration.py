@@ -2,6 +2,7 @@
 
 Each test is self-contained. No real network calls are made.
 """
+
 import asyncio
 import concurrent.futures
 
@@ -275,8 +276,7 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
 
     original = httpx.HTTPTransport.handle_request
 
-    def fake_patch(self: object, request: object) -> None:
-        ...
+    def fake_patch(self: object, request: object) -> None: ...
 
     httpx.HTTPTransport.handle_request = fake_patch  # type: ignore[method-assign]
 

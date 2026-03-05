@@ -1,7 +1,8 @@
 """bigfoot: a pluggable interaction auditor for Python tests."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from bigfoot._context import _get_test_verifier_or_raise
 from bigfoot._errors import (
@@ -9,6 +10,7 @@ from bigfoot._errors import (
     BigfootError,
     ConflictError,
     InteractionMismatchError,
+    InvalidStateError,
     MissingAssertionFieldsError,
     NoActiveVerifierError,
     SandboxNotActiveError,
@@ -25,7 +27,26 @@ try:
 except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
+from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
+from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
+from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
+from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
+from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
+from bigfoot.plugins.websocket_plugin import (
+    AsyncWebSocketPlugin as _AsyncWebSocketPlugin,
+)
+from bigfoot.plugins.websocket_plugin import (
+    SyncWebSocketPlugin as _SyncWebSocketPlugin,
+)
+
+DatabasePlugin = _DatabasePlugin
+PopenPlugin = _PopenPlugin
+SmtpPlugin = _SmtpPlugin
+SocketPlugin = _SocketPlugin
+AsyncWebSocketPlugin = _AsyncWebSocketPlugin
+SyncWebSocketPlugin = _SyncWebSocketPlugin
+RedisPlugin = _RedisPlugin
 
 if TYPE_CHECKING:
     from bigfoot._mock_plugin import MethodProxy, MockProxy
@@ -38,9 +59,17 @@ __all__ = [
     "SandboxContext",
     "InAnyOrderContext",
     "MockPlugin",
+    "DatabasePlugin",
+    "PopenPlugin",
+    "SmtpPlugin",
+    "SocketPlugin",
+    "AsyncWebSocketPlugin",
+    "SyncWebSocketPlugin",
+    "RedisPlugin",
     # Errors
     "BigfootError",
     "AssertionInsideSandboxError",
+    "InvalidStateError",
     "NoActiveVerifierError",
     "UnmockedInteractionError",
     "UnassertedInteractionsError",
@@ -60,7 +89,29 @@ __all__ = [
     "spy",
     "http",
     "subprocess_mock",
+    "popen_mock",
+    "smtp_mock",
+    "socket_mock",
+    "db_mock",
+    "async_websocket_mock",
+    "sync_websocket_mock",
+    "redis_mock",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Plugin lookup helper
+# ---------------------------------------------------------------------------
+
+_T = TypeVar("_T")
+
+
+def _get_or_create_plugin(verifier: StrictVerifier, plugin_type: type[_T]) -> _T:
+    """Return the first plugin of plugin_type on verifier, creating it if absent."""
+    for p in verifier._plugins:
+        if isinstance(p, plugin_type):
+            return p
+    return plugin_type(verifier)  # type: ignore[call-arg]
 
 
 # ---------------------------------------------------------------------------
@@ -134,13 +185,7 @@ class _HttpProxy:
                 "Install it with: pip install bigfoot[http]"
             ) from None
         verifier = _get_test_verifier_or_raise()
-        plugin: _HttpPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _HttpPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _HttpPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _HttpPlugin)
         return getattr(plugin, name)
 
 
@@ -160,14 +205,172 @@ class _SubprocessProxy:
 
     def __getattr__(self, name: str) -> object:
         verifier = _get_test_verifier_or_raise()
-        plugin: _SubprocessPlugin | None = None
-        for p in verifier._plugins:
-            if isinstance(p, _SubprocessPlugin):
-                plugin = p
-                break
-        if plugin is None:
-            plugin = _SubprocessPlugin(verifier)
+        plugin = _get_or_create_plugin(verifier, _SubprocessPlugin)
         return getattr(plugin, name)
 
 
 subprocess_mock = _SubprocessProxy()
+
+
+# ---------------------------------------------------------------------------
+# Popen proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _PopenProxy:
+    """Proxy to the PopenPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _PopenPlugin)
+        return getattr(plugin, name)
+
+
+popen_mock = _PopenProxy()
+
+
+# ---------------------------------------------------------------------------
+# SMTP proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SmtpProxy:
+    """Proxy to the SmtpPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _SmtpPlugin)
+        return getattr(plugin, name)
+
+
+smtp_mock = _SmtpProxy()
+
+
+# ---------------------------------------------------------------------------
+# Socket proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SocketProxy:
+    """Proxy to the SocketPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _SocketPlugin)
+        return getattr(plugin, name)
+
+
+socket_mock = _SocketProxy()
+
+
+# ---------------------------------------------------------------------------
+# Database proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _DatabaseProxy:
+    """Proxy to the DatabasePlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _DatabasePlugin)
+        return getattr(plugin, name)
+
+
+db_mock = _DatabaseProxy()
+
+
+# ---------------------------------------------------------------------------
+# AsyncWebSocket proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _AsyncWebSocketProxy:
+    """Proxy to the AsyncWebSocketPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if the
+    websockets extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.websocket_plugin import _WEBSOCKETS_AVAILABLE
+
+        if not _WEBSOCKETS_AVAILABLE:
+            raise ImportError(
+                "bigfoot[websockets] is required to use bigfoot.async_websocket_mock. "
+                "Install it with: pip install bigfoot[websockets]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _AsyncWebSocketPlugin)
+        return getattr(plugin, name)
+
+
+async_websocket_mock = _AsyncWebSocketProxy()
+
+
+# ---------------------------------------------------------------------------
+# SyncWebSocket proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SyncWebSocketProxy:
+    """Proxy to the SyncWebSocketPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if the
+    websocket-client extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.websocket_plugin import _WEBSOCKET_CLIENT_AVAILABLE
+
+        if not _WEBSOCKET_CLIENT_AVAILABLE:
+            raise ImportError(
+                "bigfoot[websocket-client] is required to use bigfoot.sync_websocket_mock. "
+                "Install it with: pip install bigfoot[websocket-client]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _SyncWebSocketPlugin)
+        return getattr(plugin, name)
+
+
+sync_websocket_mock = _SyncWebSocketProxy()
+
+
+# ---------------------------------------------------------------------------
+# Redis proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _RedisProxy:
+    """Proxy to the RedisPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the redis extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.redis_plugin import _REDIS_AVAILABLE
+
+        if not _REDIS_AVAILABLE:
+            raise ImportError(
+                "bigfoot[redis] is required to use bigfoot.redis_mock. "
+                "Install it with: pip install bigfoot[redis]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _RedisPlugin)
+        return getattr(plugin, name)
+
+
+redis_mock = _RedisProxy()

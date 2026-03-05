@@ -2,6 +2,7 @@
 
 This module imports NOTHING from other bigfoot modules to prevent circular imports.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -59,10 +60,7 @@ class UnusedMocksError(BigfootError):
     def __init__(self, mocks: list[Any], hint: str) -> None:
         self.mocks = mocks
         self.hint = hint
-        super().__init__(
-            f"UnusedMocksError: {len(mocks)} unused mock(s), "
-            f"hint={hint!r}"
-        )
+        super().__init__(f"UnusedMocksError: {len(mocks)} unused mock(s), hint={hint!r}")
 
 
 class VerificationError(BigfootError):
@@ -111,10 +109,7 @@ class InteractionMismatchError(BigfootError):
         self.actual = actual
         self.hint = hint
         super().__init__(
-            f"InteractionMismatchError: "
-            f"expected={expected!r}, "
-            f"actual={actual!r}, "
-            f"hint={hint!r}"
+            f"InteractionMismatchError: expected={expected!r}, actual={actual!r}, hint={hint!r}"
         )
 
 
@@ -171,9 +166,7 @@ class ConflictError(BigfootError):
     def __init__(self, target: str, patcher: str) -> None:
         self.target = target
         self.patcher = patcher
-        super().__init__(
-            f"ConflictError: target={target!r}, patcher={patcher!r}"
-        )
+        super().__init__(f"ConflictError: target={target!r}, patcher={patcher!r}")
 
 
 class MissingAssertionFieldsError(BigfootError):
@@ -192,4 +185,30 @@ class MissingAssertionFieldsError(BigfootError):
             f"included in the assertion: {fields_str}. "
             f"Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
             f"if the value is not the focus of this assertion."
+        )
+
+
+class InvalidStateError(BigfootError):
+    """Raised when a state-machine method is called from an invalid state.
+
+    Attributes:
+        source_id: Identifier of the source that triggered the call.
+        method: Name of the method that was called.
+        current_state: The state the machine was in when the call was made.
+        valid_states: The frozenset of states from which the call is permitted.
+    """
+
+    def __init__(
+        self,
+        source_id: str,
+        method: str,
+        current_state: str,
+        valid_states: frozenset[str],
+    ) -> None:
+        self.source_id = source_id
+        self.method = method
+        self.current_state = current_state
+        self.valid_states = valid_states
+        super().__init__(
+            f"'{method}' called in state '{current_state}'; valid from: {valid_states!r}"
         )
