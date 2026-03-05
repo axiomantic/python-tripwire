@@ -41,6 +41,7 @@ def test_all_contains_expected_names() -> None:
         "current_verifier",
         "spy",
         "http",
+        "subprocess_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 
