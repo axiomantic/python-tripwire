@@ -2,6 +2,7 @@
 
 This module imports NOTHING from other bigfoot modules to prevent circular imports.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -59,10 +60,7 @@ class UnusedMocksError(BigfootError):
     def __init__(self, mocks: list[Any], hint: str) -> None:
         self.mocks = mocks
         self.hint = hint
-        super().__init__(
-            f"UnusedMocksError: {len(mocks)} unused mock(s), "
-            f"hint={hint!r}"
-        )
+        super().__init__(f"UnusedMocksError: {len(mocks)} unused mock(s), hint={hint!r}")
 
 
 class VerificationError(BigfootError):
@@ -111,10 +109,7 @@ class InteractionMismatchError(BigfootError):
         self.actual = actual
         self.hint = hint
         super().__init__(
-            f"InteractionMismatchError: "
-            f"expected={expected!r}, "
-            f"actual={actual!r}, "
-            f"hint={hint!r}"
+            f"InteractionMismatchError: expected={expected!r}, actual={actual!r}, hint={hint!r}"
         )
 
 
@@ -171,9 +166,7 @@ class ConflictError(BigfootError):
     def __init__(self, target: str, patcher: str) -> None:
         self.target = target
         self.patcher = patcher
-        super().__init__(
-            f"ConflictError: target={target!r}, patcher={patcher!r}"
-        )
+        super().__init__(f"ConflictError: target={target!r}, patcher={patcher!r}")
 
 
 class MissingAssertionFieldsError(BigfootError):

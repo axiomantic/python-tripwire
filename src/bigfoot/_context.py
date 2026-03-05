@@ -3,6 +3,7 @@
 Import this module first to avoid circular imports. It has no dependencies
 on other bigfoot modules at import time (only deferred imports in functions).
 """
+
 from __future__ import annotations
 
 import contextvars

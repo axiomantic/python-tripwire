@@ -39,6 +39,12 @@ http = [
 matchers = [
     "dirty-equals>=0.7.0",
 ]
+websockets = [
+    "websockets>=13.0",
+]
+"websocket-client" = [
+    "websocket-client>=1.7.0",
+]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
@@ -46,7 +52,7 @@ docs = [
     "mike>=2.1",
 ]
 dev = [
-    "bigfoot[http,matchers,docs]",
+    "bigfoot[http,matchers,docs,websockets,websocket-client]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",

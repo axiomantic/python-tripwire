@@ -1,4 +1,5 @@
 """Tests for Task 7: _mock_plugin.py — MockPlugin, MockProxy, MethodProxy, MockConfig."""
+
 from typing import Any
 
 import pytest
@@ -987,11 +988,11 @@ def test_format_assert_hint_returns_string() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.assert_interaction(\n'
+        "verifier.assert_interaction(\n"
         '    verifier.mock("Svc").method,\n'
-        '    args=(),\n'
-        '    kwargs={},\n'
-        ')'
+        "    args=(),\n"
+        "    kwargs={},\n"
+        ")"
     )
 
 
@@ -1218,6 +1219,7 @@ def test_mock_plugin_matches_returns_false_on_exception() -> None:
 
 def test_method_proxy_wraps_delegation_calls_real_method() -> None:
     """When wraps is set and queue is empty, real method is called and result returned."""
+
     class _Real:
         def compute(self, x: int, y: int) -> int:
             return x + y
@@ -1235,6 +1237,7 @@ def test_method_proxy_wraps_delegation_calls_real_method() -> None:
 
 def test_method_proxy_wraps_delegation_records_interaction() -> None:
     """When wraps delegates to real, interaction is recorded on the timeline."""
+
     class _Real:
         def compute(self, x: int, y: int) -> int:
             return x + y
@@ -1256,6 +1259,7 @@ def test_method_proxy_wraps_delegation_records_interaction() -> None:
 
 def test_method_proxy_wraps_delegation_records_even_when_real_raises() -> None:
     """When wraps real method raises, interaction is still recorded before re-raise."""
+
     class _Real:
         def fail(self) -> None:
             raise ValueError("real error")
@@ -1276,6 +1280,7 @@ def test_method_proxy_wraps_delegation_records_even_when_real_raises() -> None:
 
 def test_method_proxy_queue_takes_priority_over_wraps() -> None:
     """If queue has entries, they are consumed even when wraps is set."""
+
     class _Real:
         def compute(self) -> str:
             return "real"
@@ -1294,6 +1299,7 @@ def test_method_proxy_queue_takes_priority_over_wraps() -> None:
 
 def test_mock_proxy_wraps_property() -> None:
     """MockProxy.wraps returns the real object set at construction."""
+
     class _Real:
         pass
 
@@ -1314,6 +1320,7 @@ def test_mock_proxy_wraps_none_when_not_set() -> None:
 
 def test_get_or_create_proxy_updates_wraps_on_existing_proxy() -> None:
     """If proxy already exists and wraps is passed, wraps is updated on the existing proxy."""
+
     class _Real:
         pass
 
@@ -1371,9 +1378,9 @@ def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.assert_interaction(\n'
+        "verifier.assert_interaction(\n"
         '    verifier.mock("Logger").log,\n'
         "    args=('event',),\n"
         "    kwargs={'level': 'info'},\n"
-        ')'
+        ")"
     )

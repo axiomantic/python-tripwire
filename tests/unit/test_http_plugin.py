@@ -3,6 +3,7 @@
 Tests use unittest.mock.patch to avoid real network calls.
 httpx and requests are optional extras -- skip all tests if not installed.
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,7 +44,9 @@ def _reset_install_count() -> None:
             httpx.HTTPTransport.handle_request = HttpPlugin._original_httpx_transport_handle
             HttpPlugin._original_httpx_transport_handle = None
         if HttpPlugin._original_httpx_async_transport_handle is not None:
-            httpx.AsyncHTTPTransport.handle_async_request = HttpPlugin._original_httpx_async_transport_handle
+            httpx.AsyncHTTPTransport.handle_async_request = (
+                HttpPlugin._original_httpx_async_transport_handle
+            )
             HttpPlugin._original_httpx_async_transport_handle = None
         if HttpPlugin._original_requests_adapter_send is not None:
             requests.adapters.HTTPAdapter.send = HttpPlugin._original_requests_adapter_send
@@ -61,6 +64,7 @@ def clean_install_count():
 # ---------------------------------------------------------------------------
 # Test: HttpPlugin is a proper BasePlugin subclass
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_http_plugin_is_base_plugin_subclass
 #   CLAIM: HttpPlugin is a subclass of BasePlugin.
@@ -104,6 +108,7 @@ def test_http_plugin_duplicate_raises() -> None:
 # Test: activate() increments install count; installs patches on first call
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_activate_increments_install_count
 #   CLAIM: activate() increments _install_count from 0 to 1.
 #   PATH:  activate() -> _install_lock -> _install_count += 1.
@@ -134,6 +139,7 @@ def test_activate_installs_patches_on_first_call() -> None:
 # ---------------------------------------------------------------------------
 # Test: deactivate() decrements; uninstalls on last call
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_deactivate_decrements_install_count
 #   CLAIM: deactivate() after activate() brings count back to 0.
@@ -167,6 +173,7 @@ def test_deactivate_restores_patches_on_last_call() -> None:
 # ---------------------------------------------------------------------------
 # Test: activate()/deactivate() nesting -- second activate does not reinstall
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_second_activate_increments_but_does_not_reinstall
 #   CLAIM: Second activate() increments count to 2 but does not call _install_patches again.
@@ -214,6 +221,7 @@ def test_nested_deactivate_only_uninstalls_on_last() -> None:
 # ---------------------------------------------------------------------------
 # Test: _check_conflicts() raises ConflictError on foreign patch
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_check_conflicts_raises_when_httpx_sync_patched_by_foreign
 #   CLAIM: _check_conflicts raises ConflictError if httpx.HTTPTransport.handle_request
@@ -292,6 +300,7 @@ def test_check_conflicts_does_not_raise_when_no_foreign_patch() -> None:
 # Test: interceptor raises SandboxNotActiveError when no sandbox active
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox
 #   CLAIM: When patches are installed but _active_verifier is None, httpx request
 #          raises SandboxNotActiveError.
@@ -333,6 +342,7 @@ def test_requests_interceptor_raises_sandbox_not_active_when_no_sandbox() -> Non
 # Test: interceptor raises UnmockedInteractionError when no response configured
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_httpx_interceptor_raises_unmocked_when_no_config
 #   CLAIM: httpx request inside sandbox with no mock raises UnmockedInteractionError.
 #   PATH:  interceptor -> _find_matching_config returns None -> UnmockedInteractionError.
@@ -364,6 +374,7 @@ def test_requests_interceptor_raises_unmocked_when_no_config() -> None:
 # ---------------------------------------------------------------------------
 # Test: configured httpx response is returned
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_httpx_configured_response_returned
 #   CLAIM: httpx.get returns the mock response with correct status and JSON body.
@@ -403,6 +414,7 @@ def test_httpx_configured_response_custom_status() -> None:
 # Test: configured requests response is returned
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_requests_configured_response_returned
 #   CLAIM: requests.get returns the mock response with status 200 and correct JSON.
 #   PATH:  requests interceptor -> requests.Response constructed from config.
@@ -439,6 +451,7 @@ def test_requests_configured_response_custom_status() -> None:
 # ---------------------------------------------------------------------------
 # Test: interaction is recorded in timeline
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_interaction_recorded_after_httpx_request
 #   CLAIM: After a successful httpx request, one Interaction is appended to the timeline
@@ -485,6 +498,7 @@ def test_interaction_recorded_after_requests_request() -> None:
 # Test: FIFO queue -- same URL mock responses served in order
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_fifo_queue_serves_responses_in_order
 #   CLAIM: Two mocks for the same URL are served in registration order (FIFO).
 #   PATH:  _find_matching_config pops from front of list; first call gets first config.
@@ -508,6 +522,7 @@ def test_fifo_queue_serves_responses_in_order() -> None:
 # Test: required=False unused mock does not raise at verify_all()
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_optional_mock_not_raised_by_verify_all
 #   CLAIM: A mock with required=False that is never triggered does not cause
 #          verify_all() to raise UnusedMocksError.
@@ -529,6 +544,7 @@ def test_optional_mock_not_raised_by_verify_all() -> None:
 # Test: get_unused_mocks only returns required=True configs
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_get_unused_mocks_excludes_optional
 #   CLAIM: get_unused_mocks() returns only required=True configs from the queue.
 #   PATH:  get_unused_mocks() filters _mock_queue by .required.
@@ -549,6 +565,7 @@ def test_get_unused_mocks_excludes_optional() -> None:
 # ---------------------------------------------------------------------------
 # Test: matches() checks details fields
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_matches_returns_true_when_details_match
 #   CLAIM: matches() returns True when expected dict is a subset of interaction.details.
@@ -588,6 +605,7 @@ def test_matches_returns_false_when_details_mismatch() -> None:
 # Test: format_interaction returns correct string
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_format_interaction_returns_correct_string
 #   CLAIM: format_interaction() returns a string containing plugin name, method, url, status.
 #   PATH:  format_interaction() reads details["method"], details["url"], details["status"].
@@ -610,6 +628,7 @@ def test_format_interaction_returns_correct_string() -> None:
 # Test: format_assert_hint returns correct snippet
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_format_assert_hint_returns_correct_snippet
 #   CLAIM: format_assert_hint() returns a call snippet using method and url from details.
 #   PATH:  format_assert_hint() reads details["method"] and details["url"].
@@ -626,20 +645,21 @@ def test_format_assert_hint_returns_correct_snippet() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.assert_interaction(\n'
-        '    http.request,\n'
+        "verifier.assert_interaction(\n"
+        "    http.request,\n"
         '    method="GET",\n'
         '    url="https://api.example.com/data",\n'
         "    headers={},\n"
         "    body='',\n"
-        '    status=200,\n'
-        ')'
+        "    status=200,\n"
+        ")"
     )
 
 
 # ---------------------------------------------------------------------------
 # Test: HttpRequestSentinel has correct source_id
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_request_sentinel_source_id
 #   CLAIM: http.request sentinel has source_id == "http:request".
@@ -656,6 +676,7 @@ def test_request_sentinel_source_id() -> None:
 # Test: mock_response raises ValueError when json and body both provided
 # ---------------------------------------------------------------------------
 
+
 # ESCAPE: test_mock_response_raises_when_json_and_body_both_provided
 #   CLAIM: Calling mock_response with both json= and body= raises ValueError.
 #   PATH:  mock_response() checks for mutual exclusion at top.
@@ -671,6 +692,7 @@ def test_mock_response_raises_when_json_and_body_both_provided() -> None:
 # ---------------------------------------------------------------------------
 # Test: format_unused_mock_hint includes registration_traceback
 # ---------------------------------------------------------------------------
+
 
 # ESCAPE: test_format_unused_mock_hint_includes_registration_traceback
 #   CLAIM: format_unused_mock_hint() includes the registration_traceback in its output,
@@ -803,6 +825,7 @@ def test_urllib_interceptor_returns_mock_response() -> None:
         body = response.read()
 
     import json
+
     assert json.loads(body) == {"urllib": True}
 
 
@@ -845,6 +868,7 @@ def test_urllib_https_interceptor_returns_mock_response() -> None:
         body = response.read()
 
     import json
+
     assert json.loads(body) == {"tls": True}
 
 
@@ -1044,7 +1068,13 @@ def test_http_plugin_assertable_fields_returns_all_five() -> None:
     interaction = Interaction(
         source_id="http:request",
         sequence=0,
-        details={"method": "GET", "url": "https://example.com", "headers": {}, "body": "", "status": 200},
+        details={
+            "method": "GET",
+            "url": "https://example.com",
+            "headers": {},
+            "body": "",
+            "status": 200,
+        },
         plugin=p,
     )
     result = p.assertable_fields(interaction)

@@ -1,5 +1,6 @@
 # src/bigfoot/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
+
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -94,9 +95,7 @@ class StrictVerifier:
         if _any_order_depth.get() > 0:
             # Two-pass in_any_order: Pass 1 — find an interaction matching source_id only,
             # then enforce completeness. Pass 2 — verify full field-value match.
-            candidate = self._timeline.find_any_unasserted(
-                lambda i: i.source_id == source_id
-            )
+            candidate = self._timeline.find_any_unasserted(lambda i: i.source_id == source_id)
             if candidate is None:
                 remaining = self._timeline.all_unasserted()
                 hint = self._format_mismatch_error(

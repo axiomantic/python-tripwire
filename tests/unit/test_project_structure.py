@@ -55,9 +55,9 @@ def test_pyproject_toml_has_pytest11_entry_point() -> None:
     data = tomllib.loads(pyproject.read_bytes().decode())
     entry_points = data.get("project", {}).get("entry-points", {})
     pytest11 = entry_points.get("pytest11", {})
-    assert pytest11 == {
-        "bigfoot": "bigfoot.pytest_plugin"
-    }, f"[project.entry-points.pytest11] must be {{'bigfoot': 'bigfoot.pytest_plugin'}}, got {pytest11!r}"
+    assert pytest11 == {"bigfoot": "bigfoot.pytest_plugin"}, (
+        f"[project.entry-points.pytest11] must be {{'bigfoot': 'bigfoot.pytest_plugin'}}, got {pytest11!r}"
+    )
 
 
 def test_pyproject_toml_package_name_is_bigfoot() -> None:

@@ -1,4 +1,5 @@
 """HttpPlugin: intercepts httpx, requests, and urllib HTTP calls."""
+
 import functools
 import io
 import json as json_module
@@ -17,8 +18,7 @@ try:
     import requests.adapters
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "bigfoot[http] extra is required to use HttpPlugin. "
-        "Install with: pip install bigfoot[http]"
+        "bigfoot[http] extra is required to use HttpPlugin. Install with: pip install bigfoot[http]"
     ) from exc
 
 from bigfoot._base_plugin import BasePlugin
@@ -627,9 +627,7 @@ class HttpPlugin(BasePlugin):
         )
         return response
 
-    def _handle_urllib_request(
-        self, req: urllib.request.Request
-    ) -> urllib.response.addinfourl:
+    def _handle_urllib_request(self, req: urllib.request.Request) -> urllib.response.addinfourl:
         method = (req.get_method() or "GET").upper()
         url = req.full_url
 
@@ -709,6 +707,7 @@ class HttpPlugin(BasePlugin):
     @classmethod
     def _reinstall_urllib_opener(cls) -> None:
         """Reinstall bigfoot's urllib opener after a pass-through call."""
+
         # Build a fresh handler using the same dispatch function used in _install_urllib
         # We call _install_urllib again but only the opener part.
         # This is safe because _original_urllib_opener is still set at the class level.
@@ -776,14 +775,14 @@ class HttpPlugin(BasePlugin):
         body = interaction.details.get("body", "")
         status = interaction.details.get("status", 200)
         return (
-            f'verifier.assert_interaction(\n'
-            f'    http.request,\n'
+            f"verifier.assert_interaction(\n"
+            f"    http.request,\n"
             f'    method="{method}",\n'
             f'    url="{url}",\n'
-            f'    headers={headers!r},\n'
-            f'    body={body!r},\n'
-            f'    status={status},\n'
-            f')'
+            f"    headers={headers!r},\n"
+            f"    body={body!r},\n"
+            f"    status={status},\n"
+            f")"
         )
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:

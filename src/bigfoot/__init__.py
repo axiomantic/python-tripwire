@@ -30,9 +30,17 @@ except ImportError:  # pragma: no cover
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
+from bigfoot.plugins.websocket_plugin import (
+    AsyncWebSocketPlugin as _AsyncWebSocketPlugin,
+)
+from bigfoot.plugins.websocket_plugin import (
+    SyncWebSocketPlugin as _SyncWebSocketPlugin,
+)
 
 DatabasePlugin = _DatabasePlugin
 SocketPlugin = _SocketPlugin
+AsyncWebSocketPlugin = _AsyncWebSocketPlugin
+SyncWebSocketPlugin = _SyncWebSocketPlugin
 
 if TYPE_CHECKING:
     from bigfoot._mock_plugin import MethodProxy, MockProxy
@@ -47,6 +55,8 @@ __all__ = [
     "MockPlugin",
     "DatabasePlugin",
     "SocketPlugin",
+    "AsyncWebSocketPlugin",
+    "SyncWebSocketPlugin",
     # Errors
     "BigfootError",
     "AssertionInsideSandboxError",
@@ -72,6 +82,8 @@ __all__ = [
     "subprocess_mock",
     "socket_mock",
     "db_mock",
+    "async_websocket_mock",
+    "sync_websocket_mock",
 ]
 
 
@@ -235,3 +247,55 @@ class _DatabaseProxy:
 
 
 db_mock = _DatabaseProxy()
+
+
+# ---------------------------------------------------------------------------
+# AsyncWebSocket proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _AsyncWebSocketProxy:
+    """Proxy to the AsyncWebSocketPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _AsyncWebSocketPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _AsyncWebSocketPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _AsyncWebSocketPlugin(verifier)
+        return getattr(plugin, name)
+
+
+async_websocket_mock = _AsyncWebSocketProxy()
+
+
+# ---------------------------------------------------------------------------
+# SyncWebSocket proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SyncWebSocketProxy:
+    """Proxy to the SyncWebSocketPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _SyncWebSocketPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _SyncWebSocketPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _SyncWebSocketPlugin(verifier)
+        return getattr(plugin, name)
+
+
+sync_websocket_mock = _SyncWebSocketProxy()

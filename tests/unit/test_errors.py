@@ -194,8 +194,7 @@ def test_unused_mocks_error_str() -> None:
     )
     result = str(err)
     assert result == (
-        "UnusedMocksError: 1 unused mock(s), "
-        "hint='Remove or set required=False for unused mocks.'"
+        "UnusedMocksError: 1 unused mock(s), hint='Remove or set required=False for unused mocks.'"
     )
 
 
@@ -293,9 +292,7 @@ def test_verification_error_str_only_unused() -> None:
     err = VerificationError(unasserted=None, unused=unused)
     result = str(err)
     assert result == (
-        "VerificationError:\n"
-        "  [UnusedMocks] UnusedMocksError: 1 unused mock(s), "
-        "hint='Fix unused.'"
+        "VerificationError:\n  [UnusedMocks] UnusedMocksError: 1 unused mock(s), hint='Fix unused.'"
     )
 
 
@@ -417,9 +414,7 @@ def test_conflict_error_str() -> None:
     """__str__ names the conflicting target and patcher library."""
     err = ConflictError(target="urllib.request.urlopen", patcher="responses")
     result = str(err)
-    assert result == (
-        "ConflictError: target='urllib.request.urlopen', patcher='responses'"
-    )
+    assert result == ("ConflictError: target='urllib.request.urlopen', patcher='responses'")
 
 
 # ---------------------------------------------------------------------------

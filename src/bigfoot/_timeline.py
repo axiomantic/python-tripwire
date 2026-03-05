@@ -1,4 +1,5 @@
 """Interaction dataclass and Timeline class."""
+
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
