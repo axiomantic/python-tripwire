@@ -25,9 +25,12 @@ try:
 except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
+from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
+
 if TYPE_CHECKING:
     from bigfoot._mock_plugin import MethodProxy, MockProxy
     from bigfoot.plugins.http import HttpRequestSentinel
+    from bigfoot.plugins.subprocess import SubprocessRunSentinel, SubprocessWhichSentinel
 
 __all__ = [
     # Classes
@@ -56,6 +59,7 @@ __all__ = [
     "current_verifier",
     "spy",
     "http",
+    "subprocess_mock",
 ]
 
 
@@ -88,7 +92,7 @@ def sandbox() -> SandboxContext:
 
 
 def assert_interaction(
-    source: MethodProxy | HttpRequestSentinel,
+    source: "MethodProxy | HttpRequestSentinel | SubprocessRunSentinel | SubprocessWhichSentinel",
     **expected: object,
 ) -> None:
     """Assert the next unasserted interaction on the current test verifier."""
@@ -141,3 +145,29 @@ class _HttpProxy:
 
 
 http = _HttpProxy()
+
+
+# ---------------------------------------------------------------------------
+# Subprocess proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SubprocessProxy:
+    """Proxy to the SubprocessPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _SubprocessPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _SubprocessPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _SubprocessPlugin(verifier)
+        return getattr(plugin, name)
+
+
+subprocess_mock = _SubprocessProxy()
