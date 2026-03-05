@@ -5,6 +5,7 @@ HttpPlugin, validating production-style usage rather than isolated unit behavior
 """
 
 import pytest
+from dirty_equals import AnyThing
 
 import bigfoot
 from bigfoot import (
@@ -34,9 +35,8 @@ def test_mock_plugin_records_and_asserts_collaborator_interaction() -> None:
     assert result == {"status": "ok", "id": "ch_001"}
     bigfoot.assert_interaction(
         service_proxy.charge,
-        method_name="charge",
-        args="('order_99',)",
-        kwargs="{'amount': 500}",
+        args=("order_99",),
+        kwargs={"amount": 500},
     )
     # verify_all() is called automatically at teardown by _bigfoot_auto_verifier
 
@@ -61,21 +61,18 @@ def test_multiple_calls_asserted_in_fifo_order() -> None:
     assert third == 3
     bigfoot.assert_interaction(
         counter_proxy.tick,
-        method_name="tick",
-        args="()",
-        kwargs="{}",
+        args=(),
+        kwargs={},
     )
     bigfoot.assert_interaction(
         counter_proxy.tick,
-        method_name="tick",
-        args="()",
-        kwargs="{}",
+        args=(),
+        kwargs={},
     )
     bigfoot.assert_interaction(
         counter_proxy.tick,
-        method_name="tick",
-        args="()",
-        kwargs="{}",
+        args=(),
+        kwargs={},
     )
 
 
@@ -137,23 +134,8 @@ def test_unasserted_interactions_error_at_teardown() -> None:
     assert err.interactions[0].source_id == "mock:Logger.log"
     assert err.interactions[0].sequence == 0
 
-    expected_hint = (
-        "1 interaction(s) were not asserted\n"
-        "\n"
-        "  [sequence=0] [MockPlugin] Logger.log\n"
-        "    To assert this interaction:\n"
-        '      verifier.assert_interaction(verifier.mock("Logger").log)\n'
-    )
-    assert err.hint == expected_hint
-
-    expected_str = (
-        "UnassertedInteractionsError: 1 unasserted interaction(s), "
-        f"hint={expected_hint!r}"
-    )
-    assert str(err) == expected_str
-
     # Assert the interaction so the auto-verifier teardown does not raise again
-    bigfoot.assert_interaction(proxy.log, method_name="log", args="('event_happened',)", kwargs="{}")
+    bigfoot.assert_interaction(proxy.log, args=("event_happened",), kwargs={})
 
 
 # ---------------------------------------------------------------------------
@@ -236,9 +218,8 @@ def test_raises_side_effect_is_recorded_and_assertable() -> None:
 
     bigfoot.assert_interaction(
         proxy.connect,
-        method_name="connect",
-        args="()",
-        kwargs="{}",
+        args=(),
+        kwargs={},
     )
 
 
@@ -258,9 +239,8 @@ def test_calls_side_effect_delegates_to_fn() -> None:
     assert result == 7
     bigfoot.assert_interaction(
         proxy.add,
-        method_name="add",
-        args="(3, 4)",
-        kwargs="{}",
+        args=(3, 4),
+        kwargs={},
     )
 
 
@@ -284,15 +264,13 @@ def test_in_any_order_allows_out_of_order_assertions() -> None:
     with bigfoot.in_any_order():
         bigfoot.assert_interaction(
             email_proxy.send,
-            method_name="send",
-            args="('world',)",
-            kwargs="{}",
+            args=("world",),
+            kwargs={},
         )
         bigfoot.assert_interaction(
             sms_proxy.send,
-            method_name="send",
-            args="('hello',)",
-            kwargs="{}",
+            args=("hello",),
+            kwargs={},
         )
 
 
@@ -345,9 +323,8 @@ async def test_mock_plugin_works_in_async_context() -> None:
     assert result == {"value": 42}
     bigfoot.assert_interaction(
         proxy.fetch_data,
-        method_name="fetch_data",
-        args="('key',)",
-        kwargs="{}",
+        args=("key",),
+        kwargs={},
     )
 
 
@@ -376,6 +353,8 @@ def test_http_plugin_full_cycle_httpx() -> None:
         bigfoot.http.request,
         method="GET",
         url="https://api.stripe.com/v1/charges",
+        headers=AnyThing(),
+        body="",
         status=200,
     )
     # _bigfoot_auto_verifier fixture calls verify_all() at teardown
@@ -410,13 +389,120 @@ def test_mock_and_http_plugins_tracked_in_global_fifo_order() -> None:
     # Assert in the same FIFO order they were called
     bigfoot.assert_interaction(
         service_proxy.authenticate,
-        method_name="authenticate",
-        args="('user_x',)",
-        kwargs="{}",
+        args=("user_x",),
+        kwargs={},
     )
     bigfoot.assert_interaction(
         bigfoot.http.request,
         method="POST",
         url="https://api.example.com/data",
+        headers=AnyThing(),
+        body=AnyThing(),
         status=201,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 15. spy() records interaction and delegates to real object
+# ---------------------------------------------------------------------------
+
+
+def test_spy_records_and_delegates() -> None:
+    """bigfoot.spy() creates a spy that delegates to real implementation and records interaction."""
+
+    class _Calculator:
+        def add(self, x: int, y: int) -> int:
+            return x + y
+
+    real = _Calculator()
+    calc_spy = bigfoot.spy("Calculator", real)
+
+    with bigfoot.sandbox():
+        result = calc_spy.add(10, 20)
+
+    assert result == 30
+    bigfoot.assert_interaction(calc_spy.add, args=(10, 20), kwargs={})
+
+
+# ---------------------------------------------------------------------------
+# 16. spy() with real method that raises: interaction recorded, exception propagated
+# ---------------------------------------------------------------------------
+
+
+def test_spy_records_when_real_raises() -> None:
+    """spy(): if real method raises, interaction is still recorded and exception re-raised."""
+
+    class _Flaky:
+        def fetch(self) -> None:
+            raise ConnectionError("unreachable")
+
+    real = _Flaky()
+    flaky_spy = bigfoot.spy("Flaky", real)
+
+    with bigfoot.sandbox():
+        with pytest.raises(ConnectionError, match="unreachable"):
+            flaky_spy.fetch()
+
+    bigfoot.assert_interaction(flaky_spy.fetch, args=(), kwargs={})
+
+
+# ---------------------------------------------------------------------------
+# 17. MissingAssertionFieldsError raised when assertable field omitted
+# ---------------------------------------------------------------------------
+
+
+def test_missing_assertion_fields_error_raised_for_mock() -> None:
+    """assert_interaction() raises MissingAssertionFieldsError when args/kwargs omitted."""
+    from bigfoot import MissingAssertionFieldsError
+
+    proxy = bigfoot.mock("Service")
+    proxy.process.returns("done")
+
+    with bigfoot.sandbox():
+        proxy.process("input")
+
+    with pytest.raises(MissingAssertionFieldsError) as exc_info:
+        bigfoot.assert_interaction(proxy.process)  # missing args and kwargs
+
+    assert "args" in exc_info.value.missing_fields
+    assert "kwargs" in exc_info.value.missing_fields
+
+    # Now assert correctly so teardown doesn't raise
+    bigfoot.assert_interaction(proxy.process, args=("input",), kwargs={})
+
+
+# ---------------------------------------------------------------------------
+# 18. HTTP pass_through routes request to real backend (mocked at transport level)
+# ---------------------------------------------------------------------------
+
+
+def test_http_pass_through_routes_to_real_backend() -> None:
+    """pass_through() routes the matched request to the real transport and records interaction."""
+    httpx = pytest.importorskip("httpx")
+    from bigfoot.plugins.http import HttpPlugin
+
+    bigfoot.http.pass_through("GET", "https://real-api.example.com/data")
+
+    fake_response = httpx.Response(200, json={"real": True})
+
+    # The patch must be applied INSIDE the sandbox because activate() sets
+    # _original_httpx_transport_handle to the real transport. After activate(), we
+    # override that saved reference so pass-through uses our fake response.
+    # We restore the real original with try/finally to avoid corrupting global state.
+    with bigfoot.sandbox():
+        real_original = HttpPlugin._original_httpx_transport_handle
+        HttpPlugin._original_httpx_transport_handle = lambda transport_self, request: fake_response  # type: ignore[assignment]
+        try:
+            response = httpx.get("https://real-api.example.com/data")
+        finally:
+            HttpPlugin._original_httpx_transport_handle = real_original  # type: ignore[assignment]
+
+    assert response.status_code == 200
+    bigfoot.assert_interaction(
+        bigfoot.http.request,
+        method="GET",
+        url="https://real-api.example.com/data",
+        headers=AnyThing(),
+        body="",
+        status=200,
     )

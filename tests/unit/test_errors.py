@@ -11,6 +11,7 @@ from bigfoot._errors import (
     BigfootError,
     ConflictError,
     InteractionMismatchError,
+    MissingAssertionFieldsError,
     NoActiveVerifierError,
     SandboxNotActiveError,
     UnassertedInteractionsError,
@@ -40,6 +41,7 @@ def test_all_errors_subclass_bigfoot_error() -> None:
     assert issubclass(ConflictError, BigfootError)
     assert issubclass(AssertionInsideSandboxError, BigfootError)
     assert issubclass(NoActiveVerifierError, BigfootError)
+    assert issubclass(MissingAssertionFieldsError, BigfootError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -53,6 +55,7 @@ def test_all_errors_subclass_exception() -> None:
     assert issubclass(ConflictError, Exception)
     assert issubclass(AssertionInsideSandboxError, Exception)
     assert issubclass(NoActiveVerifierError, Exception)
+    assert issubclass(MissingAssertionFieldsError, Exception)
 
 
 # ---------------------------------------------------------------------------
@@ -471,3 +474,54 @@ def test_no_active_verifier_error_str() -> None:
     assert "NoActiveVerifierError" in result
     assert "no active bigfoot verifier" in result
     assert "pytest" in result
+
+
+# ---------------------------------------------------------------------------
+# MissingAssertionFieldsError
+# ---------------------------------------------------------------------------
+
+
+def test_missing_assertion_fields_error_fields() -> None:
+    """missing_fields attribute stores the frozenset passed at construction."""
+    err = MissingAssertionFieldsError(frozenset({"args", "kwargs"}))
+    assert err.missing_fields == frozenset({"args", "kwargs"})
+
+
+def test_missing_assertion_fields_error_is_bigfoot_error() -> None:
+    """MissingAssertionFieldsError must be a subclass of BigfootError."""
+    assert issubclass(MissingAssertionFieldsError, BigfootError)
+
+
+def test_missing_assertion_fields_error_is_exception() -> None:
+    """MissingAssertionFieldsError must be catchable as Exception."""
+    assert issubclass(MissingAssertionFieldsError, Exception)
+
+
+def test_missing_assertion_fields_error_str_single_field() -> None:
+    """__str__ lists the missing field name alphabetically."""
+    err = MissingAssertionFieldsError(frozenset({"args"}))
+    result = str(err)
+    assert result == (
+        "MissingAssertionFieldsError: the following assertable fields were not "
+        "included in the assertion: args. "
+        "Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
+        "if the value is not the focus of this assertion."
+    )
+
+
+def test_missing_assertion_fields_error_str_multiple_fields_sorted() -> None:
+    """__str__ sorts multiple field names alphabetically."""
+    err = MissingAssertionFieldsError(frozenset({"kwargs", "args"}))
+    result = str(err)
+    assert result == (
+        "MissingAssertionFieldsError: the following assertable fields were not "
+        "included in the assertion: args, kwargs. "
+        "Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
+        "if the value is not the focus of this assertion."
+    )
+
+
+def test_missing_assertion_fields_error_is_raiseable() -> None:
+    """Must be raiseable and catchable via the base class."""
+    with pytest.raises(BigfootError):
+        raise MissingAssertionFieldsError(frozenset({"args"}))

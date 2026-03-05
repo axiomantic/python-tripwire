@@ -1,6 +1,6 @@
 # tests/unit/test_verifier.py
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
@@ -25,6 +25,9 @@ def _make_mock_plugin(verifier: StrictVerifier) -> MagicMock:
     plugin.format_interaction.return_value = "[Mock] test"
     plugin.format_assert_hint.return_value = "verifier.assert_interaction(...)"
     plugin.format_unused_mock_hint.return_value = "remove mock"
+    # 'assertable_fields' starts with 'assert' so MagicMock's __getattr__ blocks
+    # direct access. Use setattr() to bypass the protection.
+    setattr(plugin, "assertable_fields", Mock(return_value=frozenset()))
     verifier._register_plugin(plugin)
     return plugin
 
@@ -35,6 +38,7 @@ def _inject_interaction(verifier: StrictVerifier, source_id: str, plugin: Any = 
         plugin.matches.return_value = True
         plugin.format_interaction.return_value = f"[Mock] {source_id}"
         plugin.format_assert_hint.return_value = f"assert {source_id}"
+        setattr(plugin, "assertable_fields", Mock(return_value=frozenset()))
     interaction = Interaction(source_id=source_id, sequence=0, details={}, plugin=plugin)
     verifier._timeline.append(interaction)
     return interaction
@@ -430,3 +434,131 @@ def test_verify_all_raises_if_sandbox_active() -> None:
     with v.sandbox():
         with pytest.raises(AssertionInsideSandboxError):
             v.verify_all()
+
+
+# ---------------------------------------------------------------------------
+# MissingAssertionFieldsError enforcement tests
+# ---------------------------------------------------------------------------
+
+
+def test_assert_interaction_raises_missing_fields_when_assertable_field_omitted() -> None:
+    """assert_interaction() raises MissingAssertionFieldsError when a required field is absent."""
+    from bigfoot._errors import MissingAssertionFieldsError
+
+    v = StrictVerifier()
+    plugin = _make_mock_plugin(v)
+    setattr(plugin, "assertable_fields", Mock(return_value=frozenset({"args", "kwargs"})))
+    _inject_interaction(v, "mock:Svc.method", plugin=plugin)
+
+    source = MagicMock()
+    source.source_id = "mock:Svc.method"
+
+    with pytest.raises(MissingAssertionFieldsError) as exc_info:
+        v.assert_interaction(source)  # missing args and kwargs
+
+    assert exc_info.value.missing_fields == frozenset({"args", "kwargs"})
+
+
+def test_assert_interaction_passes_when_all_assertable_fields_present() -> None:
+    """assert_interaction() succeeds when all required fields are present."""
+    v = StrictVerifier()
+    plugin = _make_mock_plugin(v)
+    setattr(plugin, "assertable_fields", Mock(return_value=frozenset({"args"})))
+    i = _inject_interaction(v, "mock:Svc.method", plugin=plugin)
+    i.details["args"] = ()
+
+    source = MagicMock()
+    source.source_id = "mock:Svc.method"
+
+    v.assert_interaction(source, args=())  # all required fields present — no exception
+
+
+def test_assert_interaction_missing_fields_fires_after_source_id_match() -> None:
+    """MissingAssertionFieldsError is raised only after source_id is matched, not before."""
+
+    v = StrictVerifier()
+    plugin = _make_mock_plugin(v)
+    setattr(plugin, "assertable_fields", Mock(return_value=frozenset({"args"})))
+    _inject_interaction(v, "mock:Svc.method", plugin=plugin)
+
+    # Wrong source_id: should raise InteractionMismatchError, NOT MissingAssertionFieldsError
+    source = MagicMock()
+    source.source_id = "mock:Svc.OTHER"
+
+    with pytest.raises(InteractionMismatchError):
+        v.assert_interaction(source)  # source_id wrong, completeness check never fires
+
+
+def test_assert_interaction_in_any_order_raises_missing_fields() -> None:
+    """in_any_order path also enforces completeness before field-value matching."""
+    from bigfoot._errors import MissingAssertionFieldsError
+
+    v = StrictVerifier()
+    plugin = _make_mock_plugin(v)
+    setattr(plugin, "assertable_fields", Mock(return_value=frozenset({"args", "kwargs"})))
+    _inject_interaction(v, "mock:Svc.method", plugin=plugin)
+
+    source = MagicMock()
+    source.source_id = "mock:Svc.method"
+
+    with pytest.raises(MissingAssertionFieldsError):
+        with v.in_any_order():
+            v.assert_interaction(source)  # missing args and kwargs
+
+
+def test_assert_interaction_in_any_order_no_source_raises_mismatch_not_missing() -> None:
+    """In in_any_order, if source_id not found, InteractionMismatchError fires before completeness."""
+    from bigfoot._errors import MissingAssertionFieldsError  # noqa: F401 — imported for clarity
+
+    v = StrictVerifier()
+    plugin = _make_mock_plugin(v)
+    setattr(plugin, "assertable_fields", Mock(return_value=frozenset({"args"})))
+    _inject_interaction(v, "mock:Svc.method", plugin=plugin)
+
+    source = MagicMock()
+    source.source_id = "mock:Svc.OTHER"  # no interaction with this source_id
+
+    with pytest.raises(InteractionMismatchError):
+        with v.in_any_order():
+            v.assert_interaction(source)
+
+
+# ---------------------------------------------------------------------------
+# spy() tests
+# ---------------------------------------------------------------------------
+
+
+def test_verifier_spy_returns_mock_proxy_with_wraps() -> None:
+    """verifier.spy() creates a MockProxy whose wraps attribute is the real object."""
+    from bigfoot._mock_plugin import MockProxy
+
+    v = StrictVerifier()
+
+    class _Real:
+        def do(self) -> str:
+            return "real"
+
+    real = _Real()
+    proxy = v.spy("Svc", real)
+    assert isinstance(proxy, MockProxy)
+    assert proxy.wraps is real
+
+
+def test_verifier_spy_delegates_to_real_object() -> None:
+    """verifier.spy() delegates calls to the real object and records on timeline."""
+    v = StrictVerifier()
+
+    class _Real:
+        def add(self, x: int, y: int) -> int:
+            return x + y
+
+    real = _Real()
+    proxy = v.spy("Calculator", real)
+
+    with v.sandbox():
+        result = proxy.add(2, 3)
+
+    assert result == 5
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].source_id == "mock:Calculator.add"

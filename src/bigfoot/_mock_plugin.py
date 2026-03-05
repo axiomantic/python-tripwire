@@ -244,12 +244,15 @@ class MockPlugin(BasePlugin):
     def get_or_create_proxy(self, name: str, wraps: object = None) -> MockProxy:
         """Return an existing MockProxy for name, or create a new one.
 
-        If wraps is provided and the proxy does not yet exist, the new proxy
-        will delegate to wraps when its queue is empty. wraps is ignored on
-        subsequent calls for the same name (the existing proxy is returned as-is).
+        If wraps is provided and a proxy already exists, update its wraps
+        attribute (e.g., spy() called after mock()). If no proxy exists,
+        create a new one with wraps set.
         """
         if name not in self._proxies:
             self._proxies[name] = MockProxy(name=name, plugin=self, wraps=wraps)
+        elif wraps is not None:
+            # Allow updating wraps on a pre-existing proxy (e.g., spy() called after mock())
+            object.__setattr__(self._proxies[name], "_wraps", wraps)
         return self._proxies[name]
 
     # ------------------------------------------------------------------

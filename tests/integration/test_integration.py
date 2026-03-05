@@ -40,8 +40,8 @@ def test_mock_happy_path() -> None:
     v.assert_interaction(
         proxy.some_method,
         method_name="some_method",
-        args="('arg1',)",
-        kwargs="{'kwarg': 'val'}",
+        args=("arg1",),
+        kwargs={"kwarg": "val"},
     )
     # verify_all must pass: no unasserted interactions, no unused mocks
     verifier.verify_all()
@@ -150,14 +150,14 @@ def test_in_any_order_allows_out_of_order_assertions() -> None:
         v.assert_interaction(
             proxy.set,
             method_name="set",
-            args="('key2', 'value2')",
-            kwargs="{}",
+            args=("key2", "value2"),
+            kwargs={},
         )
         v.assert_interaction(
             proxy.get,
             method_name="get",
-            args="('key1',)",
-            kwargs="{}",
+            args=("key1",),
+            kwargs={},
         )
     verifier.verify_all()
 
@@ -203,9 +203,9 @@ def test_multiple_returns_consumed_in_fifo_order() -> None:
     assert second == 2
     assert third == 3
     with v.in_any_order():
-        v.assert_interaction(proxy.next_value, method_name="next_value", args="()", kwargs="{}")
-        v.assert_interaction(proxy.next_value, method_name="next_value", args="()", kwargs="{}")
-        v.assert_interaction(proxy.next_value, method_name="next_value", args="()", kwargs="{}")
+        v.assert_interaction(proxy.next_value, method_name="next_value", args=(), kwargs={})
+        v.assert_interaction(proxy.next_value, method_name="next_value", args=(), kwargs={})
+        v.assert_interaction(proxy.next_value, method_name="next_value", args=(), kwargs={})
     verifier.verify_all()
 
 
@@ -247,10 +247,14 @@ def test_http_plugin_mock_response_full_round_trip() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"items": [1, 2, 3]}
+    from dirty_equals import AnyThing
+
     v.assert_interaction(
         http.request,
         method="GET",
         url="https://api.example.com/items",
+        headers=AnyThing(),
+        body=AnyThing(),
         status=200,
     )
     verifier.verify_all()

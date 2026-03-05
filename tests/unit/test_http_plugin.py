@@ -626,8 +626,14 @@ def test_format_assert_hint_returns_correct_snippet() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.assert_interaction(http.request, method="GET", '
-        'url="https://api.example.com/data", status=200)'
+        'verifier.assert_interaction(\n'
+        '    http.request,\n'
+        '    method="GET",\n'
+        '    url="https://api.example.com/data",\n'
+        "    headers={},\n"
+        "    body='',\n"
+        '    status=200,\n'
+        ')'
     )
 
 
@@ -1024,3 +1030,149 @@ def test_restore_patches_is_idempotent_when_originals_are_none() -> None:
     assert HttpPlugin._original_requests_adapter_send is None
     # Calling _restore_patches() with everything at None must not raise
     p._restore_patches()
+
+
+# ---------------------------------------------------------------------------
+# assertable_fields tests
+# ---------------------------------------------------------------------------
+
+
+def test_http_plugin_assertable_fields_returns_all_five() -> None:
+    """assertable_fields() returns frozenset of all five HTTP details."""
+    v, p = _make_verifier_with_plugin()
+
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={"method": "GET", "url": "https://example.com", "headers": {}, "body": "", "status": 200},
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"method", "url", "headers", "body", "status"})
+
+
+# ---------------------------------------------------------------------------
+# pass_through tests
+# ---------------------------------------------------------------------------
+
+
+def test_pass_through_registers_rule() -> None:
+    """pass_through() stores the rule as (METHOD.upper(), url)."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("get", "https://example.com/api")
+    assert p._pass_through_rules == [("GET", "https://example.com/api")]
+
+
+def test_pass_through_multiple_rules() -> None:
+    """pass_through() can register multiple rules."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/a")
+    p.pass_through("POST", "https://example.com/b")
+    assert p._pass_through_rules == [
+        ("GET", "https://example.com/a"),
+        ("POST", "https://example.com/b"),
+    ]
+
+
+def test_matches_pass_through_rule_exact_match() -> None:
+    """_matches_pass_through_rule returns True for exact scheme+host+path match."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+    assert p._matches_pass_through_rule("GET", "https://example.com/api") is True
+
+
+def test_matches_pass_through_rule_ignores_query_params() -> None:
+    """_matches_pass_through_rule matches even if actual URL has query params."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+    assert p._matches_pass_through_rule("GET", "https://example.com/api?key=val") is True
+
+
+def test_matches_pass_through_rule_method_mismatch() -> None:
+    """_matches_pass_through_rule returns False when method doesn't match."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+    assert p._matches_pass_through_rule("POST", "https://example.com/api") is False
+
+
+def test_matches_pass_through_rule_path_mismatch() -> None:
+    """_matches_pass_through_rule returns False when path doesn't match."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+    assert p._matches_pass_through_rule("GET", "https://example.com/other") is False
+
+
+def test_matches_pass_through_rule_no_rules_registered() -> None:
+    """_matches_pass_through_rule returns False when no rules are registered."""
+    v, p = _make_verifier_with_plugin()
+    assert p._matches_pass_through_rule("GET", "https://example.com/api") is False
+
+
+def test_httpx_pass_through_calls_original_transport() -> None:
+    """httpx sync pass-through calls _execute_httpx_pass_through and records interaction."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+
+    fake_transport = MagicMock(spec=httpx.HTTPTransport)
+    fake_response = httpx.Response(200, json={"ok": True})
+
+    # activate() sets _original_httpx_transport_handle to the real transport method.
+    # We set it to a fake inside the sandbox so pass_through can call it.
+    # We must restore the real original after the sandbox exits to avoid corrupting
+    # the global class state for subsequent tests.
+    with v.sandbox():
+        real_original = HttpPlugin._original_httpx_transport_handle
+        HttpPlugin._original_httpx_transport_handle = lambda ts, req: fake_response  # type: ignore[assignment]
+        try:
+            request = httpx.Request("GET", "https://example.com/api")
+            result = p._handle_httpx_request(fake_transport, request)
+        finally:
+            HttpPlugin._original_httpx_transport_handle = real_original  # type: ignore[assignment]
+
+    assert result.status_code == 200
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].details["method"] == "GET"
+    assert unasserted[0].details["url"] == "https://example.com/api"
+    assert unasserted[0].details["status"] == 200
+
+
+def test_requests_pass_through_calls_original_adapter() -> None:
+    """requests pass-through calls _execute_requests_pass_through and records interaction."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+
+    fake_adapter = MagicMock(spec=requests.adapters.HTTPAdapter)
+    fake_response = requests.Response()
+    fake_response.status_code = 200
+
+    prepared = requests.Request("GET", "https://example.com/api").prepare()
+
+    # activate() sets _original_requests_adapter_send to the real adapter send method.
+    # We set it to a fake inside the sandbox so pass_through can call it.
+    # We must restore the real original after the sandbox exits to avoid corrupting
+    # the global class state for subsequent tests.
+    with v.sandbox():
+        real_original = HttpPlugin._original_requests_adapter_send
+        HttpPlugin._original_requests_adapter_send = lambda adapter, req, **kw: fake_response  # type: ignore[assignment]
+        try:
+            result = p._handle_requests_request(fake_adapter, prepared)
+        finally:
+            HttpPlugin._original_requests_adapter_send = real_original  # type: ignore[assignment]
+
+    assert result.status_code == 200
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].details["method"] == "GET"
+    assert unasserted[0].details["status"] == 200
+
+
+def test_unused_pass_through_rule_does_not_raise_at_verify_all() -> None:
+    """A pass_through rule that is never triggered raises no error at verify_all()."""
+    v, p = _make_verifier_with_plugin()
+    p.pass_through("GET", "https://example.com/api")
+
+    with v.sandbox():
+        pass  # No requests made
+
+    v.verify_all()  # Must not raise

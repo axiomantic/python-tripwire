@@ -986,7 +986,13 @@ def test_format_assert_hint_returns_string() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == 'verifier.assert_interaction(verifier.mock("Svc").method)'
+    assert result == (
+        'verifier.assert_interaction(\n'
+        '    verifier.mock("Svc").method,\n'
+        '    args=(),\n'
+        '    kwargs={},\n'
+        ')'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1203,3 +1209,171 @@ def test_mock_plugin_matches_returns_false_on_exception() -> None:
     )
     result = p.matches(interaction, {"args": _RaisesOnEq()})
     assert result is False
+
+
+# ---------------------------------------------------------------------------
+# wraps delegation tests
+# ---------------------------------------------------------------------------
+
+
+def test_method_proxy_wraps_delegation_calls_real_method() -> None:
+    """When wraps is set and queue is empty, real method is called and result returned."""
+    class _Real:
+        def compute(self, x: int, y: int) -> int:
+            return x + y
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        result = proxy.compute(3, 4)
+
+    assert result == 7
+
+
+def test_method_proxy_wraps_delegation_records_interaction() -> None:
+    """When wraps delegates to real, interaction is recorded on the timeline."""
+    class _Real:
+        def compute(self, x: int, y: int) -> int:
+            return x + y
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        proxy.compute(3, 4)
+
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].source_id == "mock:Svc.compute"
+    assert unasserted[0].details["args"] == (3, 4)
+    assert unasserted[0].details["kwargs"] == {}
+
+
+def test_method_proxy_wraps_delegation_records_even_when_real_raises() -> None:
+    """When wraps real method raises, interaction is still recorded before re-raise."""
+    class _Real:
+        def fail(self) -> None:
+            raise ValueError("real error")
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+
+    with v.sandbox():
+        with pytest.raises(ValueError, match="real error"):
+            proxy.fail()
+
+    unasserted = v._timeline.all_unasserted()
+    assert len(unasserted) == 1
+    assert unasserted[0].source_id == "mock:Svc.fail"
+
+
+def test_method_proxy_queue_takes_priority_over_wraps() -> None:
+    """If queue has entries, they are consumed even when wraps is set."""
+    class _Real:
+        def compute(self) -> str:
+            return "real"
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+    proxy.compute.returns("mocked")
+
+    with v.sandbox():
+        result = proxy.compute()
+
+    assert result == "mocked"
+
+
+def test_mock_proxy_wraps_property() -> None:
+    """MockProxy.wraps returns the real object set at construction."""
+    class _Real:
+        pass
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    real = _Real()
+    proxy = p.get_or_create_proxy("Svc", wraps=real)
+    assert proxy.wraps is real
+
+
+def test_mock_proxy_wraps_none_when_not_set() -> None:
+    """MockProxy.wraps returns None when no wraps was provided."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Svc")
+    assert proxy.wraps is None
+
+
+def test_get_or_create_proxy_updates_wraps_on_existing_proxy() -> None:
+    """If proxy already exists and wraps is passed, wraps is updated on the existing proxy."""
+    class _Real:
+        pass
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy1 = p.get_or_create_proxy("Svc")
+    assert proxy1.wraps is None
+
+    real = _Real()
+    proxy2 = p.get_or_create_proxy("Svc", wraps=real)
+    assert proxy2 is proxy1  # same object
+    assert proxy2.wraps is real
+
+
+# ---------------------------------------------------------------------------
+# assertable_fields tests
+# ---------------------------------------------------------------------------
+
+
+def test_mock_plugin_assertable_fields_returns_args_kwargs() -> None:
+    """assertable_fields() always returns frozenset({'args', 'kwargs'})."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Svc.method",
+        sequence=0,
+        details={"mock_name": "Svc", "method_name": "method", "args": (), "kwargs": {}},
+        plugin=p,
+    )
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"args", "kwargs"})
+
+
+# ---------------------------------------------------------------------------
+# format_assert_hint multiline tests
+# ---------------------------------------------------------------------------
+
+
+def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
+    """format_assert_hint produces multiline output with args and kwargs included."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+
+    interaction = Interaction(
+        source_id="mock:Logger.log",
+        sequence=0,
+        details={
+            "mock_name": "Logger",
+            "method_name": "log",
+            "args": ("event",),
+            "kwargs": {"level": "info"},
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        'verifier.assert_interaction(\n'
+        '    verifier.mock("Logger").log,\n'
+        "    args=('event',),\n"
+        "    kwargs={'level': 'info'},\n"
+        ')'
+    )

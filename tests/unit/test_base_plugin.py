@@ -69,7 +69,7 @@ from bigfoot._base_plugin import BasePlugin  # noqa: E402
 
 
 class ConcretePlugin(BasePlugin):  # type: ignore[no-redef]
-    """Concrete implementation of all 9 abstract methods for testing."""
+    """Concrete implementation of all 10 abstract methods for testing."""
 
     def activate(self) -> None:
         pass
@@ -96,6 +96,9 @@ class ConcretePlugin(BasePlugin):  # type: ignore[no-redef]
 
     def format_assert_hint(self, interaction: Interaction) -> str:
         return "stub assert hint"
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        return frozenset()
 
     def get_unused_mocks(self) -> list[Any]:
         return []
@@ -135,12 +138,12 @@ def test_base_plugin_is_abc_subclass() -> None:
 
 
 def test_concrete_subclass_is_instantiable() -> None:
-    """A concrete subclass implementing all 9 abstract methods can be instantiated."""
+    """A concrete subclass implementing all 10 abstract methods can be instantiated."""
     # ESCAPE:
-    # CLAIM: ConcretePlugin with all 9 methods implemented can be created.
+    # CLAIM: ConcretePlugin with all 10 methods implemented can be created.
     # PATH: ConcretePlugin.__init__ -> BasePlugin.__init__.
     # CHECK: isinstance of BasePlugin confirms the chain.
-    # MUTATION: Adding a 10th abstract method to BasePlugin without implementing it in ConcretePlugin would raise TypeError.
+    # MUTATION: Adding an 11th abstract method to BasePlugin without implementing it in ConcretePlugin would raise TypeError.
     # ESCAPE: Nothing reasonable — if it raises here, ABC enforcement works, but the test catches both directions.
     # IMPACT: Every plugin subclass would break.
     verifier = _StubVerifier()
@@ -230,6 +233,7 @@ def test_record_not_in_abstract_methods() -> None:
         "format_mock_hint",
         "format_unmocked_hint",
         "format_assert_hint",
+        "assertable_fields",
         "get_unused_mocks",
         "format_unused_mock_hint",
     })
@@ -252,6 +256,7 @@ def test_missing_activate_prevents_instantiation() -> None:
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
@@ -270,6 +275,7 @@ def test_missing_deactivate_prevents_instantiation() -> None:
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
@@ -287,6 +293,7 @@ def test_missing_matches_prevents_instantiation() -> None:
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
@@ -304,6 +311,7 @@ def test_missing_format_interaction_prevents_instantiation() -> None:
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
@@ -321,6 +329,7 @@ def test_missing_format_mock_hint_prevents_instantiation() -> None:
         def format_interaction(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
@@ -338,6 +347,7 @@ def test_missing_format_unmocked_hint_prevents_instantiation() -> None:
         def format_interaction(self, interaction: Interaction) -> str: return ""
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
@@ -355,11 +365,30 @@ def test_missing_format_assert_hint_prevents_instantiation() -> None:
         def format_interaction(self, interaction: Interaction) -> str: return ""
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
     with pytest.raises(TypeError):
         MissingFormatAssertHint(_StubVerifier())  # type: ignore[abstract]
+
+
+def test_missing_assertable_fields_prevents_instantiation() -> None:
+    """A subclass missing assertable_fields() cannot be instantiated."""
+
+    class MissingAssertableFields(BasePlugin):  # type: ignore[abstract]
+        def activate(self) -> None: pass
+        def deactivate(self) -> None: pass
+        def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool: return True
+        def format_interaction(self, interaction: Interaction) -> str: return ""
+        def format_mock_hint(self, interaction: Interaction) -> str: return ""
+        def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
+        def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def get_unused_mocks(self) -> list[Any]: return []
+        def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
+
+    with pytest.raises(TypeError):
+        MissingAssertableFields(_StubVerifier())  # type: ignore[abstract]
 
 
 def test_missing_get_unused_mocks_prevents_instantiation() -> None:
@@ -373,6 +402,7 @@ def test_missing_get_unused_mocks_prevents_instantiation() -> None:
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def format_unused_mock_hint(self, mock_config: Any) -> str: return ""
 
     with pytest.raises(TypeError):
@@ -390,6 +420,7 @@ def test_missing_format_unused_mock_hint_prevents_instantiation() -> None:
         def format_mock_hint(self, interaction: Interaction) -> str: return ""
         def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str: return ""
         def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset[str]: return frozenset()
         def get_unused_mocks(self) -> list[Any]: return []
 
     with pytest.raises(TypeError):
@@ -416,3 +447,49 @@ def test_record_appends_multiple_interactions_in_order() -> None:
     plugin.record(i3)
 
     assert verifier._timeline.appended == [i1, i2, i3]
+
+
+def test_assertable_fields_is_abstract() -> None:
+    """Concrete subclass that omits assertable_fields() cannot be instantiated."""
+    from bigfoot._base_plugin import BasePlugin
+
+    class _IncompletePlugin(BasePlugin):
+        def activate(self) -> None: ...
+        def deactivate(self) -> None: ...
+        def matches(self, interaction: Interaction, expected: dict) -> bool: return True  # type: ignore[override]
+        def format_interaction(self, interaction: Interaction) -> str: return ""
+        def format_mock_hint(self, interaction: Interaction) -> str: return ""
+        def format_unmocked_hint(self, source_id: str, args: tuple, kwargs: dict) -> str: return ""  # type: ignore[override]
+        def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def get_unused_mocks(self) -> list: return []
+        def format_unused_mock_hint(self, mock_config: object) -> str: return ""
+        # assertable_fields deliberately omitted
+
+    from bigfoot._verifier import StrictVerifier
+    v = StrictVerifier()
+    with pytest.raises(TypeError, match="abstract"):
+        _IncompletePlugin(v)  # type: ignore[abstract]
+
+
+def test_assertable_fields_contract_returns_frozenset() -> None:
+    """A complete concrete plugin's assertable_fields() returns a frozenset."""
+    from bigfoot._base_plugin import BasePlugin
+
+    class _CompletePlugin(BasePlugin):
+        def activate(self) -> None: ...
+        def deactivate(self) -> None: ...
+        def matches(self, interaction: Interaction, expected: dict) -> bool: return True  # type: ignore[override]
+        def format_interaction(self, interaction: Interaction) -> str: return ""
+        def format_mock_hint(self, interaction: Interaction) -> str: return ""
+        def format_unmocked_hint(self, source_id: str, args: tuple, kwargs: dict) -> str: return ""  # type: ignore[override]
+        def format_assert_hint(self, interaction: Interaction) -> str: return ""
+        def get_unused_mocks(self) -> list: return []
+        def format_unused_mock_hint(self, mock_config: object) -> str: return ""
+        def assertable_fields(self, interaction: Interaction) -> frozenset: return frozenset()
+
+    from bigfoot._verifier import StrictVerifier
+    v = StrictVerifier()
+    p = _CompletePlugin(v)
+    result = p.assertable_fields(None)  # type: ignore[arg-type]
+    assert isinstance(result, frozenset)
+    assert result == frozenset()

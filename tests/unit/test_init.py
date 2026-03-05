@@ -31,6 +31,7 @@ def test_all_contains_expected_names() -> None:
         "InteractionMismatchError",
         "SandboxNotActiveError",
         "ConflictError",
+        "MissingAssertionFieldsError",
         # Module-level API
         "mock",
         "sandbox",
@@ -38,6 +39,7 @@ def test_all_contains_expected_names() -> None:
         "in_any_order",
         "verify_all",
         "current_verifier",
+        "spy",
         "http",
     }
     assert set(bigfoot.__all__) == expected_all
@@ -148,6 +150,14 @@ def test_conflict_error_importable() -> None:
     assert ConflictError is _ConflictError
 
 
+def test_missing_assertion_fields_error_importable() -> None:
+    """MissingAssertionFieldsError must be importable from the top-level package."""
+    from bigfoot import MissingAssertionFieldsError
+    from bigfoot._errors import MissingAssertionFieldsError as _MissingAssertionFieldsError
+
+    assert MissingAssertionFieldsError is _MissingAssertionFieldsError
+
+
 def test_http_plugin_importable_if_http_extra_installed() -> None:
     """HttpPlugin must be importable from bigfoot if [http] extra is installed."""
     # ESCAPE: if HttpPlugin import was missing from __init__ when http extra is
@@ -222,6 +232,13 @@ def test_module_level_current_verifier_importable() -> None:
     assert callable(bigfoot.current_verifier)
 
 
+def test_module_level_spy_importable() -> None:
+    """bigfoot.spy must be importable as a callable."""
+    import bigfoot
+
+    assert callable(bigfoot.spy)
+
+
 def test_module_level_http_importable() -> None:
     """bigfoot.http must be importable as an object."""
     import bigfoot
@@ -242,3 +259,42 @@ def test_module_level_mock_raises_no_active_verifier_error_outside_test() -> Non
             bigfoot.mock("SomeService")
     finally:
         _current_test_verifier.reset(token)
+
+
+def test_spy_importable_from_bigfoot() -> None:
+    """bigfoot.spy is importable and is callable."""
+    import bigfoot
+
+    assert callable(bigfoot.spy)
+
+
+def test_missing_assertion_fields_error_importable_from_bigfoot() -> None:
+    """MissingAssertionFieldsError is importable from the bigfoot namespace."""
+    import bigfoot
+    from bigfoot import MissingAssertionFieldsError
+
+    assert issubclass(MissingAssertionFieldsError, bigfoot.BigfootError)
+
+
+def test_spy_in_all() -> None:
+    """'spy' is listed in bigfoot.__all__."""
+    import bigfoot
+
+    assert "spy" in bigfoot.__all__
+
+
+def test_missing_assertion_fields_error_in_all() -> None:
+    """'MissingAssertionFieldsError' is listed in bigfoot.__all__."""
+    import bigfoot
+
+    assert "MissingAssertionFieldsError" in bigfoot.__all__
+
+
+def test_mock_accepts_wraps_parameter() -> None:
+    """bigfoot.mock() accepts a wraps keyword argument."""
+    import inspect
+
+    import bigfoot
+
+    sig = inspect.signature(bigfoot.mock)
+    assert "wraps" in sig.parameters
