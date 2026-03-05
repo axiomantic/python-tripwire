@@ -99,10 +99,7 @@ class _FakeAsyncWebSocketCM:
         fake_ws = _FakeAsyncWebSocket(self._handle, self._plugin)
         self._fake_ws = fake_ws
         # Register in active_sessions now that we have the fake_ws identity.
-        with self._plugin._registry_lock:
-            self._plugin._active_sessions[id(fake_ws)] = self._handle
-            self._plugin._connection_refs[id(fake_ws)] = fake_ws
-            self._handle._connection_obj = fake_ws
+        self._plugin._register_connection(self._handle, fake_ws)
         # Execute the "connect" transition step.
         self._plugin._execute_step(self._handle, "connect", (), {}, "websocket:async:connect")
         return fake_ws
@@ -356,10 +353,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
                 handle = plugin._session_queue.popleft()
             # Create the fake object and register it.
             fake_ws = _FakeSyncWebSocket(handle, plugin)
-            with plugin._registry_lock:
-                plugin._active_sessions[id(fake_ws)] = handle
-                plugin._connection_refs[id(fake_ws)] = fake_ws
-                handle._connection_obj = fake_ws
+            plugin._register_connection(handle, fake_ws)
             # Execute the "connect" transition step.
             plugin._execute_step(handle, "connect", (), {}, "websocket:sync:connect")
             return fake_ws

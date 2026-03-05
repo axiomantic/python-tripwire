@@ -151,6 +151,19 @@ class StateMachinePlugin(BasePlugin):
         self._session_queue.append(handle)
         return handle
 
+    def _register_connection(self, handle: SessionHandle, connection_obj: object) -> None:
+        """Register an already-popped session handle with a connection object.
+
+        Use this when the session handle was obtained separately (e.g., popped from
+        the queue before the connection object was created). This completes the
+        binding established by _bind_connection() for the cases where the queue pop
+        must happen before the connection object exists.
+        """
+        with self._registry_lock:
+            handle._connection_obj = connection_obj
+            self._active_sessions[id(connection_obj)] = handle
+            self._connection_refs[id(connection_obj)] = connection_obj
+
     def _bind_connection(self, connection_obj: object) -> SessionHandle:
         """Pop the next queued SessionHandle and bind it to connection_obj.
 
@@ -168,10 +181,7 @@ class StateMachinePlugin(BasePlugin):
                     hint=hint,
                 )
             handle = self._session_queue.popleft()
-            handle._connection_obj = connection_obj
-            key = id(connection_obj)
-            self._active_sessions[key] = handle
-            self._connection_refs[key] = connection_obj
+        self._register_connection(handle, connection_obj)
         return handle
 
     def _lookup_session(self, connection_obj: object) -> SessionHandle:

@@ -14,7 +14,6 @@ from bigfoot._timeline import Interaction
 
 _SOURCE_CONNECT = "db:connect"
 _SOURCE_EXECUTE = "db:execute"
-_SOURCE_CURSOR_EXECUTE = "db:cursor:execute"
 _SOURCE_COMMIT = "db:commit"
 _SOURCE_ROLLBACK = "db:rollback"
 _SOURCE_CLOSE = "db:close"
@@ -78,7 +77,7 @@ class _FakeCursorProxy:
     def execute(self, sql: str, params: object = ()) -> "_FakeCursorProxy":
         handle = self._connection._plugin._lookup_session(self._connection)
         result = self._connection._plugin._execute_step(
-            handle, "execute", (sql,), {"params": params}, _SOURCE_CURSOR_EXECUTE
+            handle, "execute", (sql,), {"params": params}, _SOURCE_EXECUTE
         )
         self._connection._last_cursor = _FakeCursor(result)
         return self
