@@ -33,6 +33,9 @@ def test_payment_flow():
         bigfoot.http.request,
         method="POST",
         url="https://api.stripe.com/v1/charges",
+        headers=IsMapping(),  # use dirty-equals or ANY for headers
+        body=None,
+        status=200,
     )
     assert response.json()["id"] == "ch_123"
     # verify_all() called automatically at test teardown
@@ -51,7 +54,7 @@ def test_service_calls():
     with bigfoot.sandbox():
         result = payment.charge(order_id=42)
 
-    bigfoot.assert_interaction(payment.charge)
+    bigfoot.assert_interaction(payment.charge, args=(42,), kwargs={"order_id": 42})
 ```
 
 ### Side Effects
@@ -105,6 +108,54 @@ async def test_concurrent():
 ```
 
 `in_any_order()` operates globally across all plugin types (mock and HTTP).
+
+## Spy / Pass-Through
+
+### Spy: delegating to a real implementation
+
+`bigfoot.spy(name, real)` creates a `MockProxy` that delegates to `real` when its call queue is empty. Queue entries take priority; the real object is called only when no mock entry remains. The interaction is recorded on the timeline regardless.
+
+```python
+import bigfoot
+
+real_service = PaymentService()
+payment = bigfoot.spy("PaymentService", real_service)
+payment.charge.returns({"id": "mock-123"})  # queue entry: takes priority
+
+with bigfoot.sandbox():
+    result1 = payment.charge(100)   # uses queue entry
+    result2 = payment.charge(200)   # queue empty: delegates to real_service.charge(200)
+
+bigfoot.assert_interaction(payment.charge, args=(100,), kwargs={})
+bigfoot.assert_interaction(payment.charge, args=(200,), kwargs={})
+```
+
+`bigfoot.mock("PaymentService", wraps=real_service)` is the keyword-argument form and is equivalent.
+
+### HTTP pass-through: real HTTP calls
+
+`bigfoot.http.pass_through(method, url)` registers a permanent routing rule. When a request matches the rule and no mock matches first, the real HTTP call is made through the original transport. The interaction is still recorded on the timeline and must be asserted.
+
+```python
+import bigfoot, httpx
+
+def test_mixed():
+    bigfoot.http.mock_response("GET", "https://api.example.com/cached", json={"data": "cached"})
+    bigfoot.http.pass_through("GET", "https://api.example.com/live")
+
+    with bigfoot.sandbox():
+        mocked = httpx.get("https://api.example.com/cached")   # returns mock
+        real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
+
+    bigfoot.assert_interaction(bigfoot.http.request,
+                               method="GET", url="https://api.example.com/cached",
+                               headers=IsMapping(), body=None, status=200)
+    bigfoot.assert_interaction(bigfoot.http.request,
+                               method="GET", url="https://api.example.com/live",
+                               headers=IsMapping(), body=None, status=200)
+```
+
+Pass-through rules are routing hints, not assertions. Unused pass-through rules do not raise `UnusedMocksError`.
 
 ## pytest Integration
 
@@ -160,13 +211,15 @@ hint='Unexpected call to PaymentService.charge
 import bigfoot
 
 # Module-level (preferred in pytest)
-bigfoot.mock("Name")           # create/retrieve a named MockProxy
-bigfoot.sandbox()              # context manager: activate all plugins
-bigfoot.assert_interaction(source, **fields)  # assert next interaction
-bigfoot.in_any_order()         # relax FIFO ordering for assertions
-bigfoot.verify_all()           # explicit verification (automatic in pytest)
-bigfoot.current_verifier()     # access the StrictVerifier directly
-bigfoot.http                   # proxy to the HttpPlugin for this test
+bigfoot.mock("Name")                    # create/retrieve a named MockProxy
+bigfoot.mock("Name", wraps=real)        # spy: delegate to real when queue empty
+bigfoot.spy("Name", real)              # positional form of wraps=
+bigfoot.sandbox()                       # context manager: activate all plugins
+bigfoot.assert_interaction(source, **fields)  # assert next interaction; ALL assertable fields required
+bigfoot.in_any_order()                  # relax FIFO ordering for assertions
+bigfoot.verify_all()                    # explicit verification (automatic in pytest)
+bigfoot.current_verifier()              # access the StrictVerifier directly
+bigfoot.http                            # proxy to the HttpPlugin for this test
 
 # Classes (for manual use or custom plugins)
 from bigfoot import (
@@ -182,6 +235,7 @@ from bigfoot import (
     UnusedMocksError,
     VerificationError,
     InteractionMismatchError,
+    MissingAssertionFieldsError,
     SandboxNotActiveError,
     ConflictError,
 )

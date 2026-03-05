@@ -24,7 +24,8 @@ def test_api():
         import httpx
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET")
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
+                               headers=IsMapping(), body=None, status=200)
 ```
 
 For manual use outside pytest, construct `HttpPlugin` explicitly:
@@ -103,8 +104,11 @@ def test_users():
     with bigfoot.sandbox():
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users", status=200)
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
+                               headers=IsMapping(), body=None, status=200)
 ```
+
+`assert_interaction()` requires ALL five assertable fields for HTTP interactions. Omitting any of `method`, `url`, `headers`, `body`, or `status` raises `MissingAssertionFieldsError`. Use `IsMapping()` from `dirty-equals` for headers when you want to assert type without exact matching, or `ANY` from `unittest.mock`.
 
 Fields available in `assert_interaction()` keyword arguments:
 
@@ -129,7 +133,8 @@ def test_httpx_sync():
         assert response.status_code == 200
         assert response.json() == {"value": 42}
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/data")
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/data",
+                               headers=IsMapping(), body=None, status=200)
 ```
 
 ## Using with httpx async
@@ -145,7 +150,8 @@ async def test_httpx_async():
             response = await client.post("https://api.example.com/items", json={"name": "widget"})
         assert response.status_code == 201
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="POST", url="https://api.example.com/items", status=201)
+    bigfoot.assert_interaction(bigfoot.http.request, method="POST", url="https://api.example.com/items",
+                               headers=IsMapping(), body=None, status=201)
 ```
 
 ## Using with requests
@@ -160,7 +166,8 @@ def test_requests():
         response = requests.delete("https://api.example.com/items/99")
         assert response.status_code == 204
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="DELETE", url="https://api.example.com/items/99", status=204)
+    bigfoot.assert_interaction(bigfoot.http.request, method="DELETE", url="https://api.example.com/items/99",
+                               headers=IsMapping(), body=None, status=204)
 ```
 
 ## UnmockedInteractionError for HTTP
@@ -186,6 +193,33 @@ ConflictError: target='httpx.HTTPTransport.handle_request', patcher='respx'
 ```
 
 Nested bigfoot sandboxes use reference counting and do not conflict with each other.
+
+## Pass-Through: Real HTTP Calls
+
+`bigfoot.http.pass_through(method, url)` registers a permanent routing rule. When an incoming request matches the rule and no mock response matches first, the real HTTP call is made through the original transport (bypassing bigfoot's interception layer). The interaction is still recorded on the timeline and must be asserted like any other interaction.
+
+Pass-through rules are routing hints, not assertions. An unused pass-through rule does not raise `UnusedMocksError` at teardown.
+
+```python
+import bigfoot, httpx
+
+def test_mixed():
+    bigfoot.http.mock_response("GET", "https://api.example.com/cached", json={"data": "cached"})
+    bigfoot.http.pass_through("GET", "https://api.example.com/live")
+
+    with bigfoot.sandbox():
+        mocked = httpx.get("https://api.example.com/cached")   # returns mock response
+        real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
+
+    bigfoot.assert_interaction(bigfoot.http.request,
+                               method="GET", url="https://api.example.com/cached",
+                               headers=IsMapping(), body=None, status=200)
+    bigfoot.assert_interaction(bigfoot.http.request,
+                               method="GET", url="https://api.example.com/live",
+                               headers=IsMapping(), body=None, status=200)
+```
+
+Mock responses are checked before pass-through rules. If a mock matches, the pass-through rule is not evaluated for that request. If no mock matches and a pass-through rule matches, the real call is made. If neither matches, `UnmockedInteractionError` is raised.
 
 ## What HttpPlugin patches
 

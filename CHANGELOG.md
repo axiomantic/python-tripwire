@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-05
+
+### Added
+
+- `bigfoot.spy(name, real)` — creates a `MockProxy` that delegates to `real` when its call queue is empty; queue entries take priority; the real method call is always recorded on the timeline (even if it raises)
+- `StrictVerifier.mock(name, wraps=real)` / `bigfoot.mock(name, wraps=real)` — keyword form of spy creation
+- `bigfoot.http.pass_through(method, url)` — registers a permanent routing rule that forwards matching requests to the original transport; recorded on the timeline; no unused-rule enforcement
+- `BasePlugin.assertable_fields(interaction)` — new abstract method; returns the set of `interaction.details` keys that callers must include in `assert_interaction(**expected)`
+- `MissingAssertionFieldsError` — raised by `assert_interaction()` when one or more assertable fields are omitted from `**expected`; has `missing_fields: frozenset[str]` attribute
+
+### Changed
+
+- **Breaking:** `assert_interaction()` now enforces complete field coverage. MockPlugin requires `args` and `kwargs`; HttpPlugin requires `method`, `url`, `headers`, `body`, and `status`. Use dirty-equals values (e.g., `Anything()`) to satisfy a field without exact matching.
+- `MockPlugin` now stores `args` and `kwargs` in `interaction.details` as actual Python objects instead of `repr()` strings, enabling full dirty-equals compatibility on mock assertions
+- `format_assert_hint()` on both `MockPlugin` and `HttpPlugin` now generates hints that include all assertable fields
+
 ## [0.1.1] - 2026-03-04
 
 ### Added
@@ -35,5 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.2.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.2.0
 [0.1.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.1.1
 [0.1.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.1.0

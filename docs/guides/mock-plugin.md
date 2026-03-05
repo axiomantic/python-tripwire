@@ -98,6 +98,45 @@ email.send.required(False).returns("a").returns("b")  # both optional
 email.send.required(True).returns("c")                # back to required
 ```
 
+## Spy: Delegating to Real Implementations
+
+A spy wraps a real object. When the spy's call queue has an entry, that entry takes priority. When the queue is empty, the call is forwarded to the real object. The interaction is recorded on the timeline in either case, even if the real implementation raises.
+
+### Creating a spy
+
+Use `bigfoot.spy(name, real)` (positional form) or `bigfoot.mock(name, wraps=real)` (keyword form). Both are equivalent.
+
+```python
+import bigfoot
+
+real_service = PaymentService()
+payment = bigfoot.spy("PaymentService", real_service)
+payment.charge.returns({"id": "mock-123"})  # queue entry: takes priority
+
+with bigfoot.sandbox():
+    result1 = payment.charge(100)   # uses queue entry {"id": "mock-123"}
+    result2 = payment.charge(200)   # queue empty: delegates to real_service.charge(200)
+
+bigfoot.assert_interaction(payment.charge, args=(100,), kwargs={})
+bigfoot.assert_interaction(payment.charge, args=(200,), kwargs={})
+```
+
+The keyword form:
+
+```python
+payment = bigfoot.mock("PaymentService", wraps=real_service)
+```
+
+### Behavior summary
+
+| Condition | Result |
+|---|---|
+| Queue has an entry | Queue entry is consumed and returned (or raised) |
+| Queue is empty, `wraps` set | Real object's method is called with the same args |
+| Queue is empty, no `wraps` | `UnmockedInteractionError` raised immediately |
+
+The timeline records the interaction in all cases. Assertions with `args=` and `kwargs=` apply to spy calls exactly as they do to plain mocks.
+
 ## Assertions
 
 Assertions happen after the sandbox exits. Use `bigfoot.assert_interaction()` with the `MethodProxy` as the source:
@@ -112,8 +151,10 @@ def test_email():
     with bigfoot.sandbox():
         email.send(to="user@example.com", subject="Welcome")
 
-    bigfoot.assert_interaction(email.send, kwargs="{'to': 'user@example.com', 'subject': 'Welcome'}")
+    bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
 ```
+
+`assert_interaction()` requires ALL assertable fields. For `MockPlugin` interactions, `args` and `kwargs` are always required. Omitting either raises `MissingAssertionFieldsError`. Use dirty-equals values (e.g., `Anything()`) when you want to assert a field without exact matching.
 
 ## In-any-order assertions
 
@@ -131,8 +172,8 @@ def test_notifications():
         email.send(to="bob@example.com")
 
     with bigfoot.in_any_order():
-        bigfoot.assert_interaction(email.send, kwargs="{'to': 'bob@example.com'}")
-        bigfoot.assert_interaction(email.send, kwargs="{'to': 'alice@example.com'}")
+        bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "bob@example.com"})
+        bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "alice@example.com"})
 ```
 
 `in_any_order()` is a context manager that relaxes ordering globally across all plugins. It is not possible to relax ordering for only one plugin type within a single block.
@@ -201,8 +242,8 @@ Each mock call is recorded with these fields in `interaction.details`:
 | `args` | `repr()` of the positional arguments tuple |
 | `kwargs` | `repr()` of the keyword arguments dict |
 
-Pass any of these as keyword arguments to `assert_interaction()` to filter on specific values:
+Pass any of these as keyword arguments to `assert_interaction()` to filter on specific values. `args` and `kwargs` are assertable fields and must always be included:
 
 ```python
-bigfoot.assert_interaction(email.send, mock_name="EmailService", method_name="send")
+bigfoot.assert_interaction(email.send, args=(), kwargs={"subject": "Welcome"}, mock_name="EmailService", method_name="send")
 ```

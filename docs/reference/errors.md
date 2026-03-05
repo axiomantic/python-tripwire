@@ -12,6 +12,8 @@
 
 ::: bigfoot.InteractionMismatchError
 
+::: bigfoot.MissingAssertionFieldsError
+
 ::: bigfoot.SandboxNotActiveError
 
 ::: bigfoot.ConflictError

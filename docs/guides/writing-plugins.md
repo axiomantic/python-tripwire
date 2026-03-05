@@ -4,7 +4,7 @@ bigfoot's plugin system allows you to add interception for any type of interacti
 
 ## BasePlugin contract
 
-All plugins must subclass `BasePlugin` and implement eight abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
+All plugins must subclass `BasePlugin` and implement nine abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
 
 ```python
 from bigfoot._base_plugin import BasePlugin
@@ -71,6 +71,18 @@ def format_assert_hint(self, interaction: Interaction) -> str: ...
 ```
 
 Return copy-pasteable code that would assert this specific interaction. Used in `UnassertedInteractionsError` hints.
+
+### assertable_fields()
+
+```python
+def assertable_fields(self, interaction: Interaction) -> frozenset[str]: ...
+```
+
+Return the set of `interaction.details` keys that callers MUST include in `assert_interaction(**expected)`. Any key returned here that is absent from the caller's `**expected` causes `assert_interaction()` to raise `MissingAssertionFieldsError` before any matching logic runs.
+
+Implement to return only keys that carry meaningful signal. Do not include keys that are redundant with `source_id` (such as `mock_name` or `method_name` when the source already identifies the method). The goal is to prevent silent partial assertions, not to force callers to repeat information already encoded in the source.
+
+For example, `MockPlugin` returns `frozenset({"args", "kwargs"})` because callers should not be able to assert a mock interaction without confirming what it was called with.
 
 ### get_unused_mocks()
 
@@ -199,6 +211,9 @@ class DatabasePlugin(BasePlugin):
         query = interaction.details.get("query", "?")
         return f'verifier.assert_interaction(db_sentinel, query="{query}")'
 
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        return frozenset({"query"})
+
     def get_unused_mocks(self) -> list[DbMockConfig]:
         return [c for c in self._mock_queue if c.required]
 
@@ -226,6 +241,7 @@ def test_db_query():
         rows = my_connection.execute("SELECT * FROM users")
         assert rows == [{"id": 1}]
 
+    # query= is the sole assertable field for DatabasePlugin
     bigfoot.assert_interaction(db_sentinel, query="SELECT * FROM users")
     # verify_all() called automatically at teardown
 ```
