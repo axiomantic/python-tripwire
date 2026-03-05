@@ -57,4 +57,8 @@ If the code calls `email.send` with no mock configured, bigfoot raises `Unmocked
 
     Intercept httpx, requests, and urllib HTTP calls in tests.
 
+- **[SubprocessPlugin Guide](guides/subprocess-plugin.md)**
+
+    Intercept `subprocess.run` and `shutil.which` in tests.
+
 </div>

@@ -9,7 +9,7 @@ A pluggable interaction auditor for Python tests. Enforces a closed-loop contrac
 ## Installation
 
 ```bash
-pip install bigfoot           # Core: MockPlugin
+pip install bigfoot           # Core: MockPlugin + SubprocessPlugin
 pip install bigfoot[http]     # + HttpPlugin (httpx, requests, urllib)
 pip install bigfoot[matchers] # + dirty-equals matchers
 pip install bigfoot[dev]      # All of the above + pytest, mypy, ruff
@@ -65,6 +65,59 @@ proxy.compute.returns(1).returns(2)         # FIFO: first call returns 1, second
 proxy.fetch.raises(IOError("unavailable"))  # Raise an exception
 proxy.transform.calls(lambda x: x.upper()) # Delegate to a function
 proxy.log.required(False).returns(None)     # Optional: no UnusedMocksError if never called
+```
+
+## SubprocessPlugin
+
+`SubprocessPlugin` intercepts `subprocess.run` and `shutil.which` — included in core bigfoot, no extra required.
+
+```python
+import bigfoot
+
+def test_deploy():
+    bigfoot.subprocess_mock.mock_which("git", returns="/usr/bin/git")
+    bigfoot.subprocess_mock.mock_run(["git", "pull", "--ff-only"], returncode=0, stdout="Already up to date.\n")
+    bigfoot.subprocess_mock.mock_run(["git", "tag", "v1.0"], returncode=0)
+
+    with bigfoot.sandbox():
+        deploy()
+
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git")
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "pull", "--ff-only"])
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "tag", "v1.0"])
+```
+
+### `mock_run` options
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `command` | `list[str]` | required | Full command list, matched exactly in FIFO order |
+| `returncode` | `int` | `0` | Return code of the completed process |
+| `stdout` | `str` | `""` | Captured stdout |
+| `stderr` | `str` | `""` | Captured stderr |
+| `raises` | `BaseException \| None` | `None` | Exception to raise after recording the interaction |
+| `required` | `bool` | `True` | Whether an unused mock causes `UnusedMocksError` at teardown |
+
+### `mock_which` options
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `name` | `str` | required | Binary name to match (e.g., `"git"`, `"docker"`) |
+| `returns` | `str \| None` | required | Path returned by `shutil.which`, or `None` to simulate not found |
+| `required` | `bool` | `False` | Whether an uncalled mock causes `UnusedMocksError` at teardown |
+
+`shutil.which` is semi-permissive: unregistered names return `None` silently. Only registered names record interactions.
+
+### Activate bouncer without mocks
+
+```python
+def test_no_subprocess_calls():
+    bigfoot.subprocess_mock.install()  # any subprocess.run call will raise UnmockedInteractionError
+
+    with bigfoot.sandbox():
+        result = function_that_should_not_call_subprocess()
+
+    assert result == expected
 ```
 
 ## Async Tests
@@ -220,6 +273,7 @@ bigfoot.in_any_order()                  # relax FIFO ordering for assertions
 bigfoot.verify_all()                    # explicit verification (automatic in pytest)
 bigfoot.current_verifier()              # access the StrictVerifier directly
 bigfoot.http                            # proxy to the HttpPlugin for this test
+bigfoot.subprocess_mock                 # proxy to the SubprocessPlugin for this test
 
 # Classes (for manual use or custom plugins)
 from bigfoot import (
@@ -240,6 +294,7 @@ from bigfoot import (
     ConflictError,
 )
 from bigfoot.plugins.http import HttpPlugin  # requires bigfoot[http]
+from bigfoot.plugins.subprocess import SubprocessPlugin
 ```
 
 ## Requirements

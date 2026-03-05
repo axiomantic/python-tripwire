@@ -76,6 +76,7 @@ nav:
   - Guides:
     - MockPlugin: guides/mock-plugin.md
     - HttpPlugin: guides/http-plugin.md
+    - SubprocessPlugin: guides/subprocess-plugin.md
     - Async Usage: guides/async.md
     - pytest Integration: guides/pytest-integration.md
     - Writing Plugins: guides/writing-plugins.md
@@ -84,6 +85,7 @@ nav:
     - StrictVerifier: reference/verifier.md
     - MockPlugin: reference/mock-plugin.md
     - HttpPlugin: reference/http-plugin.md
+    - SubprocessPlugin: reference/subprocess-plugin.md
     - Errors: reference/errors.md
 
 extra:

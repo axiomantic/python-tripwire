@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-03-05
+
+### Added
+
+- `SubprocessPlugin` — intercepts `subprocess.run` and `shutil.which` globally during a sandbox. `subprocess.run` uses a strict FIFO queue; calling with an unregistered or out-of-order command raises `UnmockedInteractionError` immediately. `shutil.which` is semi-permissive: unregistered names return `None` silently; registered names record an interaction and return their configured value.
+- `bigfoot.subprocess_mock` proxy — auto-creates `SubprocessPlugin` on the current test verifier on first access, matching the `bigfoot.http` pattern.
+- `subprocess_mock.mock_run(command, *, returncode, stdout, stderr, raises, required)` — register a FIFO mock for `subprocess.run`. `raises` causes the exception to be raised after the interaction is recorded.
+- `subprocess_mock.mock_which(name, returns, *, required=False)` — register a mock for `shutil.which` keyed by binary name. `required=False` by default because tests often register more alternatives than any single code path will exercise.
+- `subprocess_mock.install()` — activates the bouncer without registering any mocks; use to assert that no subprocess calls are made.
+
 ## [0.2.0] - 2026-03-05
 
 ### Added
@@ -51,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.3.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.3.0
 [0.2.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.2.0
 [0.1.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.1.1
 [0.1.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.1.0
