@@ -29,6 +29,7 @@ except ImportError:  # pragma: no cover
 
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
+from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
 from bigfoot.plugins.socket_plugin import SocketPlugin as _SocketPlugin  # noqa: F401
 from bigfoot.plugins.subprocess import SubprocessPlugin as _SubprocessPlugin  # noqa: F401
 from bigfoot.plugins.websocket_plugin import (
@@ -40,6 +41,7 @@ from bigfoot.plugins.websocket_plugin import (
 
 DatabasePlugin = _DatabasePlugin
 PopenPlugin = _PopenPlugin
+SmtpPlugin = _SmtpPlugin
 SocketPlugin = _SocketPlugin
 AsyncWebSocketPlugin = _AsyncWebSocketPlugin
 SyncWebSocketPlugin = _SyncWebSocketPlugin
@@ -57,6 +59,7 @@ __all__ = [
     "MockPlugin",
     "DatabasePlugin",
     "PopenPlugin",
+    "SmtpPlugin",
     "SocketPlugin",
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
@@ -84,6 +87,7 @@ __all__ = [
     "http",
     "subprocess_mock",
     "popen_mock",
+    "smtp_mock",
     "socket_mock",
     "db_mock",
     "async_websocket_mock",
@@ -225,6 +229,32 @@ class _PopenProxy:
 
 
 popen_mock = _PopenProxy()
+
+
+# ---------------------------------------------------------------------------
+# SMTP proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _SmtpProxy:
+    """Proxy to the SmtpPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin: _SmtpPlugin | None = None
+        for p in verifier._plugins:
+            if isinstance(p, _SmtpPlugin):
+                plugin = p
+                break
+        if plugin is None:
+            plugin = _SmtpPlugin(verifier)
+        return getattr(plugin, name)
+
+
+smtp_mock = _SmtpProxy()
 
 
 # ---------------------------------------------------------------------------
