@@ -33,6 +33,11 @@ class _CallFn:
     fn: Callable[..., Any]
 
 
+# Sentinel: initial value for `result` in wraps delegation try/finally.
+# Never actually returned — the exception path re-raises before reaching `return result`.
+_SENTINEL = object()
+
+
 # ---------------------------------------------------------------------------
 # MockConfig
 # ---------------------------------------------------------------------------
@@ -63,10 +68,13 @@ class MethodProxy:
     through the bigfoot interceptor.
     """
 
-    def __init__(self, mock_name: str, method_name: str, plugin: "MockPlugin") -> None:
+    def __init__(
+        self, mock_name: str, method_name: str, plugin: "MockPlugin", proxy: "MockProxy"
+    ) -> None:
         self._mock_name = mock_name
         self._method_name = method_name
         self._plugin = plugin
+        self._proxy = proxy
         self._config_queue: deque[MockConfig] = deque()
         self.source_id = f"mock:{mock_name}.{method_name}"
         self._next_required: bool = True  # sticky flag for subsequent configurations
@@ -119,14 +127,36 @@ class MethodProxy:
         # Step 1: Verify sandbox is active (raises SandboxNotActiveError if not)
         _get_verifier_or_raise(self.source_id)
 
-        # Step 2: Check side-effect queue before recording
+        # Step 2: Check side-effect queue; fall back to wraps delegation if empty
+        wraps_obj: object = object.__getattribute__(self._proxy, "_wraps")
         if not self._config_queue:
-            raise UnmockedInteractionError(
-                source_id=self.source_id,
-                args=args,
-                kwargs=kwargs,
-                hint=self._plugin.format_unmocked_hint(self.source_id, args, kwargs),
-            )
+            if wraps_obj is None:
+                raise UnmockedInteractionError(
+                    source_id=self.source_id,
+                    args=args,
+                    kwargs=kwargs,
+                    hint=self._plugin.format_unmocked_hint(self.source_id, args, kwargs),
+                )
+            # Wraps delegation: call the real object, record interaction regardless
+            result: Any = _SENTINEL
+            try:
+                real_method = getattr(wraps_obj, self._method_name)
+                result = real_method(*args, **kwargs)
+            finally:
+                # Record even if the real method raised — result stays as _SENTINEL
+                interaction = Interaction(
+                    source_id=self.source_id,
+                    sequence=0,
+                    details={
+                        "mock_name": self._mock_name,
+                        "method_name": self._method_name,
+                        "args": args,
+                        "kwargs": kwargs,
+                    },
+                    plugin=self._plugin,
+                )
+                self._plugin.record(interaction)
+            return result
 
         config = self._config_queue.popleft()
 
@@ -137,8 +167,8 @@ class MethodProxy:
             details={
                 "mock_name": self._mock_name,
                 "method_name": self._method_name,
-                "args": repr(args),
-                "kwargs": repr(kwargs),
+                "args": args,
+                "kwargs": kwargs,
             },
             plugin=self._plugin,
         )
@@ -164,13 +194,21 @@ class MockProxy:
     """Object returned by plugin.get_or_create_proxy('Name').
 
     Attribute access returns a cached MethodProxy for the named method.
+    If wraps is set, method calls with an empty queue are delegated to the
+    wrapped object instead of raising UnmockedInteractionError.
     """
 
-    def __init__(self, name: str, plugin: "MockPlugin") -> None:
+    def __init__(self, name: str, plugin: "MockPlugin", wraps: object = None) -> None:
         # Use object.__setattr__ to avoid triggering __getattr__ during __init__
         object.__setattr__(self, "_name", name)
         object.__setattr__(self, "_plugin", plugin)
         object.__setattr__(self, "_methods", {})
+        object.__setattr__(self, "_wraps", wraps)
+
+    @property
+    def wraps(self) -> object:
+        """The real object being wrapped, or None."""
+        return object.__getattribute__(self, "_wraps")
 
     def __getattr__(self, method_name: str) -> MethodProxy:
         if method_name.startswith("_"):
@@ -183,6 +221,7 @@ class MockProxy:
                 mock_name=mock_name,
                 method_name=method_name,
                 plugin=plugin,
+                proxy=self,
             )
         return methods[method_name]
 
@@ -202,10 +241,15 @@ class MockPlugin(BasePlugin):
         super().__init__(verifier)
         self._proxies: dict[str, MockProxy] = {}
 
-    def get_or_create_proxy(self, name: str) -> MockProxy:
-        """Return an existing MockProxy for name, or create a new one."""
+    def get_or_create_proxy(self, name: str, wraps: object = None) -> MockProxy:
+        """Return an existing MockProxy for name, or create a new one.
+
+        If wraps is provided and the proxy does not yet exist, the new proxy
+        will delegate to wraps when its queue is empty. wraps is ignored on
+        subsequent calls for the same name (the existing proxy is returned as-is).
+        """
         if name not in self._proxies:
-            self._proxies[name] = MockProxy(name=name, plugin=self)
+            self._proxies[name] = MockProxy(name=name, plugin=self, wraps=wraps)
         return self._proxies[name]
 
     # ------------------------------------------------------------------
@@ -270,7 +314,19 @@ class MockPlugin(BasePlugin):
         """Copy-pasteable code to assert this interaction."""
         mock_name = interaction.details.get("mock_name", "?")
         method_name = interaction.details.get("method_name", "?")
-        return f'verifier.assert_interaction(verifier.mock("{mock_name}").{method_name})'
+        args = interaction.details.get("args", ())
+        kwargs = interaction.details.get("kwargs", {})
+        return (
+            f'verifier.assert_interaction(\n'
+            f'    verifier.mock("{mock_name}").{method_name},\n'
+            f'    args={args!r},\n'
+            f'    kwargs={kwargs!r},\n'
+            f')'
+        )
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return the field names required in **expected when asserting a mock interaction."""
+        return frozenset({"args", "kwargs"})
 
     def get_unused_mocks(self) -> list[MockConfig]:
         """Return MockConfig objects that are required=True and still in the queue (never
