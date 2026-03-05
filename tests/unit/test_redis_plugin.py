@@ -104,8 +104,8 @@ def test_redis_mock_config_fields() -> None:
     assert config.returns == "value"
     assert config.raises is err
     assert config.required is False
-    assert isinstance(config.registration_traceback, str)
-    assert len(config.registration_traceback) > 0
+    lines = config.registration_traceback.splitlines()
+    assert lines[0].startswith("  File ")
 
 
 # ESCAPE: test_redis_mock_config_defaults
@@ -554,8 +554,13 @@ def test_format_unused_mock_hint() -> None:
 def test_redis_mock_proxy_mock_command(bigfoot_verifier: StrictVerifier) -> None:
     import bigfoot
 
-    # Should not raise; use required=False so teardown does not fail.
-    bigfoot.redis_mock.mock_command("GET", returns="proxy_value", required=False)
+    bigfoot.redis_mock.mock_command("GET", returns="proxy_value", required=True)
+
+    with bigfoot.sandbox():
+        r = redis.Redis()
+        result = r.execute_command("GET", "somekey")
+
+    assert result == "proxy_value"
 
 
 # ESCAPE: test_redis_mock_proxy_raises_outside_context
@@ -589,6 +594,7 @@ def test_redis_mock_proxy_raises_outside_context() -> None:
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_redis_plugin_in_all() -> None:
     import bigfoot
+    from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin
 
-    assert "RedisPlugin" in bigfoot.__all__
-    assert "redis_mock" in bigfoot.__all__
+    assert bigfoot.RedisPlugin is _RedisPlugin
+    assert type(bigfoot.redis_mock).__name__ == "_RedisProxy"

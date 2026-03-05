@@ -401,6 +401,7 @@ def test_sendmail_before_ehlo_raises_invalid_state() -> None:
             smtp.sendmail("from@example.com", ["to@example.com"], "msg")
 
     exc = exc_info.value
+    assert exc.source_id == "smtp:sendmail"
     assert exc.method == "sendmail"
     assert exc.current_state == "connected"
     assert exc.valid_states == frozenset({"greeted", "authenticated", "sending"})

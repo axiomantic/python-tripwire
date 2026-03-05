@@ -172,7 +172,8 @@ def test_popen_init_step_consumed() -> None:
     with v.sandbox():
         proc = subprocess.Popen(["ls", "-la"])
 
-    assert isinstance(proc, _FakePopen)
+    assert type(proc).__name__ == "_FakePopen"
+    assert proc.pid == 12345
     # Session should be in "running" state; check via _active_sessions
     assert len(p._active_sessions) == 1
     handle = list(p._active_sessions.values())[0]
