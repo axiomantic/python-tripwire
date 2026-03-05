@@ -80,6 +80,7 @@ nav:
     - Async Usage: guides/async.md
     - pytest Integration: guides/pytest-integration.md
     - Writing Plugins: guides/writing-plugins.md
+    - Stateful Plugins: guides/stateful-plugins.md
   - API Reference:
     - Overview: reference/index.md
     - StrictVerifier: reference/verifier.md
