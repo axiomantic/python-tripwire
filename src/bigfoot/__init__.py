@@ -33,6 +33,7 @@ except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
+from bigfoot.plugins.logging_plugin import LoggingPlugin as _LoggingPlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
 from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
@@ -46,6 +47,7 @@ from bigfoot.plugins.websocket_plugin import (
 )
 
 DatabasePlugin = _DatabasePlugin
+LoggingPlugin = _LoggingPlugin
 PopenPlugin = _PopenPlugin
 SmtpPlugin = _SmtpPlugin
 SocketPlugin = _SocketPlugin
@@ -65,6 +67,7 @@ __all__ = [
     "InAnyOrderContext",
     "MockPlugin",
     "DatabasePlugin",
+    "LoggingPlugin",
     "PopenPlugin",
     "SmtpPlugin",
     "SocketPlugin",
@@ -103,6 +106,7 @@ __all__ = [
     "async_websocket_mock",
     "sync_websocket_mock",
     "redis_mock",
+    "log_mock",
 ]
 
 
@@ -381,6 +385,26 @@ class _RedisProxy:
 
 
 redis_mock = _RedisProxy()
+
+
+# ---------------------------------------------------------------------------
+# Logging proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _LoggingProxy:
+    """Proxy to the LoggingPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _LoggingPlugin)
+        return getattr(plugin, name)
+
+
+log_mock = _LoggingProxy()
 
 
 # ---------------------------------------------------------------------------

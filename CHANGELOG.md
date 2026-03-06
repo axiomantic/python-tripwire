@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-03-06
+
+### Added
+
+- `LoggingPlugin` -- intercepts Python's `logging` module globally during a sandbox. All log calls are swallowed (not emitted to handlers) and recorded on the timeline, requiring explicit assertion at teardown. Fire-and-forget behavior: unmocked log calls are silently recorded rather than raising `UnmockedInteractionError`.
+- `bigfoot.log_mock` proxy -- auto-creates `LoggingPlugin` on the current test verifier on first access, matching the pattern of other plugin proxies.
+- `log_mock.mock_log(level, message, logger_name=None)` -- register a FIFO mock for expected log calls. `logger_name=None` matches any logger.
+- `log_mock.assert_log(level, message, logger_name)` -- assert the next log interaction with all 3 fields.
+- Per-level assertion helpers: `assert_debug()`, `assert_info()`, `assert_warning()`, `assert_error()`, `assert_critical()`.
+
 ## [0.6.0] - 2026-03-06
 
 ### Added
@@ -118,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.7.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.7.0
 [0.6.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.6.0
 [0.4.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.1
 [0.4.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.0

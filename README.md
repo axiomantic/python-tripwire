@@ -125,6 +125,45 @@ def test_no_subprocess_calls():
     assert result == expected
 ```
 
+## LoggingPlugin
+
+`LoggingPlugin` intercepts Python's `logging` module -- included in core bigfoot, no extra required. All log calls inside a sandbox are swallowed (not actually emitted) and recorded on the timeline, requiring explicit assertion at teardown.
+
+```python
+import bigfoot
+import logging
+
+def test_audit_trail():
+    logger = logging.getLogger("myapp.auth")
+
+    with bigfoot:
+        logger.info("User alice logged in")
+        logger.warning("Rate limit approaching")
+
+    bigfoot.log_mock.assert_info("User alice logged in", "myapp.auth")
+    bigfoot.log_mock.assert_warning("Rate limit approaching", "myapp.auth")
+```
+
+### `mock_log` options
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `level` | `str` | required | Log level name: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"` |
+| `message` | `str` | required | The formatted log message |
+| `logger_name` | `str \| None` | `None` | Logger name to match; `None` matches any logger |
+| `required` | `bool` | `True` | Whether an unused mock causes `UnusedMocksError` at teardown |
+
+### Assertion helpers
+
+| Method | Description |
+|---|---|
+| `assert_log(level, message, logger_name)` | Assert the next log interaction (all 3 fields) |
+| `assert_debug(message, logger_name)` | Convenience for `assert_log("DEBUG", ...)` |
+| `assert_info(message, logger_name)` | Convenience for `assert_log("INFO", ...)` |
+| `assert_warning(message, logger_name)` | Convenience for `assert_log("WARNING", ...)` |
+| `assert_error(message, logger_name)` | Convenience for `assert_log("ERROR", ...)` |
+| `assert_critical(message, logger_name)` | Convenience for `assert_log("CRITICAL", ...)` |
+
 ## PopenPlugin
 
 `PopenPlugin` intercepts `subprocess.Popen` — separate from `SubprocessPlugin` (which intercepts `subprocess.run`). Both can be active in the same test.

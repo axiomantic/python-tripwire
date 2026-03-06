@@ -21,6 +21,7 @@ def test_all_contains_expected_names() -> None:
         "InAnyOrderContext",
         "MockPlugin",
         "DatabasePlugin",
+        "LoggingPlugin",
         "PopenPlugin",
         "SmtpPlugin",
         "SocketPlugin",
@@ -59,6 +60,7 @@ def test_all_contains_expected_names() -> None:
         "async_websocket_mock",
         "sync_websocket_mock",
         "redis_mock",
+        "log_mock",
     }
     assert set(bigfoot.__all__) == expected_all
 

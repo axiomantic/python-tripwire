@@ -77,6 +77,7 @@ nav:
     - MockPlugin: guides/mock-plugin.md
     - HttpPlugin: guides/http-plugin.md
     - SubprocessPlugin: guides/subprocess-plugin.md
+    - LoggingPlugin: guides/logging-plugin.md
     - PopenPlugin: guides/popen-plugin.md
     - DatabasePlugin: guides/database-plugin.md
     - SmtpPlugin: guides/smtp-plugin.md
@@ -94,6 +95,7 @@ nav:
     - MockPlugin: reference/mock-plugin.md
     - HttpPlugin: reference/http-plugin.md
     - SubprocessPlugin: reference/subprocess-plugin.md
+    - LoggingPlugin: reference/logging-plugin.md
     - PopenPlugin: reference/popen-plugin.md
     - DatabasePlugin: reference/database-plugin.md
     - SmtpPlugin: reference/smtp-plugin.md

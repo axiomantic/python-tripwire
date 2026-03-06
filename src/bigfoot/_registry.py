@@ -87,6 +87,7 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "websocket-client",
     ),
     PluginEntry("redis", "bigfoot.plugins.redis_plugin", "RedisPlugin", "redis"),
+    PluginEntry("logging", "bigfoot.plugins.logging_plugin", "LoggingPlugin", "always"),
 )
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)
