@@ -50,3 +50,6 @@ site/
 
 # Git worktrees
 .worktrees/
+
+# uv lock file (library, not application)
+uv.lock

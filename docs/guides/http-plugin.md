@@ -20,7 +20,7 @@ import bigfoot
 def test_api():
     bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
 
-    with bigfoot.sandbox():
+    with bigfoot:
         import httpx
         response = httpx.get("https://api.example.com/users")
 
@@ -101,7 +101,7 @@ import bigfoot, httpx
 def test_users():
     bigfoot.http.mock_response("GET", "https://api.example.com/users", json=[])
 
-    with bigfoot.sandbox():
+    with bigfoot:
         response = httpx.get("https://api.example.com/users")
 
     bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
@@ -128,7 +128,7 @@ import bigfoot, httpx
 def test_httpx_sync():
     bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
 
-    with bigfoot.sandbox():
+    with bigfoot:
         response = httpx.get("https://api.example.com/data")
         assert response.status_code == 200
         assert response.json() == {"value": 42}
@@ -145,7 +145,7 @@ import bigfoot, httpx
 async def test_httpx_async():
     bigfoot.http.mock_response("POST", "https://api.example.com/items", json={"id": 1}, status=201)
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         async with httpx.AsyncClient() as client:
             response = await client.post("https://api.example.com/items", json={"name": "widget"})
         assert response.status_code == 201
@@ -162,7 +162,7 @@ import bigfoot, requests
 def test_requests():
     bigfoot.http.mock_response("DELETE", "https://api.example.com/items/99", status=204)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         response = requests.delete("https://api.example.com/items/99")
         assert response.status_code == 204
 
@@ -207,7 +207,7 @@ def test_mixed():
     bigfoot.http.mock_response("GET", "https://api.example.com/cached", json={"data": "cached"})
     bigfoot.http.pass_through("GET", "https://api.example.com/live")
 
-    with bigfoot.sandbox():
+    with bigfoot:
         mocked = httpx.get("https://api.example.com/cached")   # returns mock response
         real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
 

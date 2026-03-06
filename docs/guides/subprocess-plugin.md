@@ -12,7 +12,7 @@ import bigfoot
 def test_build():
     bigfoot.subprocess_mock.mock_run(["make", "all"], returncode=0)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         run_build()
 
     bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["make", "all"])
@@ -112,7 +112,7 @@ Only registered names record interactions. Calls to unregistered names are not r
 def test_no_subprocess_calls():
     bigfoot.subprocess_mock.install()  # any subprocess.run call will raise UnmockedInteractionError
 
-    with bigfoot.sandbox():
+    with bigfoot:
         result = function_that_should_not_call_subprocess()
 
     assert result == expected
@@ -146,7 +146,7 @@ def test_deploy():
     bigfoot.subprocess_mock.mock_run(["/usr/bin/git", "pull", "--ff-only"], returncode=0, stdout="Already up to date.\n")
     bigfoot.subprocess_mock.mock_run(["/usr/bin/git", "tag", "v1.0"], returncode=0)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         deploy()
 
     bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git")

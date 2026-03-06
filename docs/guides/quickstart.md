@@ -29,12 +29,33 @@ Attribute access on a `MockProxy` returns a `MethodProxy`. `.returns(True)` appe
 ## Step 4: Enter the sandbox
 
 ```python
-with bigfoot.sandbox():
+with bigfoot:
     result = email.send(to="user@example.com", subject="Welcome")
     assert result is True
 ```
 
-`bigfoot.sandbox()` activates all plugins for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling the mock raises `SandboxNotActiveError`.
+`with bigfoot:` is the preferred sandbox syntax. It is shorthand for `with bigfoot.sandbox():`. Both forms activate all plugins for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling the mock raises `SandboxNotActiveError`.
+
+`with bigfoot:` returns the active `StrictVerifier` from `__enter__`, so you can capture it if needed:
+
+```python
+with bigfoot as v:
+    result = email.send(to="user@example.com", subject="Welcome")
+    # v is the StrictVerifier for this test
+```
+
+This is equivalent to `with bigfoot.sandbox() as v:`. Most tests use the module-level API (`bigfoot.mock()`, `bigfoot.assert_interaction()`, etc.) and never need `v` directly. The main case where you need it is registering custom plugins manually:
+
+```python
+import bigfoot
+from myapp.plugins import DatabasePlugin
+
+def test_with_custom_plugin():
+    with bigfoot as v:
+        db = DatabasePlugin(v)  # register plugin on this verifier
+        db.mock_query("SELECT 1", result=[1])
+        ...
+```
 
 ## Step 5: Assert interactions
 
@@ -123,7 +144,7 @@ def test_welcome_email():
     email = bigfoot.mock("EmailService")
     email.send.returns(True)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         result = email.send(to="user@example.com", subject="Welcome")
         assert result is True
 

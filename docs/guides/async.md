@@ -1,10 +1,10 @@
 # Async Usage
 
-bigfoot supports async tests natively. `bigfoot.sandbox()` and `bigfoot.in_any_order()` both implement `__aenter__` and `__aexit__`.
+bigfoot supports async tests natively. `bigfoot` and `bigfoot.in_any_order()` both implement `__aenter__` and `__aexit__`.
 
-## async with sandbox
+## async with bigfoot
 
-Use `async with bigfoot.sandbox()` in an async test function:
+Use `async with bigfoot:` in an async test function:
 
 ```python
 import bigfoot
@@ -13,13 +13,15 @@ import httpx
 async def test_async_http():
     bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"ok": True})
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/data")
         assert response.json() == {"ok": True}
 
     bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/data")
 ```
+
+`async with bigfoot:` is shorthand for `async with bigfoot.sandbox():`. Both return the active `StrictVerifier` from `__aenter__`. `bigfoot.sandbox()` is also available as the explicit form and returns a `SandboxContext` for cases where you need to pass the context manager around.
 
 The sync and async forms are equivalent. `SandboxContext._enter()` and `_exit()` are synchronous under the hood; the async wrapper simply delegates to them.
 
@@ -40,7 +42,7 @@ async def test_concurrent_requests():
     bigfoot.http.mock_response("GET", "https://api.example.com/a", json={"name": "a"})
     bigfoot.http.mock_response("GET", "https://api.example.com/b", json={"name": "b"})
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         a, b = await asyncio.gather(
             asyncio.create_task(fetch("https://api.example.com/a")),
             asyncio.create_task(fetch("https://api.example.com/b")),
@@ -78,7 +80,7 @@ async def fetch_in_thread(url: str) -> bytes:
 async def test_thread_pool_interception():
     bigfoot.http.mock_response("GET", "https://api.example.com/data", body=b"hello")
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         data = await fetch_in_thread("https://api.example.com/data")
         assert data == b"hello"
 
@@ -98,7 +100,7 @@ async def test_async_mock():
     repo = bigfoot.mock("UserRepository")
     repo.find_by_id.returns({"id": 1, "name": "Alice"})
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         user = repo.find_by_id(1)
         assert user["name"] == "Alice"
 

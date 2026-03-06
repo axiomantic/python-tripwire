@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import threading
+import types
 from typing import TYPE_CHECKING, TypeVar
 
 from bigfoot._context import _get_test_verifier_or_raise
@@ -374,3 +377,50 @@ class _RedisProxy:
 
 
 redis_mock = _RedisProxy()
+
+
+# ---------------------------------------------------------------------------
+# Module-level context manager  (``with bigfoot:`` / ``async with bigfoot:``)
+# ---------------------------------------------------------------------------
+
+_sandbox_stack: threading.local = threading.local()
+
+
+class _BigfootModule(types.ModuleType):
+    """ModuleType subclass that makes ``bigfoot`` usable as a context manager.
+
+    ``with bigfoot:`` is equivalent to ``with bigfoot.sandbox():``.
+    ``async with bigfoot:`` is equivalent to ``async with bigfoot.sandbox():``.
+    Both forms return the active :class:`StrictVerifier` from ``__enter__``.
+    """
+
+    def __enter__(self) -> StrictVerifier:
+        cm = sandbox()
+        stack = _sandbox_stack.__dict__.setdefault("stack", [])
+        stack.append(cm)
+        return cm.__enter__()
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        _sandbox_stack.stack.pop().__exit__(exc_type, exc_val, exc_tb)
+
+    async def __aenter__(self) -> StrictVerifier:
+        cm = sandbox()
+        stack = _sandbox_stack.__dict__.setdefault("stack", [])
+        stack.append(cm)
+        return await cm.__aenter__()
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        await _sandbox_stack.stack.pop().__aexit__(exc_type, exc_val, exc_tb)
+
+
+sys.modules[__name__].__class__ = _BigfootModule

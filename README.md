@@ -24,7 +24,7 @@ def test_payment_flow():
     bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         import httpx
         response = httpx.post("https://api.stripe.com/v1/charges",
                               json={"amount": 5000})
@@ -51,7 +51,7 @@ def test_service_calls():
     payment.charge.returns({"status": "ok"})
     payment.refund.required(False).returns(None)  # optional mock
 
-    with bigfoot.sandbox():
+    with bigfoot:
         result = payment.charge(order_id=42)
 
     bigfoot.assert_interaction(payment.charge, args=(42,), kwargs={"order_id": 42})
@@ -79,7 +79,7 @@ def test_deploy():
     bigfoot.subprocess_mock.mock_run(["git", "pull", "--ff-only"], returncode=0, stdout="Already up to date.\n")
     bigfoot.subprocess_mock.mock_run(["git", "tag", "v1.0"], returncode=0)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         deploy()
 
     bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git")
@@ -114,7 +114,7 @@ def test_deploy():
 def test_no_subprocess_calls():
     bigfoot.subprocess_mock.install()  # any subprocess.run call will raise UnmockedInteractionError
 
-    with bigfoot.sandbox():
+    with bigfoot:
         result = function_that_should_not_call_subprocess()
 
     assert result == expected
@@ -122,7 +122,7 @@ def test_no_subprocess_calls():
 
 ## Async Tests
 
-`sandbox()` and `in_any_order()` both support `async with`:
+`bigfoot` and `bigfoot.in_any_order()` both support `async with`:
 
 ```python
 import bigfoot
@@ -131,7 +131,7 @@ import httpx
 async def test_async_flow():
     bigfoot.http.mock_response("GET", "https://api.example.com/items", json=[])
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/items")
 
@@ -150,7 +150,7 @@ async def test_concurrent():
     bigfoot.http.mock_response("GET", "https://api.example.com/a", json={"a": 1})
     bigfoot.http.mock_response("GET", "https://api.example.com/b", json={"b": 2})
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         async with asyncio.TaskGroup() as tg:
             ta = tg.create_task(httpx.AsyncClient().get("https://api.example.com/a"))
             tb = tg.create_task(httpx.AsyncClient().get("https://api.example.com/b"))
@@ -175,7 +175,7 @@ real_service = PaymentService()
 payment = bigfoot.spy("PaymentService", real_service)
 payment.charge.returns({"id": "mock-123"})  # queue entry: takes priority
 
-with bigfoot.sandbox():
+with bigfoot:
     result1 = payment.charge(100)   # uses queue entry
     result2 = payment.charge(200)   # queue empty: delegates to real_service.charge(200)
 
@@ -196,7 +196,7 @@ def test_mixed():
     bigfoot.http.mock_response("GET", "https://api.example.com/cached", json={"data": "cached"})
     bigfoot.http.pass_through("GET", "https://api.example.com/live")
 
-    with bigfoot.sandbox():
+    with bigfoot:
         mocked = httpx.get("https://api.example.com/cached")   # returns mock
         real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
 
@@ -221,12 +221,14 @@ def test_something():
     svc = bigfoot.mock("MyService")
     svc.call.returns("ok")
 
-    with bigfoot.sandbox():
+    with bigfoot:
         result = svc.call()
 
     bigfoot.assert_interaction(svc.call)
     # verify_all() runs at teardown automatically
 ```
+
+`with bigfoot:` is shorthand for `with bigfoot.sandbox():`. Both return the active verifier, so `with bigfoot as v:` works if you need the verifier instance directly.
 
 An explicit `bigfoot_verifier` fixture is available as an escape hatch when you need direct access to the `StrictVerifier` object.
 
@@ -267,7 +269,8 @@ import bigfoot
 bigfoot.mock("Name")                    # create/retrieve a named MockProxy
 bigfoot.mock("Name", wraps=real)        # spy: delegate to real when queue empty
 bigfoot.spy("Name", real)              # positional form of wraps=
-bigfoot.sandbox()                       # context manager: activate all plugins
+bigfoot                                 # preferred sandbox shorthand: `with bigfoot:` or `async with bigfoot:`
+bigfoot.sandbox()                       # explicit form; equivalent to `with bigfoot:`
 bigfoot.assert_interaction(source, **fields)  # assert next interaction; ALL assertable fields required
 bigfoot.in_any_order()                  # relax FIFO ordering for assertions
 bigfoot.verify_all()                    # explicit verification (automatic in pytest)

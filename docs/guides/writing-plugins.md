@@ -237,7 +237,7 @@ def test_db_query():
     db = DatabasePlugin(bigfoot.current_verifier(), my_connection)
     db.mock_query("SELECT * FROM users", result=[{"id": 1}])
 
-    with bigfoot.sandbox():
+    with bigfoot:
         rows = my_connection.execute("SELECT * FROM users")
         assert rows == [{"id": 1}]
 
