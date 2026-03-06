@@ -22,5 +22,6 @@ def load_bigfoot_config(start: Path | None = None) -> dict[str, Any]:
         if candidate.is_file():
             with candidate.open("rb") as f:
                 data = tomllib.load(f)
-            return data.get("tool", {}).get("bigfoot", {})
+            result: dict[str, Any] = data.get("tool", {}).get("bigfoot", {})
+            return result
     return {}

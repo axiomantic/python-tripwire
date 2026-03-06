@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 try:
-    import psycopg2
+    import psycopg2  # type: ignore[import-untyped]
 
     _PSYCOPG2_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -272,13 +272,13 @@ class Psycopg2Plugin(StateMachinePlugin):
         if not _PSYCOPG2_AVAILABLE:  # pragma: no cover
             return
         Psycopg2Plugin._original_connect = psycopg2.connect
-        psycopg2.connect = _patched_psycopg2_connect  # type: ignore[assignment]
+        psycopg2.connect = _patched_psycopg2_connect
 
     def _restore_patches(self) -> None:
         if not _PSYCOPG2_AVAILABLE:  # pragma: no cover
             return
         if Psycopg2Plugin._original_connect is not None:
-            psycopg2.connect = Psycopg2Plugin._original_connect  # type: ignore[assignment]
+            psycopg2.connect = Psycopg2Plugin._original_connect
             Psycopg2Plugin._original_connect = None
 
     # ------------------------------------------------------------------

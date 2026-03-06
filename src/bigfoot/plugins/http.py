@@ -206,8 +206,8 @@ class _FakeAiohttpResponse:
             self.url = URL(url)
             self.real_url = self.url
         else:  # pragma: no cover
-            self.url = url
-            self.real_url = url
+            self.url = url  # type: ignore[assignment]
+            self.real_url = url  # type: ignore[assignment]
 
     @property
     def ok(self) -> bool:
@@ -1001,9 +1001,10 @@ class HttpPlugin(BasePlugin):
         url = str(str_or_url)
 
         if self._matches_pass_through_rule(method, url):
-            return await self._execute_aiohttp_pass_through(
+            result: _FakeAiohttpResponse = await self._execute_aiohttp_pass_through(
                 session_self, method, str_or_url, **kwargs
             )
+            return result
 
         config = self._find_matching_config(method, url)
 

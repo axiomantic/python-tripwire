@@ -33,7 +33,7 @@ def _check_plugin_flag(import_path: str, flag_name: str) -> bool:
     import importlib
 
     module = importlib.import_module(import_path)
-    return getattr(module, flag_name, False)  # type: ignore[no-any-return]
+    return getattr(module, flag_name, False)
 
 
 def _is_available(entry: PluginEntry) -> bool:

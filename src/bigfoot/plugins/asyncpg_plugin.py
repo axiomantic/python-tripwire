@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 try:
-    import asyncpg
+    import asyncpg  # type: ignore[import-untyped]
 
     _ASYNCPG_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -79,7 +79,7 @@ class _FakeAsyncpgConnection:
             handle, "fetch", (query, *args), {}, _SOURCE_FETCH,
             details={"query": query, "args": list(args)},
         )
-        return result
+        return result  # type: ignore[no-any-return]
 
     async def fetchrow(self, query: str, *args: Any) -> Any:  # noqa: ANN401
         handle = self._plugin._lookup_session(self)
@@ -228,13 +228,13 @@ class AsyncpgPlugin(StateMachinePlugin):
         if not _ASYNCPG_AVAILABLE:  # pragma: no cover
             return
         AsyncpgPlugin._original_connect = asyncpg.connect
-        asyncpg.connect = _patched_asyncpg_connect  # type: ignore[assignment]
+        asyncpg.connect = _patched_asyncpg_connect
 
     def _restore_patches(self) -> None:
         if not _ASYNCPG_AVAILABLE:  # pragma: no cover
             return
         if AsyncpgPlugin._original_connect is not None:
-            asyncpg.connect = AsyncpgPlugin._original_connect  # type: ignore[assignment]
+            asyncpg.connect = AsyncpgPlugin._original_connect
             AsyncpgPlugin._original_connect = None
 
     # ------------------------------------------------------------------
