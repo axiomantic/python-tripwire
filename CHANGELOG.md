@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-03-06
+
+### Added
+
+- `AsyncSubprocessPlugin` -- intercepts `asyncio.create_subprocess_exec` and `asyncio.create_subprocess_shell` during a sandbox. The async complement to `PopenPlugin`. Sessions follow the same state machine (spawn -> communicate/wait -> terminated) and provide typed assertion helpers (`assert_spawn`, `assert_communicate`, `assert_wait`).
+- `bigfoot.async_subprocess_mock` proxy -- auto-creates `AsyncSubprocessPlugin` on the current test verifier on first access.
+- `create_subprocess_exec` records `command` as a `list[str]`; `create_subprocess_shell` records `command` as a `str`.
+
 ## [0.7.0] - 2026-03-06
 
 ### Added

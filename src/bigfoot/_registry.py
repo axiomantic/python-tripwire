@@ -88,6 +88,12 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
     ),
     PluginEntry("redis", "bigfoot.plugins.redis_plugin", "RedisPlugin", "redis"),
     PluginEntry("logging", "bigfoot.plugins.logging_plugin", "LoggingPlugin", "always"),
+    PluginEntry(
+        "async_subprocess",
+        "bigfoot.plugins.async_subprocess_plugin",
+        "AsyncSubprocessPlugin",
+        "always",
+    ),
 )
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)

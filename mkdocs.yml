@@ -79,6 +79,7 @@ nav:
     - SubprocessPlugin: guides/subprocess-plugin.md
     - LoggingPlugin: guides/logging-plugin.md
     - PopenPlugin: guides/popen-plugin.md
+    - AsyncSubprocessPlugin: guides/async-subprocess-plugin.md
     - DatabasePlugin: guides/database-plugin.md
     - SmtpPlugin: guides/smtp-plugin.md
     - SocketPlugin: guides/socket-plugin.md
@@ -97,6 +98,7 @@ nav:
     - SubprocessPlugin: reference/subprocess-plugin.md
     - LoggingPlugin: reference/logging-plugin.md
     - PopenPlugin: reference/popen-plugin.md
+    - AsyncSubprocessPlugin: reference/async-subprocess-plugin.md
     - DatabasePlugin: reference/database-plugin.md
     - SmtpPlugin: reference/smtp-plugin.md
     - SocketPlugin: reference/socket-plugin.md

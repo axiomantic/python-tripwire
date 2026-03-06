@@ -32,6 +32,9 @@ try:
 except ImportError:  # pragma: no cover
     pass  # http extra not installed
 
+from bigfoot.plugins.async_subprocess_plugin import (
+    AsyncSubprocessPlugin as _AsyncSubprocessPlugin,  # noqa: F401
+)
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.logging_plugin import LoggingPlugin as _LoggingPlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
@@ -46,6 +49,7 @@ from bigfoot.plugins.websocket_plugin import (
     SyncWebSocketPlugin as _SyncWebSocketPlugin,
 )
 
+AsyncSubprocessPlugin = _AsyncSubprocessPlugin
 DatabasePlugin = _DatabasePlugin
 LoggingPlugin = _LoggingPlugin
 PopenPlugin = _PopenPlugin
@@ -71,6 +75,7 @@ __all__ = [
     "PopenPlugin",
     "SmtpPlugin",
     "SocketPlugin",
+    "AsyncSubprocessPlugin",
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
     "RedisPlugin",
@@ -107,6 +112,7 @@ __all__ = [
     "sync_websocket_mock",
     "redis_mock",
     "log_mock",
+    "async_subprocess_mock",
 ]
 
 
@@ -405,6 +411,26 @@ class _LoggingProxy:
 
 
 log_mock = _LoggingProxy()
+
+
+# ---------------------------------------------------------------------------
+# AsyncSubprocess proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _AsyncSubprocessProxy:
+    """Proxy to the AsyncSubprocessPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _AsyncSubprocessPlugin)
+        return getattr(plugin, name)
+
+
+async_subprocess_mock = _AsyncSubprocessProxy()
 
 
 # ---------------------------------------------------------------------------

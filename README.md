@@ -13,7 +13,7 @@ Every call accounted for. Every assertion mandatory. No exceptions.
 ## Installation
 
 ```bash
-pip install bigfoot                       # Core: MockPlugin + SubprocessPlugin + DatabasePlugin + SmtpPlugin + SocketPlugin + PopenPlugin
+pip install bigfoot                       # Core: MockPlugin + SubprocessPlugin + DatabasePlugin + SmtpPlugin + SocketPlugin + PopenPlugin + AsyncSubprocessPlugin
 pip install bigfoot[http]                 # + HttpPlugin (httpx, requests, urllib)
 pip install bigfoot[websockets]           # + AsyncWebSocketPlugin (websockets library)
 pip install bigfoot[websocket-client]     # + SyncWebSocketPlugin (websocket-client library)
@@ -200,6 +200,63 @@ def test_streaming_build():
 | Method | Fields asserted |
 |---|---|
 | `assert_spawn(*, command, stdin)` | `command` (list), `stdin` (bytes or None) |
+| `assert_communicate(*, input)` | `input` (bytes or None) |
+| `assert_wait()` | no fields |
+
+## AsyncSubprocessPlugin
+
+`AsyncSubprocessPlugin` intercepts `asyncio.create_subprocess_exec` and `asyncio.create_subprocess_shell` -- the async complement to `PopenPlugin`. Both can be active in the same test.
+
+Sessions are scripted with `new_session().expect(...)` before the sandbox:
+
+```python
+import asyncio
+import bigfoot
+
+async def test_async_build():
+    bigfoot.async_subprocess_mock.new_session() \
+        .expect("spawn", returns=None) \
+        .expect("communicate", returns=(b"Build complete\n", b"", 0))
+
+    with bigfoot:
+        proc = await asyncio.create_subprocess_exec("make", "all")
+        stdout, stderr = await proc.communicate()
+
+    bigfoot.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
+    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+```
+
+Shell commands use `create_subprocess_shell` and record `command` as a `str` instead of a `list`:
+
+```python
+async def test_async_shell():
+    bigfoot.async_subprocess_mock.new_session() \
+        .expect("spawn", returns=None) \
+        .expect("communicate", returns=(b"HELLO\n", b"", 0))
+
+    with bigfoot:
+        proc = await asyncio.create_subprocess_shell("echo hello | tr a-z A-Z")
+        stdout, stderr = await proc.communicate()
+
+    bigfoot.async_subprocess_mock.assert_spawn(
+        command="echo hello | tr a-z A-Z", stdin=None
+    )
+    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+```
+
+### Session script steps
+
+| Step | `returns` value | Description |
+|---|---|---|
+| `"spawn"` | `None` | Spawns the fake process |
+| `"communicate"` | `(stdout: bytes, stderr: bytes, returncode: int)` | Waits for process and returns output |
+| `"wait"` | `returncode: int` | Waits for process exit without consuming output |
+
+### Assertion helpers
+
+| Method | Fields asserted |
+|---|---|
+| `assert_spawn(*, command, stdin)` | `command` (list for exec, str for shell), `stdin` (bytes or None) |
 | `assert_communicate(*, input)` | `input` (bytes or None) |
 | `assert_wait()` | no fields |
 
@@ -722,6 +779,7 @@ bigfoot.db_mock                         # proxy to the DatabasePlugin for this t
 bigfoot.async_websocket_mock            # proxy to the AsyncWebSocketPlugin for this test
 bigfoot.sync_websocket_mock             # proxy to the SyncWebSocketPlugin for this test
 bigfoot.redis_mock                      # proxy to the RedisPlugin for this test
+bigfoot.async_subprocess_mock           # proxy to the AsyncSubprocessPlugin for this test
 
 # Classes (for manual use or custom plugins)
 from bigfoot import (
@@ -729,6 +787,7 @@ from bigfoot import (
     SandboxContext,
     InAnyOrderContext,
     MockPlugin,
+    AsyncSubprocessPlugin,
     DatabasePlugin,
     PopenPlugin,
     SmtpPlugin,
