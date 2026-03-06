@@ -2,11 +2,7 @@
 
 *Tests with big feet.*
 
-A pluggable interaction auditor for Python tests. Enforces a closed-loop contract:
-
-- **Bouncer**: Every external interaction must be pre-authorized. Unmocked calls raise `UnmockedInteractionError` immediately.
-- **Auditor**: Every recorded interaction must be explicitly asserted. Unasserted interactions raise `UnassertedInteractionsError` at teardown.
-- **Accountant**: Every registered mock must be triggered. Unused mocks raise `UnusedMocksError` at teardown.
+Every external call your code makes — HTTP, subprocess, sockets, databases — gets intercepted, queued, and verified against exactly what you said would happen. Unexpected call? Instant failure. Unasserted interaction? Teardown failure. Registered mock that never fired? Teardown failure.
 
 ## Installation
 
