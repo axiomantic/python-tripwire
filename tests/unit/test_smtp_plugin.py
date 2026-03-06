@@ -23,8 +23,15 @@ from bigfoot.plugins.smtp_plugin import (
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, SmtpPlugin]:
-    """Return (verifier, plugin) with plugin registered but NOT activated."""
+    """Return (verifier, plugin) with plugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    SmtpPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, SmtpPlugin):
+            return v, p
     p = SmtpPlugin(v)
     return v, p
 

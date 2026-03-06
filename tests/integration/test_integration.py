@@ -235,7 +235,8 @@ def test_http_plugin_mock_response_full_round_trip() -> None:
     from bigfoot.plugins.http import HttpPlugin
 
     verifier = StrictVerifier()
-    http = HttpPlugin(verifier)
+    # Retrieve the auto-created HttpPlugin instead of creating a duplicate
+    http = next(p for p in verifier._plugins if isinstance(p, HttpPlugin))
     http.mock_response(
         "GET",
         "https://api.example.com/items",

@@ -11,6 +11,7 @@ from bigfoot._context import _get_test_verifier_or_raise
 from bigfoot._errors import (
     AssertionInsideSandboxError,
     AutoAssertError,
+    BigfootConfigError,
     BigfootError,
     ConflictError,
     InteractionMismatchError,
@@ -71,6 +72,7 @@ __all__ = [
     "SyncWebSocketPlugin",
     "RedisPlugin",
     # Errors
+    "BigfootConfigError",
     "BigfootError",
     "AssertionInsideSandboxError",
     "AutoAssertError",

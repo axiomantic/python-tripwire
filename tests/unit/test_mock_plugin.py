@@ -29,19 +29,22 @@ def test_mock_plugin_registers_on_verifier() -> None:
     assert p in v._plugins
 
 
-def test_mock_plugin_duplicate_raises() -> None:
-    """Registering a second MockPlugin on the same verifier raises ValueError."""
+def test_mock_plugin_duplicate_is_idempotent() -> None:
+    """Registering a second MockPlugin on the same verifier silently skips it."""
     # ESCAPE:
-    # CLAIM: StrictVerifier._register_plugin raises ValueError for duplicate plugin types.
-    # PATH: MockPlugin.__init__ -> BasePlugin.__init__ -> verifier._register_plugin -> raises ValueError.
-    # CHECK: pytest.raises(ValueError) verifies the exception type.
-    # MUTATION: Removing the duplicate check in _register_plugin would allow two instances.
-    # ESCAPE: Nothing reasonable - ValueError is raised or it isn't.
+    # CLAIM: StrictVerifier._register_plugin silently skips duplicate plugin types.
+    # PATH: MockPlugin.__init__ -> BasePlugin.__init__ -> verifier._register_plugin -> type match -> return.
+    # CHECK: Plugin count unchanged after attempting duplicate registration.
+    # MUTATION: Allowing duplicate registration would produce two MockPlugins.
+    # ESCAPE: Nothing reasonable -- exact count comparison.
     # IMPACT: Multiple MockPlugins would interfere with each other's proxy tracking.
     v = StrictVerifier()
     MockPlugin(v)
-    with pytest.raises(ValueError):
-        MockPlugin(v)
+    mock_count = sum(1 for p in v._plugins if isinstance(p, MockPlugin))
+    assert mock_count == 1
+    MockPlugin(v)  # Should silently skip
+    mock_count_after = sum(1 for p in v._plugins if isinstance(p, MockPlugin))
+    assert mock_count_after == 1
 
 
 # ---------------------------------------------------------------------------

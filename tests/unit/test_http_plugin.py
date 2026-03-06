@@ -31,8 +31,15 @@ from bigfoot.plugins.http import (
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, HttpPlugin]:
-    """Return (verifier, plugin) with plugin registered but not activated."""
+    """Return (verifier, plugin) with plugin registered but not activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    HttpPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, HttpPlugin):
+            return v, p
     p = HttpPlugin(v)
     return v, p
 
@@ -80,29 +87,29 @@ def test_http_plugin_is_base_plugin_subclass() -> None:
 
 
 # ESCAPE: test_http_plugin_registers_on_verifier
-#   CLAIM: HttpPlugin.__init__ registers itself on the verifier's plugin list.
-#   PATH:  BasePlugin.__init__ calls verifier._register_plugin(self).
-#   CHECK: p in v._plugins and len(v._plugins) == 1.
-#   MUTATION: Removing _register_plugin call fails membership check.
-#   ESCAPE: Nothing reasonable -- direct list membership check.
+#   CLAIM: HttpPlugin is auto-instantiated and registered on the verifier's plugin list.
+#   PATH:  StrictVerifier.__init__ -> _auto_instantiate_plugins -> HttpPlugin(self) ->
+#          BasePlugin.__init__ -> verifier._register_plugin(self).
+#   CHECK: Exactly one HttpPlugin instance in v._plugins.
+#   MUTATION: Removing auto-instantiation would mean no HttpPlugin registered.
+#   ESCAPE: Nothing reasonable -- type check on plugin list.
 def test_http_plugin_registers_on_verifier() -> None:
     v = StrictVerifier()
-    p = HttpPlugin(v)
-    assert p in v._plugins
-    assert len(v._plugins) == 1
+    http_plugins = [p for p in v._plugins if isinstance(p, HttpPlugin)]
+    assert len(http_plugins) == 1
 
 
-# ESCAPE: test_http_plugin_duplicate_raises
-#   CLAIM: Registering a second HttpPlugin on the same verifier raises ValueError.
-#   PATH:  BasePlugin.__init__ -> StrictVerifier._register_plugin raises ValueError.
-#   CHECK: ValueError with "already registered" is raised.
-#   MUTATION: Removing the duplicate check in _register_plugin lets second through.
-#   ESCAPE: Nothing reasonable -- exact exception type and message substring.
-def test_http_plugin_duplicate_raises() -> None:
+# ESCAPE: test_http_plugin_duplicate_is_idempotent
+#   CLAIM: Registering a second HttpPlugin on the same verifier silently skips it.
+#   PATH:  BasePlugin.__init__ -> StrictVerifier._register_plugin -> type match -> return.
+#   CHECK: Plugin count unchanged after attempting duplicate registration.
+#   MUTATION: Raising ValueError would break this test.
+#   ESCAPE: Nothing reasonable -- exact count comparison.
+def test_http_plugin_duplicate_is_idempotent() -> None:
     v = StrictVerifier()
-    HttpPlugin(v)
-    with pytest.raises(ValueError, match="already registered"):
-        HttpPlugin(v)
+    initial_count = len(v._plugins)
+    HttpPlugin(v)  # Should silently skip (already auto-instantiated)
+    assert len(v._plugins) == initial_count
 
 
 # ---------------------------------------------------------------------------
@@ -782,9 +789,16 @@ def test_identify_patcher_returns_unknown_for_unrecognised() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_find_http_plugin_raises_when_no_http_plugin_registered() -> None:
+def test_find_http_plugin_raises_when_no_http_plugin_registered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from bigfoot.plugins.http import _find_http_plugin
 
+    # Disable all plugins so HttpPlugin is not auto-instantiated
+    monkeypatch.setattr(
+        "bigfoot._verifier.load_bigfoot_config",
+        lambda: {"enabled_plugins": ["subprocess"]},
+    )
     v = StrictVerifier()
     # No HttpPlugin registered; _find_http_plugin must raise
     with pytest.raises(RuntimeError, match="BUG"):
@@ -1462,8 +1476,8 @@ def test_assert_request_per_call_require_response_true() -> None:
 #   MUTATION: Not using instance default would ignore the constructor flag.
 #   ESCAPE: Nothing reasonable -- isinstance + verify_all() together are definitive.
 def test_assert_request_global_require_response_true() -> None:
-    v = StrictVerifier()
-    p = HttpPlugin(v, require_response=True)
+    v, p = _make_verifier_with_plugin()
+    p._require_response = True
     p.mock_response("GET", "https://api.example.com/global", json={"global": True})
 
     with v.sandbox():

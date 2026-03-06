@@ -22,8 +22,15 @@ from bigfoot.plugins.redis_plugin import (  # noqa: E402
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, RedisPlugin]:
-    """Return (verifier, plugin) with RedisPlugin registered but NOT activated."""
+    """Return (verifier, plugin) with RedisPlugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    RedisPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, RedisPlugin):
+            return v, p
     p = RedisPlugin(v)
     return v, p
 

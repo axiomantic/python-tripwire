@@ -28,6 +28,7 @@ def test_all_contains_expected_names() -> None:
         "SyncWebSocketPlugin",
         "RedisPlugin",
         # Errors
+        "BigfootConfigError",
         "BigfootError",
         "AssertionInsideSandboxError",
         "AutoAssertError",

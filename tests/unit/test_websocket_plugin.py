@@ -30,15 +30,29 @@ from bigfoot.plugins.websocket_plugin import (  # noqa: E402
 
 
 def _make_async_verifier_with_plugin() -> tuple[StrictVerifier, AsyncWebSocketPlugin]:
-    """Return (verifier, plugin) with AsyncWebSocketPlugin registered but NOT activated."""
+    """Return (verifier, plugin) with AsyncWebSocketPlugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    AsyncWebSocketPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, AsyncWebSocketPlugin):
+            return v, p
     p = AsyncWebSocketPlugin(v)
     return v, p
 
 
 def _make_sync_verifier_with_plugin() -> tuple[StrictVerifier, SyncWebSocketPlugin]:
-    """Return (verifier, plugin) with SyncWebSocketPlugin registered but NOT activated."""
+    """Return (verifier, plugin) with SyncWebSocketPlugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    SyncWebSocketPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, SyncWebSocketPlugin):
+            return v, p
     p = SyncWebSocketPlugin(v)
     return v, p
 

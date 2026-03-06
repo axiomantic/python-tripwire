@@ -173,7 +173,8 @@ def test_http_plugin_reads_require_response_from_config(
     )
     monkeypatch.chdir(tmp_path)
     verifier = StrictVerifier()
-    plugin = HttpPlugin(verifier)
+    # Retrieve the auto-created HttpPlugin
+    plugin = next(p for p in verifier._plugins if isinstance(p, HttpPlugin))
     assert plugin._require_response is True
 
 
@@ -184,7 +185,8 @@ def test_config_absent_preserves_default(
     (tmp_path / "pyproject.toml").write_text("[tool.other]\nkey = 1\n")
     monkeypatch.chdir(tmp_path)
     verifier = StrictVerifier()
-    plugin = HttpPlugin(verifier)
+    # Retrieve the auto-created HttpPlugin
+    plugin = next(p for p in verifier._plugins if isinstance(p, HttpPlugin))
     assert plugin._require_response is False
 
 
@@ -194,18 +196,22 @@ def test_no_pyproject_preserves_default(
     """No pyproject.toml at all → _require_response remains False."""
     monkeypatch.chdir(tmp_path)
     verifier = StrictVerifier()
-    plugin = HttpPlugin(verifier)
+    # Retrieve the auto-created HttpPlugin
+    plugin = next(p for p in verifier._plugins if isinstance(p, HttpPlugin))
     assert plugin._require_response is False
 
 
 def test_require_response_wrong_type_raises_on_plugin_init(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Wrong type in TOML raises TypeError at HttpPlugin construction time."""
+    """Wrong type in TOML raises TypeError at StrictVerifier construction time.
+
+    With auto-instantiation, HttpPlugin is created during StrictVerifier.__init__,
+    so the TypeError propagates from the verifier constructor.
+    """
     (tmp_path / "pyproject.toml").write_text(
         '[tool.bigfoot.http]\nrequire_response = "yes"\n'
     )
     monkeypatch.chdir(tmp_path)
-    verifier = StrictVerifier()
     with pytest.raises(TypeError, match="require_response"):
-        HttpPlugin(verifier)
+        StrictVerifier()

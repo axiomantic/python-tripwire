@@ -12,7 +12,7 @@ from bigfoot._errors import (
     UnusedMocksError,
     VerificationError,
 )
-from bigfoot._timeline import Interaction, Timeline
+from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
 
 # --- Helpers ---
@@ -50,19 +50,61 @@ def _inject_interaction(
 # --- StrictVerifier basic tests ---
 
 
-def test_verifier_init_empty() -> None:
+def test_verifier_init_auto_creates_plugins() -> None:
+    """StrictVerifier() auto-instantiates all available plugins."""
     v = StrictVerifier()
-    assert v._plugins == []
-    assert isinstance(v._timeline, Timeline)
+    # Should have at least the always-available plugins
+    plugin_types = {type(p).__name__ for p in v._plugins}
+    assert "SubprocessPlugin" in plugin_types
+    assert "PopenPlugin" in plugin_types
+    assert "SmtpPlugin" in plugin_types
+    assert "SocketPlugin" in plugin_types
+    assert "DatabasePlugin" in plugin_types
 
 
-def test_register_plugin_twice_raises() -> None:
+def test_register_plugin_idempotent() -> None:
+    """Registering the same plugin type twice silently skips the duplicate."""
     v = StrictVerifier()
-    plugin = MagicMock(spec=["get_unused_mocks"])
-    plugin.__class__ = type("FakePlugin", (), {})
-    v._register_plugin(plugin)
-    with pytest.raises(ValueError, match="already registered"):
-        v._register_plugin(plugin)
+    initial_count = len(v._plugins)
+    # Create a plugin of a type that's already auto-registered
+    from bigfoot.plugins.subprocess import SubprocessPlugin
+
+    SubprocessPlugin(v)  # Should NOT raise, should be silently skipped
+    assert len(v._plugins) == initial_count  # count unchanged
+
+
+def test_verifier_respects_disabled_plugins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """disabled_plugins config excludes named plugins from auto-instantiation."""
+    monkeypatch.setattr(
+        "bigfoot._verifier.load_bigfoot_config",
+        lambda: {"disabled_plugins": ["subprocess"]},
+    )
+    v = StrictVerifier()
+    plugin_types = {type(p).__name__ for p in v._plugins}
+    assert "SubprocessPlugin" not in plugin_types
+    # Other plugins still present
+    assert "PopenPlugin" in plugin_types
+
+
+def test_verifier_respects_enabled_plugins(monkeypatch: pytest.MonkeyPatch) -> None:
+    """enabled_plugins config includes only named plugins."""
+    monkeypatch.setattr(
+        "bigfoot._verifier.load_bigfoot_config",
+        lambda: {"enabled_plugins": ["subprocess"]},
+    )
+    v = StrictVerifier()
+    plugin_types = {type(p).__name__ for p in v._plugins}
+    assert plugin_types == {"SubprocessPlugin"}
+
+
+def test_multi_sandbox_same_verifier() -> None:
+    """Two sequential sandbox blocks on the same verifier succeed."""
+    v = StrictVerifier()
+    with v.sandbox():
+        pass
+    with v.sandbox():
+        pass
+    # Should not raise (no interactions to assert)
 
 
 def test_verify_all_passes_when_empty() -> None:

@@ -23,8 +23,15 @@ from bigfoot.plugins.popen_plugin import (
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, PopenPlugin]:
-    """Return (verifier, plugin) with plugin registered but NOT activated."""
+    """Return (verifier, plugin) with plugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    PopenPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, PopenPlugin):
+            return v, p
     p = PopenPlugin(v)
     return v, p
 

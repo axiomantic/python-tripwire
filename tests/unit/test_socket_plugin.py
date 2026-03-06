@@ -26,8 +26,15 @@ from bigfoot.plugins.socket_plugin import (
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, SocketPlugin]:
-    """Return (verifier, plugin) with plugin registered but NOT activated."""
+    """Return (verifier, plugin) with plugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    SocketPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, SocketPlugin):
+            return v, p
     p = SocketPlugin(v)
     return v, p
 

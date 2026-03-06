@@ -283,14 +283,15 @@ def test_verifier_mock_lazily_creates_mock_plugin() -> None:
     """bigfoot.mock() creates MockPlugin on first call without explicit instantiation."""
     verifier = bigfoot.current_verifier()
 
-    # Before any mock() call, no MockPlugin registered
-    assert len(verifier._plugins) == 0
+    # Before any mock() call, no MockPlugin registered (but auto-instantiated plugins are)
+    assert not any(isinstance(p, MockPlugin) for p in verifier._plugins)
+    initial_count = len(verifier._plugins)
 
     proxy = bigfoot.mock("Service")
 
-    # After mock(), MockPlugin is registered
-    assert len(verifier._plugins) == 1
-    assert isinstance(verifier._plugins[0], MockPlugin)
+    # After mock(), MockPlugin is registered alongside auto-instantiated plugins
+    assert len(verifier._plugins) == initial_count + 1
+    assert any(isinstance(p, MockPlugin) for p in verifier._plugins)
     assert isinstance(proxy, MockProxy)
 
 

@@ -197,6 +197,13 @@ class AutoAssertError(BigfootError):
     """
 
 
+class BigfootConfigError(BigfootError):
+    """Raised when [tool.bigfoot] configuration is invalid.
+
+    Examples: mutually exclusive keys, unknown plugin names, wrong types.
+    """
+
+
 class InvalidStateError(BigfootError):
     """Raised when a state-machine method is called from an invalid state.
 

@@ -36,14 +36,36 @@ class StrictVerifier:
         self._plugins: list[BasePlugin] = []
         self._timeline: Timeline = Timeline()
         self._bigfoot_config: dict[str, Any] = load_bigfoot_config()
+        self._auto_instantiate_plugins()
+
+    def _auto_instantiate_plugins(self) -> None:
+        """Create instances of all enabled plugins on this verifier.
+
+        Checks config for enabled_plugins/disabled_plugins.
+        Silently skips plugins whose optional deps are not installed.
+
+        Constructor bugs are intentionally NOT caught: if a plugin's __init__
+        raises a non-ImportError exception, it propagates. This is correct
+        because a broken plugin constructor is a bug that should be fixed, not
+        silently ignored.
+        """
+        from bigfoot._registry import get_plugin_class, resolve_enabled_plugins
+
+        entries = resolve_enabled_plugins(self._bigfoot_config)
+        for entry in entries:
+            try:
+                plugin_cls = get_plugin_class(entry)
+                plugin_cls(self)  # BasePlugin.__init__ calls _register_plugin
+            except ImportError:
+                pass  # optional dep not available at class-import time
 
     def _register_plugin(self, plugin: "BasePlugin") -> None:
         for existing in self._plugins:
             if type(existing) is type(plugin):
-                raise ValueError(
-                    f"A {type(plugin).__name__} is already registered on this verifier. "
-                    "Each plugin type may only be registered once per verifier."
-                )
+                # Silently skip: plugin of this type already registered.
+                # This happens when a test author manually creates a plugin
+                # that was already auto-instantiated, or vice versa.
+                return
         self._plugins.append(plugin)
 
     def mock(self, name: str, wraps: object = None) -> "MockProxy":

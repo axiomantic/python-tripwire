@@ -29,8 +29,17 @@ from bigfoot.plugins.subprocess import (
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, SubprocessPlugin]:
-    """Return (verifier, plugin) with plugin registered but not activated."""
+    """Return (verifier, plugin) with plugin registered but not activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    SubprocessPlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    # Retrieve the auto-created SubprocessPlugin
+    for p in v._plugins:
+        if isinstance(p, SubprocessPlugin):
+            return v, p
+    # Fallback: create one if not auto-instantiated (shouldn't happen in practice)
     p = SubprocessPlugin(v)
     return v, p
 
@@ -344,14 +353,14 @@ def test_mock_which_registered_returns_path() -> None:
     v.assert_interaction(p.which, name="git", returns="/usr/bin/git")
 
 
-# ESCAPE: test_mock_which_unregistered_returns_none
-#   CLAIM: shutil.which("unknown_binary") returns None silently when unregistered.
-#   PATH:  _handle_which -> name not in _which_mocks -> return None (no recording).
-#   CHECK: result is None; no interactions in timeline.
-#   MUTATION: Raising UnmockedInteractionError for unregistered names would break this.
-#   ESCAPE: Returning empty string instead of None would pass None check incorrectly --
-#           but the assertion uses `is None` which distinguishes.
-def test_mock_which_unregistered_returns_none() -> None:
+# ESCAPE: test_mock_which_unregistered_records_and_returns_none
+#   CLAIM: shutil.which("unknown_binary") returns None and records an interaction
+#          (fire-and-forget swallow behavior for always-on certainty).
+#   PATH:  _handle_which -> name not in _which_mocks -> record interaction -> return None.
+#   CHECK: result is None; one interaction recorded with returns=None.
+#   MUTATION: Not recording the interaction would fail timeline length check.
+#   ESCAPE: Nothing reasonable -- checks both return value and timeline state.
+def test_mock_which_unregistered_records_and_returns_none() -> None:
     v, p = _make_verifier_with_plugin()
     # No mock registered for "unknown_binary"
 
@@ -359,8 +368,11 @@ def test_mock_which_unregistered_returns_none() -> None:
         result = shutil.which("unknown_binary")
 
     assert result is None
-    # No interactions recorded for unregistered names
-    assert v._timeline.all_unasserted() == []
+    # Fire-and-forget: interaction IS recorded even for unregistered names
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].source_id == "subprocess:which"
+    assert interactions[0].details == {"name": "unknown_binary", "returns": None}
 
 
 # ESCAPE: test_mock_which_registered_none_returns_none
@@ -385,6 +397,32 @@ def test_mock_which_registered_none_returns_none() -> None:
     assert len(interactions) == 1
     assert interactions[0].source_id == "subprocess:which"
     assert interactions[0].details == {"name": "notfound", "returns": None}
+
+
+def test_unmocked_which_requires_assertion_at_teardown() -> None:
+    """Unmocked which() call recorded on timeline fails verify_all if not asserted."""
+    v, p = _make_verifier_with_plugin()
+
+    with v.sandbox():
+        shutil.which("ffmpeg")
+
+    # Without asserting, verify_all should fail
+    with pytest.raises(UnassertedInteractionsError) as exc_info:
+        v.verify_all()
+    assert len(exc_info.value.interactions) == 1
+    assert exc_info.value.interactions[0].details["name"] == "ffmpeg"
+
+
+def test_unmocked_which_asserted_passes() -> None:
+    """Unmocked which() call properly asserted passes verify_all."""
+    v, p = _make_verifier_with_plugin()
+
+    with v.sandbox():
+        result = shutil.which("ffmpeg")
+
+    assert result is None
+    v.assert_interaction(p.which, name="ffmpeg", returns=None)
+    v.verify_all()  # Should not raise
 
 
 # ---------------------------------------------------------------------------
@@ -557,8 +595,7 @@ def test_assertable_fields_unknown_source() -> None:
 #   MUTATION: Silently marking all interactions as asserted on deactivate would hide this.
 #   ESCAPE: Nothing reasonable -- exact exception type and interaction count.
 def test_unasserted_interaction_raises_correctly(clean_install_count) -> None:
-    v = StrictVerifier()
-    p = SubprocessPlugin(v)
+    v, p = _make_verifier_with_plugin()
     p.mock_run(["git", "status"], returncode=0, required=False)
 
     with v.sandbox():
@@ -582,8 +619,7 @@ def test_unasserted_interaction_raises_correctly(clean_install_count) -> None:
 #   MUTATION: Not tracking _which_called would report called mocks as unused too.
 #   ESCAPE: A mock with required=False would not be reported; test uses required=True.
 def test_unused_required_which_raises(clean_install_count) -> None:
-    v = StrictVerifier()
-    p = SubprocessPlugin(v)
+    v, p = _make_verifier_with_plugin()
     p.mock_which("git", returns="/usr/bin/git", required=True)
 
     with v.sandbox():
@@ -606,8 +642,7 @@ def test_unused_required_which_raises(clean_install_count) -> None:
 #   MUTATION: Not adding to _which_called would cause get_unused_mocks to report it as unused.
 #   ESCAPE: Nothing reasonable -- if UnusedMocksError is raised the test fails.
 def test_called_required_which_does_not_raise(clean_install_count) -> None:
-    v = StrictVerifier()
-    p = SubprocessPlugin(v)
+    v, p = _make_verifier_with_plugin()
     p.mock_which("git", returns="/usr/bin/git", required=True)
 
     with v.sandbox():

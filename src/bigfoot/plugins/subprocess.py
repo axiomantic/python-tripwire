@@ -210,8 +210,9 @@ class SubprocessPlugin(BasePlugin):
     ) -> None:
         """Register a shutil.which mock keyed by binary name.
 
-        Semi-permissive: unregistered names return None silently. Registered
-        names are tracked on the timeline. required=False by default because
+        Always-on: unregistered names are swallowed (return None) and recorded
+        on the timeline, requiring assertion at teardown. Registered names
+        return the configured value. required=False by default because
         tests often register more alternatives than will be hit in a given path.
         """
         self._which_mocks[name] = WhichMockConfig(
@@ -366,29 +367,33 @@ class SubprocessPlugin(BasePlugin):
         )
 
     def _handle_which(self, name: str) -> str | None:
-        """Semi-permissive interceptor for shutil.which.
+        """Always-on interceptor for shutil.which.
 
         Registered names: return configured value and record interaction.
-        Unregistered names: return None silently without recording.
+        Unregistered names: record interaction, return None (fire-and-forget swallow).
         """
-        if name not in self._which_mocks:
-            return None
+        if name in self._which_mocks:
+            self._which_called.add(name)
+            config = self._which_mocks[name]
+            interaction = Interaction(
+                source_id=_SOURCE_WHICH,
+                sequence=0,
+                details={"name": name, "returns": config.returns},
+                plugin=self,
+            )
+            self.record(interaction)
+            return config.returns
 
-        self._which_called.add(name)
-        config = self._which_mocks[name]
-
+        # Fire-and-forget: swallow unmocked which() calls.
+        # Record on timeline so test must assert. Return None (binary not found).
         interaction = Interaction(
             source_id=_SOURCE_WHICH,
             sequence=0,
-            details={
-                "name": name,
-                "returns": config.returns,
-            },
+            details={"name": name, "returns": None},
             plugin=self,
         )
         self.record(interaction)
-
-        return config.returns
+        return None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

@@ -611,3 +611,48 @@ def test_auto_assert_error_exported_from_bigfoot() -> None:
     assert hasattr(bigfoot, "AutoAssertError")
     from bigfoot import AutoAssertError
     assert AutoAssertError is not None
+
+
+# ---------------------------------------------------------------------------
+# BigfootConfigError
+# ---------------------------------------------------------------------------
+
+
+def test_bigfoot_config_error_is_bigfoot_error() -> None:
+    """BigfootConfigError must be a subclass of BigfootError."""
+    from bigfoot._errors import BigfootConfigError
+
+    assert issubclass(BigfootConfigError, BigfootError)
+
+
+def test_bigfoot_config_error_is_exception() -> None:
+    """BigfootConfigError must be catchable as Exception."""
+    from bigfoot._errors import BigfootConfigError
+
+    assert issubclass(BigfootConfigError, Exception)
+
+
+def test_bigfoot_config_error_message() -> None:
+    """BigfootConfigError stores and displays its message."""
+    from bigfoot._errors import BigfootConfigError
+
+    err = BigfootConfigError("enabled_plugins and disabled_plugins are mutually exclusive")
+    assert str(err) == "enabled_plugins and disabled_plugins are mutually exclusive"
+
+
+def test_bigfoot_config_error_is_raiseable() -> None:
+    """Must be raiseable and catchable via the base class."""
+    from bigfoot._errors import BigfootConfigError
+
+    with pytest.raises(BigfootError):
+        raise BigfootConfigError("test error")
+
+
+def test_bigfoot_config_error_exported_from_bigfoot() -> None:
+    """BigfootConfigError is accessible from the top-level bigfoot module."""
+    import bigfoot
+
+    assert hasattr(bigfoot, "BigfootConfigError")
+    from bigfoot import BigfootConfigError
+
+    assert BigfootConfigError is not None

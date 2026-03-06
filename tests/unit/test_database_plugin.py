@@ -19,8 +19,15 @@ from bigfoot.plugins.database_plugin import DatabasePlugin
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, DatabasePlugin]:
-    """Return (verifier, plugin) with plugin registered but NOT activated."""
+    """Return (verifier, plugin) with plugin registered but NOT activated.
+
+    The verifier auto-instantiates plugins, so we retrieve the existing
+    DatabasePlugin rather than creating a duplicate.
+    """
     v = StrictVerifier()
+    for p in v._plugins:
+        if isinstance(p, DatabasePlugin):
+            return v, p
     p = DatabasePlugin(v)
     return v, p
 
