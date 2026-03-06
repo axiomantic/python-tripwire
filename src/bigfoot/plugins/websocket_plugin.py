@@ -169,7 +169,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     # Plugin init: create per-instance sentinels
     # ------------------------------------------------------------------
 
-    def __init__(self, verifier: "StrictVerifier") -> None:
+    def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
         self._connect_sentinel = _StepSentinel(_ASYNC_SOURCE_CONNECT)
         self._send_sentinel = _StepSentinel(_ASYNC_SOURCE_SEND)
@@ -426,7 +426,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     # Plugin init: create per-instance sentinels
     # ------------------------------------------------------------------
 
-    def __init__(self, verifier: "StrictVerifier") -> None:
+    def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
         self._connect_sentinel = _StepSentinel(_SYNC_SOURCE_CONNECT)
         self._send_sentinel = _StepSentinel(_SYNC_SOURCE_SEND)

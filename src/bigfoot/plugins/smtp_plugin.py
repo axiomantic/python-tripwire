@@ -255,7 +255,10 @@ class SmtpPlugin(StateMachinePlugin):
         method = sid.split(":", 1)[-1] if ":" in sid else sid
         details = interaction.details
         if sid == _SOURCE_CONNECT:
-            return f"[SmtpPlugin] smtp.connect(host={details.get('host', '?')!r}, port={details.get('port', 0)!r})"
+            return (
+                f"[SmtpPlugin] smtp.connect("
+                f"host={details.get('host', '?')!r}, port={details.get('port', 0)!r})"
+            )
         if sid == _SOURCE_EHLO:
             return f"[SmtpPlugin] smtp.ehlo(name={details.get('name', '')!r})"
         if sid == _SOURCE_HELO:
@@ -265,7 +268,11 @@ class SmtpPlugin(StateMachinePlugin):
         if sid == _SOURCE_LOGIN:
             return f"[SmtpPlugin] smtp.login(user={details.get('user', '?')!r})"
         if sid == _SOURCE_SENDMAIL:
-            return f"[SmtpPlugin] smtp.sendmail(from_addr={details.get('from_addr', '?')!r}, to_addrs={details.get('to_addrs')!r})"
+            return (
+                f"[SmtpPlugin] smtp.sendmail("
+                f"from_addr={details.get('from_addr', '?')!r}, "
+                f"to_addrs={details.get('to_addrs')!r})"
+            )
         if sid == _SOURCE_SEND_MESSAGE:
             return f"[SmtpPlugin] smtp.send_message(msg={details.get('msg')!r})"
         if sid == _SOURCE_QUIT:
@@ -313,7 +320,10 @@ class SmtpPlugin(StateMachinePlugin):
             from_addr = interaction.details.get("from_addr", "?")
             to_addrs = interaction.details.get("to_addrs")
             msg = interaction.details.get("msg")
-            return f"    {sm}.assert_sendmail(from_addr={from_addr!r}, to_addrs={to_addrs!r}, msg={msg!r})"
+            return (
+                f"    {sm}.assert_sendmail("
+                f"from_addr={from_addr!r}, to_addrs={to_addrs!r}, msg={msg!r})"
+            )
         if sid == _SOURCE_SEND_MESSAGE:
             msg = interaction.details.get("msg")
             return f"    {sm}.assert_send_message(msg={msg!r})"

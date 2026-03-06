@@ -127,6 +127,7 @@ def test_mark_asserted_outside_record_succeeds() -> None:
 def test_mark_asserted_inside_record_raises_auto_assert_error() -> None:
     """mark_asserted() called while _recording_in_progress is True raises AutoAssertError."""
     import pytest
+
     from bigfoot._errors import AutoAssertError
     from bigfoot._recording import _recording_in_progress
     from bigfoot._timeline import Interaction, Timeline

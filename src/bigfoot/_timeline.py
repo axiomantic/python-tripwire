@@ -56,7 +56,9 @@ class Timeline:
             return None
 
     def mark_asserted(self, interaction: Interaction) -> None:
-        from bigfoot._errors import AutoAssertError  # noqa: PLC0415 — avoids circular import at module level
+        from bigfoot._errors import (
+            AutoAssertError,  # noqa: PLC0415 — avoids circular import at module level
+        )
 
         if _recording_in_progress.get():
             raise AutoAssertError(

@@ -894,7 +894,10 @@ class HttpPlugin(BasePlugin):
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
         """Return the field names required in **expected when asserting an HTTP interaction."""
         return frozenset(
-            {"method", "url", "request_headers", "request_body", "status", "response_headers", "response_body"}
+            {
+                "method", "url", "request_headers", "request_body",
+                "status", "response_headers", "response_body",
+            }
         )
 
     def get_unused_mocks(self) -> list[HttpMockConfig]:

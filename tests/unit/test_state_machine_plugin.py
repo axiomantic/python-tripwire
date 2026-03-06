@@ -66,7 +66,7 @@ class _TestPlugin(StateMachinePlugin):
     def format_unused_mock_hint(self, mock_config: object) -> str:
         return "Unused mock"
 
-    def matches(self, interaction: "Interaction", expected: dict[str, Any]) -> bool:
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
         return True
 
 

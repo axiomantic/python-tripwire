@@ -108,7 +108,10 @@ class _FakePopen:
         command = list(args) if hasattr(args, "__iter__") and not isinstance(args, str) else [args]
         plugin._execute_step(
             plugin._lookup_session(self), "spawn", (args,), {}, _SOURCE_SPAWN,
-            details={"command": command, "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None},
+            details={
+                "command": command,
+                "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None,
+            },
         )
         self.stdin: _FakeStream = _FakeStream()
         self.stdout: _FakeStream = _FakeStream()
@@ -274,10 +277,13 @@ class PopenPlugin(StateMachinePlugin):
         if interaction.source_id == _SOURCE_SPAWN:
             return "    bigfoot.popen_mock.new_session().expect('spawn', returns=None)"
         if interaction.source_id == _SOURCE_COMMUNICATE:
-            return "    bigfoot.popen_mock.new_session().expect('communicate', returns=(b'', b'', 0))"
+            return (
+                "    bigfoot.popen_mock.new_session()"
+                ".expect('communicate', returns=(b'', b'', 0))"
+            )
         if interaction.source_id == _SOURCE_WAIT:
             return "    bigfoot.popen_mock.new_session().expect('wait', returns=0)"
-        return f"    bigfoot.popen_mock.new_session().expect('?', returns=...)"
+        return "    bigfoot.popen_mock.new_session().expect('?', returns=...)"
 
     def format_unmocked_hint(
         self,

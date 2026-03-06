@@ -241,7 +241,10 @@ class SocketPlugin(StateMachinePlugin):
         method = sid.split(":", 1)[-1] if ":" in sid else sid
         details = interaction.details
         if sid == _SOURCE_CONNECT:
-            return f"[SocketPlugin] socket.connect(({details.get('host', '?')!r}, {details.get('port', 0)!r}))"
+            return (
+                f"[SocketPlugin] socket.connect(("
+                f"{details.get('host', '?')!r}, {details.get('port', 0)!r}))"
+            )
         if sid == _SOURCE_SEND:
             return f"[SocketPlugin] socket.send({details.get('data', b'')!r})"
         if sid == _SOURCE_SENDALL:
