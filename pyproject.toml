@@ -48,6 +48,9 @@ websockets = [
 redis = [
     "redis>=5.0.0",
 ]
+all = [
+    "bigfoot[http,matchers,websockets,websocket-client,redis]",
+]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
