@@ -48,7 +48,7 @@ def test_echo_client():
         .expect("recv",     returns=b"pong")
         .expect("close",    returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         sock = socket.socket()
         sock.connect(("127.0.0.1", 9999))
         sock.sendall(b"ping")
@@ -79,7 +79,7 @@ def test_two_connections():
         .expect("recv",    returns=b"second")
         .expect("close",   returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         s1 = socket.socket()
         s2 = socket.socket()
         s1.connect(("127.0.0.1", 9001))
@@ -98,7 +98,7 @@ Calling a method from the wrong state raises `InvalidStateError` immediately:
 def test_recv_before_connect():
     bigfoot.socket_mock.new_session()  # empty session
 
-    with bigfoot.sandbox():
+    with bigfoot:
         sock = socket.socket()
         # Bind the session without connecting first by directly using _bind_connection:
         from bigfoot.plugins.socket_plugin import SocketPlugin
@@ -145,7 +145,7 @@ def test_select_users():
         .expect("execute", returns=[[1, "Alice"], [2, "Bob"]])
         .expect("close",   returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         conn = sqlite3.connect(":memory:")
         cursor = conn.execute("SELECT id, name FROM users")
         rows = cursor.fetchall()
@@ -163,7 +163,7 @@ def test_cursor_style():
         .expect("execute", returns=[["x"], ["y"]])
         .expect("close",   returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         conn = sqlite3.connect(":memory:")
         cur = conn.cursor()
         cur.execute("SELECT val FROM t")
@@ -188,7 +188,7 @@ def test_commit_then_execute():
         .expect("execute",  returns=[])   # valid only after commit reset state to "connected"
         .expect("close",    returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         conn = sqlite3.connect(":memory:")
         conn.execute("INSERT INTO t VALUES (1)")
         conn.commit()
@@ -199,7 +199,7 @@ def test_commit_then_execute():
 Calling `commit()` from `connected` (before any `execute()`) raises `InvalidStateError`:
 
 ```python
-with bigfoot.sandbox():
+with bigfoot:
     conn = sqlite3.connect(":memory:")
     with pytest.raises(bigfoot.InvalidStateError) as exc_info:
         conn.commit()
@@ -240,7 +240,7 @@ async def test_ws_echo():
         .expect("recv",    returns="pong")
         .expect("close",   returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         async with websockets.connect("ws://localhost:8765") as ws:
             await ws.send("ping")
             message = await ws.recv()
@@ -269,7 +269,7 @@ async def test_two_ws_connections():
         .expect("recv",    returns="second")
         .expect("close",   returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         cm1 = websockets.connect("ws://localhost:8765")
         cm2 = websockets.connect("ws://localhost:8765")
         async with cm1 as ws1:
@@ -308,7 +308,7 @@ def test_sync_ws():
         .expect("recv",    returns="hello")
         .expect("close",   returns=None))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         ws = websocket.create_connection("ws://localhost:8765")
         ws.send("hi")
         message = ws.recv()
@@ -351,7 +351,7 @@ def test_run_command():
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         proc = subprocess.Popen(["echo", "hello"], stdout=subprocess.PIPE)
         stdout, stderr = proc.communicate()
 
@@ -369,7 +369,7 @@ def test_failing_command():
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"", b"command not found", 127)))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         proc = subprocess.Popen(["bogus-cmd"])
         stdout, stderr = proc.communicate()
 
@@ -388,7 +388,7 @@ def test_wait():
         .expect("init", returns=None)
         .expect("wait", returns=0))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         proc = subprocess.Popen(["sleep", "1"])
         rc = proc.wait()
 
@@ -407,7 +407,7 @@ def test_stream_read():
         .expect("init",        returns=None)
         .expect("stdout.read", returns=b"output data"))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         proc = subprocess.Popen(["cmd"], stdout=subprocess.PIPE)
         data = proc.stdout.read()
 
@@ -450,7 +450,7 @@ def test_send_authenticated_email():
         .expect("sendmail", returns={})
         .expect("quit",     returns=(221, b"Bye")))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         smtp = smtplib.SMTP("mail.example.com", 587)
         smtp.ehlo()
         smtp.starttls()
@@ -474,7 +474,7 @@ def test_send_unauthenticated_email():
         .expect("sendmail", returns={})
         .expect("quit",     returns=(221, b"Bye")))
 
-    with bigfoot.sandbox():
+    with bigfoot:
         smtp = smtplib.SMTP("mail.example.com", 25)
         smtp.ehlo()
         smtp.sendmail(
@@ -506,7 +506,7 @@ import bigfoot
 def test_cache_lookup():
     bigfoot.redis_mock.mock_command("GET", returns="cached_value")
 
-    with bigfoot.sandbox():
+    with bigfoot:
         r = redis.Redis()
         value = r.execute_command("GET", "mykey")
 
@@ -523,7 +523,7 @@ def test_get_set():
     bigfoot.redis_mock.mock_command("GET", returns="first")
     bigfoot.redis_mock.mock_command("GET", returns="second")
 
-    with bigfoot.sandbox():
+    with bigfoot:
         r = redis.Redis()
         r.execute_command("SET", "k", "v")
         v1 = r.execute_command("GET", "key1")
@@ -546,7 +546,7 @@ def test_redis_error():
         raises=redis_lib.exceptions.ResponseError("WRONGTYPE"),
     )
 
-    with bigfoot.sandbox():
+    with bigfoot:
         r = redis.Redis()
         with pytest.raises(redis_lib.exceptions.ResponseError):
             r.execute_command("GET", "badkey")

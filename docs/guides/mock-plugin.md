@@ -36,7 +36,7 @@ email.next_id.returns(1)
 email.next_id.returns(2)
 email.next_id.returns(3)
 
-with bigfoot.sandbox():
+with bigfoot:
     assert email.next_id() == 1
     assert email.next_id() == 2
     assert email.next_id() == 3
@@ -113,7 +113,7 @@ real_service = PaymentService()
 payment = bigfoot.spy("PaymentService", real_service)
 payment.charge.returns({"id": "mock-123"})  # queue entry: takes priority
 
-with bigfoot.sandbox():
+with bigfoot:
     result1 = payment.charge(100)   # uses queue entry {"id": "mock-123"}
     result2 = payment.charge(200)   # queue empty: delegates to real_service.charge(200)
 
@@ -148,7 +148,7 @@ def test_email():
     email = bigfoot.mock("EmailService")
     email.send.returns(True)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         email.send(to="user@example.com", subject="Welcome")
 
     bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
@@ -167,7 +167,7 @@ def test_notifications():
     email = bigfoot.mock("EmailService")
     email.send.returns(True).returns(True)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         email.send(to="alice@example.com")
         email.send(to="bob@example.com")
 

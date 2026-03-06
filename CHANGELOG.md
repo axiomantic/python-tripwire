@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-03-05
+
+### Added
+
+- `with bigfoot:` and `async with bigfoot:` — shorthand for `with bigfoot.sandbox():` / `async with bigfoot.sandbox():`. Both forms return the active `StrictVerifier` from `__enter__`, so `with bigfoot as v:` gives direct access to the verifier when needed (e.g. for registering custom plugins manually).
+
 ## [0.4.0] - 2026-03-05
 
 ### Added
@@ -78,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.4.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.1
 [0.4.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.0
 [0.3.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.3.0
 [0.2.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.2.0

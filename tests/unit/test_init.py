@@ -344,6 +344,75 @@ def test_async_websocket_mock_raises_import_error_when_websockets_unavailable(
     assert "pip install" in str(exc_info.value)
 
 
+def test_bigfoot_module_is_context_manager(bigfoot_verifier: object) -> None:
+    """``with bigfoot:`` activates a sandbox and returns the active StrictVerifier.
+
+    ESCAPE: module context manager
+      CLAIM: Entering ``with bigfoot:`` calls sandbox().__enter__() on the current
+             verifier and returns the StrictVerifier instance.
+      PATH:  _BigfootModule.__enter__ -> sandbox() -> SandboxContext.__enter__ -> returns verifier.
+      CHECK: The ``as`` target is the StrictVerifier; calling mock/assert inside works normally.
+      MUTATION: If __class__ swap is missing, ``with bigfoot:`` raises AttributeError.
+      ESCAPE: A stub that returns *something* but not the verifier would fail the isinstance check.
+    """
+    import bigfoot
+    from bigfoot import StrictVerifier
+
+    proxy = bigfoot.mock("Svc")
+    proxy.do.returns(42)
+
+    with bigfoot as v:
+        assert isinstance(v, StrictVerifier)
+        result = proxy.do()
+        assert result == 42
+
+    bigfoot.assert_interaction(proxy.do, args=(), kwargs={})
+
+
+async def test_bigfoot_module_is_async_context_manager(bigfoot_verifier: object) -> None:
+    """``async with bigfoot:`` activates a sandbox and returns the StrictVerifier.
+
+    ESCAPE: async module context manager
+      CLAIM: Entering ``async with bigfoot:`` delegates to sandbox().__aenter__() and
+             returns the StrictVerifier.
+      PATH:  _BigfootModule.__aenter__ -> sandbox() -> SandboxContext.__aenter__ -> returns verifier.
+      CHECK: The ``as`` target is the StrictVerifier; async code inside the block is intercepted.
+      MUTATION: Missing __aenter__ raises AttributeError; wrong return raises AssertionError.
+    """
+    import bigfoot
+    from bigfoot import StrictVerifier
+
+    proxy = bigfoot.mock("AsyncSvc")
+    proxy.fetch.returns({"ok": True})
+
+    async with bigfoot as v:
+        assert isinstance(v, StrictVerifier)
+        result = proxy.fetch()
+        assert result == {"ok": True}
+
+    bigfoot.assert_interaction(proxy.fetch, args=(), kwargs={})
+
+
+def test_bigfoot_nested_sandboxes_via_with_bigfoot(bigfoot_verifier: object) -> None:
+    """Nested ``with bigfoot:`` blocks use reference counting and do not conflict.
+
+    ESCAPE: nested sandboxes
+      CLAIM: Entering ``with bigfoot:`` twice nests correctly; the inner exit does not
+             deactivate plugins prematurely.
+      PATH:  _BigfootModule.__enter__ pushes to stack twice; __exit__ pops in LIFO order.
+      CHECK: Both ``as`` values are the same StrictVerifier; no errors on exit.
+      MUTATION: A non-stacking implementation would push the same cm twice and break LIFO order.
+    """
+    import bigfoot
+    from bigfoot import StrictVerifier
+
+    with bigfoot as v1:
+        with bigfoot as v2:
+            assert isinstance(v1, StrictVerifier)
+            assert isinstance(v2, StrictVerifier)
+            assert v1 is v2
+
+
 def test_sync_websocket_mock_raises_import_error_when_websocket_client_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

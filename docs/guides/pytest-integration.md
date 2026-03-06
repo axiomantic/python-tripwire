@@ -13,18 +13,20 @@ def test_example():
     email = bigfoot.mock("EmailService")
     email.send.returns(True)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         email.send(to="user@example.com")
 
     bigfoot.assert_interaction(email.send)
     # verify_all() is called automatically at teardown
 ```
 
+`with bigfoot:` is shorthand for `with bigfoot.sandbox():`. Both return the active `StrictVerifier` from `__enter__`, so `with bigfoot as v:` gives you the verifier directly if you need it. `bigfoot.sandbox()` remains available as the explicit form for cases where you need to pass the context manager around.
+
 Behind the scenes, an autouse fixture creates one `StrictVerifier` per test, stores it in a `ContextVar`, and calls `verify_all()` after the test completes.
 
 ## Async tests
 
-`bigfoot.sandbox()` and `bigfoot.in_any_order()` both support `async with`. Use `pytest-asyncio` for async test functions:
+`bigfoot` and `bigfoot.in_any_order()` both support `async with`. Use `pytest-asyncio` for async test functions:
 
 ```python
 import bigfoot
@@ -33,7 +35,7 @@ import httpx
 async def test_async_http():
     bigfoot.http.mock_response("GET", "https://api.example.com/items", json={"items": []})
 
-    async with bigfoot.sandbox():
+    async with bigfoot:
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/items")
         assert response.json() == {"items": []}
@@ -54,7 +56,7 @@ def test_api_call():
     bigfoot.http.mock_response("POST", "https://api.example.com/users",
                                json={"id": 42}, status=201)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         response = requests.post("https://api.example.com/users", json={"name": "Alice"})
         assert response.status_code == 201
         assert response.json()["id"] == 42
@@ -99,7 +101,7 @@ def test_mixed(bigfoot_verifier: StrictVerifier):
     email = bigfoot.mock("EmailService")  # same verifier
     email.send.returns(True)
 
-    with bigfoot.sandbox():
+    with bigfoot:
         email.send(to="user@example.com")
 
     assert bigfoot.current_verifier() is bigfoot_verifier  # True
