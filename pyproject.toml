@@ -127,3 +127,8 @@ select = ["E", "F", "I", "N", "UP", "ANN"]
     "ANN202",   # Missing return annotations in private test helpers
     "F841",     # Local variable assigned but unused (e.g., importorskip result used for skip)
 ]
+"examples/**/*.py" = [
+    "ANN001",   # Missing arg annotations in example code
+    "ANN201",   # Missing return annotations in example tests
+    "ANN202",   # Missing return annotations in example fixtures
+]

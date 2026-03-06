@@ -13,16 +13,21 @@ Every call accounted for. Every assertion mandatory. No exceptions.
 ## Installation
 
 ```bash
-pip install bigfoot                       # Core: MockPlugin + SubprocessPlugin + DatabasePlugin + SmtpPlugin + SocketPlugin + PopenPlugin + AsyncSubprocessPlugin
-pip install bigfoot[psycopg2]             # + Psycopg2Plugin
-pip install bigfoot[asyncpg]              # + AsyncpgPlugin
+pip install bigfoot[all]
+```
+
+For a more compact installation, pick only the extras you need:
+
+```bash
+pip install bigfoot                       # Core: MockPlugin, SubprocessPlugin, DatabasePlugin, SmtpPlugin, SocketPlugin, PopenPlugin, AsyncSubprocessPlugin, LoggingPlugin
 pip install bigfoot[http]                 # + HttpPlugin (httpx, requests, urllib)
 pip install bigfoot[aiohttp]              # + aiohttp support for HttpPlugin
-pip install bigfoot[websockets]           # + AsyncWebSocketPlugin (websockets library)
-pip install bigfoot[websocket-client]     # + SyncWebSocketPlugin (websocket-client library)
-pip install bigfoot[redis]                # + RedisPlugin (redis-py)
+pip install bigfoot[psycopg2]             # + Psycopg2Plugin (PostgreSQL)
+pip install bigfoot[asyncpg]              # + AsyncpgPlugin (async PostgreSQL)
+pip install bigfoot[websockets]           # + AsyncWebSocketPlugin
+pip install bigfoot[websocket-client]     # + SyncWebSocketPlugin
+pip install bigfoot[redis]                # + RedisPlugin
 pip install bigfoot[matchers]             # + dirty-equals matchers
-pip install bigfoot[dev]                  # All of the above + pytest, mypy, ruff
 ```
 
 ## Quick Start
