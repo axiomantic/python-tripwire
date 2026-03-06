@@ -19,13 +19,13 @@ pip install bigfoot[dev]      # All of the above + pytest, mypy, ruff
 
 ```python
 import bigfoot
+import httpx
 
 def test_payment_flow():
     bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
     with bigfoot:
-        import httpx
         response = httpx.post("https://api.stripe.com/v1/charges",
                               json={"amount": 5000})
 
