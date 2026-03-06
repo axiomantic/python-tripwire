@@ -90,9 +90,11 @@ def test_deploy():
     with bigfoot:
         deploy()
 
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git")
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "pull", "--ff-only"])
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "tag", "v1.0"])
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git", returns="/usr/bin/git")
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "pull", "--ff-only"],
+                               returncode=0, stdout="Already up to date.\n", stderr="")
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "tag", "v1.0"],
+                               returncode=0, stdout="", stderr="")
 ```
 
 ### `mock_run` options
@@ -143,7 +145,10 @@ async def test_async_flow():
         async with httpx.AsyncClient() as client:
             response = await client.get("https://api.example.com/items")
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET")
+    bigfoot.assert_interaction(bigfoot.http.request, method="GET",
+                               url="https://api.example.com/items",
+                               request_headers=IsMapping(), request_body=None,
+                               status=200, response_headers=IsMapping(), response_body="[]")
 ```
 
 ## Concurrent Assertions
@@ -164,8 +169,14 @@ async def test_concurrent():
             tb = tg.create_task(httpx.AsyncClient().get("https://api.example.com/b"))
 
     with bigfoot.in_any_order():
-        bigfoot.assert_interaction(bigfoot.http.request, url="https://api.example.com/a")
-        bigfoot.assert_interaction(bigfoot.http.request, url="https://api.example.com/b")
+        bigfoot.assert_interaction(bigfoot.http.request, method="GET",
+                                   url="https://api.example.com/a",
+                                   request_headers=IsMapping(), request_body=None,
+                                   status=200, response_headers=IsMapping(), response_body=IsMapping())
+        bigfoot.assert_interaction(bigfoot.http.request, method="GET",
+                                   url="https://api.example.com/b",
+                                   request_headers=IsMapping(), request_body=None,
+                                   status=200, response_headers=IsMapping(), response_body=IsMapping())
 ```
 
 `in_any_order()` operates globally across all plugin types (mock and HTTP).
@@ -210,10 +221,12 @@ def test_mixed():
 
     bigfoot.assert_interaction(bigfoot.http.request,
                                method="GET", url="https://api.example.com/cached",
-                               headers=IsMapping(), body=None, status=200)
+                               request_headers=IsMapping(), request_body=None,
+                               status=200, response_headers=IsMapping(), response_body=IsMapping() | IsInstance(str))
     bigfoot.assert_interaction(bigfoot.http.request,
                                method="GET", url="https://api.example.com/live",
-                               headers=IsMapping(), body=None, status=200)
+                               request_headers=IsMapping(), request_body=None,
+                               status=200, response_headers=IsMapping(), response_body=IsMapping() | IsInstance(str))
 ```
 
 Pass-through rules are routing hints, not assertions. Unused pass-through rules do not raise `UnusedMocksError`.
