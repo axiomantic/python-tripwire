@@ -83,6 +83,29 @@ class BasePlugin(ABC):
     def format_unused_mock_hint(self, mock_config: object) -> str:
         """Hint for each unused mock: show 'remove this mock' OR 'mark required=False'."""
 
+    @classmethod
+    def config_key(cls) -> str | None:
+        """Return the [tool.bigfoot.<key>] section name for this plugin.
+
+        Return None to opt out of configuration entirely. Plugins that return
+        None receive no load_config() call from concrete subclass __init__.
+
+        Example: HttpPlugin returns "http", mapping to [tool.bigfoot.http].
+        """
+        return None
+
+    def load_config(self, config: dict[str, Any]) -> None:
+        """Apply configuration from the plugin's [tool.bigfoot.<key>] sub-table.
+
+        Called as the last line of each concrete plugin's __init__, after all
+        instance attributes have been set. The default implementation is a no-op.
+        Plugins override this to read and validate their options.
+
+        Args:
+            config: The parsed sub-table dict. Empty dict ({}) when no config
+                    section is present for this plugin.
+        """
+
     def record(self, interaction: "Interaction") -> None:
         """Concrete method: append interaction to the verifier's shared timeline.
 

@@ -4,6 +4,7 @@
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
+from bigfoot._config import load_bigfoot_config
 from bigfoot._context import _active_verifier, _any_order_depth
 from bigfoot._errors import (
     AssertionInsideSandboxError,
@@ -34,6 +35,7 @@ class StrictVerifier:
     def __init__(self) -> None:
         self._plugins: list[BasePlugin] = []
         self._timeline: Timeline = Timeline()
+        self._bigfoot_config: dict[str, Any] = load_bigfoot_config()
 
     def _register_plugin(self, plugin: "BasePlugin") -> None:
         for existing in self._plugins:

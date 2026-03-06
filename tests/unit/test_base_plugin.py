@@ -29,6 +29,7 @@ class _StubVerifier:
     def __init__(self) -> None:
         self._timeline = _StubTimeline()
         self.registered_plugins: list[Any] = []
+        self._bigfoot_config: dict[str, Any] = {}
 
     def _register_plugin(self, plugin: Any) -> None:
         self.registered_plugins.append(plugin)

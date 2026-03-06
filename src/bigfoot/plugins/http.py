@@ -200,8 +200,36 @@ class HttpPlugin(BasePlugin):
         self._mock_queue: list[HttpMockConfig] = []
         self._sentinel = HttpRequestSentinel(self)
         self._pass_through_rules: list[tuple[str, str]] = []
-        self._require_response: bool = require_response
         self._asserting_request_only: bool = False
+        self._require_response: bool = require_response
+        self.load_config(
+            self.verifier._bigfoot_config.get(self.config_key() or "", {})
+        )
+
+    @classmethod
+    def config_key(cls) -> str | None:
+        """Return 'http', mapping this plugin to [tool.bigfoot.http]."""
+        return "http"
+
+    def load_config(self, config: dict[str, Any]) -> None:
+        """Apply [tool.bigfoot.http] configuration.
+
+        Recognized keys:
+            require_response (bool): When True, assert_request() returns an
+                HttpAssertionBuilder requiring .assert_response() to complete
+                the assertion. Default False.
+
+        Unknown keys are silently ignored for forward-compatibility.
+        Raises TypeError for require_response with a non-bool value.
+        """
+        if "require_response" in config:
+            val = config["require_response"]
+            if not isinstance(val, bool):
+                raise TypeError(
+                    f"[tool.bigfoot.http] require_response must be a bool, "
+                    f"got {type(val).__name__}"
+                )
+            self._require_response = val
 
     @property
     def request(self) -> HttpRequestSentinel:

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-03-06
+
+### Added
+
+- Plugin config system: bigfoot now reads `[tool.bigfoot]` from the nearest `pyproject.toml` (walking up from `Path.cwd()` at `StrictVerifier` construction time). Config is loaded once per verifier and distributed to plugins via a `load_config()` hook.
+- `BasePlugin.config_key()` classmethod — returns the TOML sub-table key for a plugin (e.g. `"http"`), or `None` to opt out of configuration.
+- `BasePlugin.load_config(config: dict[str, Any])` — no-op by default; concrete plugins override to read and validate their options. Called as the last line of each concrete plugin's `__init__`, after all instance attributes are initialized.
+- `[tool.bigfoot.http] require_response` — boolean option (default `false`). When `true`, `http.assert_request()` returns an `HttpAssertionBuilder` requiring `.assert_response()` to complete the assertion with all seven HTTP fields. Per-call `require_response` argument still overrides the project-level setting.
+- `bigfoot._config.load_bigfoot_config()` — internal function that walks the filesystem for `pyproject.toml` and returns the `[tool.bigfoot]` table; propagates `tomllib.TOMLDecodeError` on malformed TOML.
+
 ## [0.5.0] - 2026-03-06
 
 ### Added
@@ -108,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.6.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.6.0
 [0.4.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.1
 [0.4.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.4.0
 [0.3.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.3.0
