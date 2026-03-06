@@ -1254,22 +1254,23 @@ def test_assert_request_stores_method_and_url() -> None:
 
 
 # ESCAPE: test_assert_request_default_headers_and_body
-#   CLAIM: assert_request() defaults headers to {} and body to "".
-#   PATH:  assert_request() uses `headers if headers is not None else {}` and body="".
-#   CHECK: builder._headers == {}, builder._body == "".
-#   MUTATION: Defaulting headers to None would leave None stored.
+#   CLAIM: assert_request() defaults request_headers to {} and request_body to "".
+#   PATH:  assert_request() uses `request_headers if request_headers is not None else {}`
+#          and request_body="".
+#   CHECK: builder._request_headers == {}, builder._request_body == "".
+#   MUTATION: Defaulting request_headers to None would leave None stored.
 #   ESCAPE: Nothing reasonable -- exact equality.
 def test_assert_request_default_headers_and_body() -> None:
     v, p = _make_verifier_with_plugin()
     builder = p.assert_request("POST", "https://example.com/submit")
-    assert builder._headers == {}
-    assert builder._body == ""
+    assert builder._request_headers == {}
+    assert builder._request_body == ""
 
 
 # ESCAPE: test_assert_request_with_explicit_headers_and_body
-#   CLAIM: assert_request() passes through explicit headers and body.
-#   PATH:  assert_request(headers=..., body=...) -> builder stores them.
-#   CHECK: builder._headers and builder._body match what was passed.
+#   CLAIM: assert_request() passes through explicit request_headers and request_body.
+#   PATH:  assert_request(request_headers=..., request_body=...) -> builder stores them.
+#   CHECK: builder._request_headers and builder._request_body match what was passed.
 #   MUTATION: Ignoring the kwargs and using defaults would fail.
 #   ESCAPE: Nothing reasonable -- exact dict/str equality.
 def test_assert_request_with_explicit_headers_and_body() -> None:
@@ -1277,11 +1278,11 @@ def test_assert_request_with_explicit_headers_and_body() -> None:
     builder = p.assert_request(
         "POST",
         "https://example.com/submit",
-        headers={"Authorization": "Bearer tok"},
-        body='{"key": "val"}',
+        request_headers={"Authorization": "Bearer tok"},
+        request_body='{"key": "val"}',
     )
-    assert builder._headers == {"Authorization": "Bearer tok"}
-    assert builder._body == '{"key": "val"}'
+    assert builder._request_headers == {"Authorization": "Bearer tok"}
+    assert builder._request_body == '{"key": "val"}'
 
 
 # ESCAPE: test_assert_response_calls_assert_interaction_with_all_seven_fields
@@ -1314,11 +1315,11 @@ def test_assert_response_calls_assert_interaction_with_all_seven_fields() -> Non
     p.assert_request(
         "GET",
         "https://api.example.com/data",
-        headers=recorded_request_headers,
+        request_headers=recorded_request_headers,
     ).assert_response(
         status=200,
-        headers={"content-type": "application/json"},
-        body='{"key": "value"}',
+        response_headers={"content-type": "application/json"},
+        response_body='{"key": "value"}',
     )
 
     # All interactions asserted -- verify_all must not raise
@@ -1347,12 +1348,12 @@ def test_assert_response_is_terminal_marks_interaction_asserted() -> None:
     p.assert_request(
         "POST",
         "https://api.example.com/create",
-        headers=recorded["request_headers"],
-        body=recorded["request_body"],
+        request_headers=recorded["request_headers"],
+        request_body=recorded["request_body"],
     ).assert_response(
         status=201,
-        headers={"content-type": "application/json"},
-        body='{"id": 1}',
+        response_headers={"content-type": "application/json"},
+        response_body='{"id": 1}',
     )
 
     assert len(v._timeline.all_unasserted()) == 0

@@ -43,8 +43,8 @@ def test_payment_flow():
     # Option B: chained helper
     bigfoot.http.assert_request(
         method="POST", url="https://api.stripe.com/v1/charges",
-        headers=IsMapping(), body=None,
-    ).assert_response(status=200, headers=IsMapping(), body=IsMapping() | IsInstance(str))
+        request_headers=IsMapping(), request_body=None,
+    ).assert_response(status=200, response_headers=IsMapping(), response_body=IsMapping() | IsInstance(str))
     assert response.json()["id"] == "ch_123"
     # verify_all() called automatically at test teardown
 ```

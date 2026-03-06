@@ -107,21 +107,21 @@ class HttpAssertionBuilder:
         sentinel: HttpRequestSentinel,
         method: str,
         url: str,
-        headers: dict[str, Any],
-        body: str,
+        request_headers: dict[str, Any],
+        request_body: str,
     ) -> None:
         self._verifier = verifier
         self._sentinel = sentinel
         self._method = method
         self._url = url
-        self._headers = headers
-        self._body = body
+        self._request_headers = request_headers
+        self._request_body = request_body
 
     def assert_response(
         self,
         status: int,
-        headers: dict[str, Any],
-        body: str,
+        response_headers: dict[str, Any],
+        response_body: str,
     ) -> None:
         """Assert the full interaction: request fields + response fields.
 
@@ -132,11 +132,11 @@ class HttpAssertionBuilder:
             self._sentinel,
             method=self._method,
             url=self._url,
-            request_headers=self._headers,
-            request_body=self._body,
+            request_headers=self._request_headers,
+            request_body=self._request_body,
             status=status,
-            response_headers=headers,
-            response_body=body,
+            response_headers=response_headers,
+            response_body=response_body,
         )
 
 
@@ -206,8 +206,8 @@ class HttpPlugin(BasePlugin):
         self,
         method: str,
         url: str,
-        headers: dict[str, Any] | None = None,
-        body: str = "",
+        request_headers: dict[str, Any] | None = None,
+        request_body: str = "",
     ) -> "HttpAssertionBuilder":
         """Return an HttpAssertionBuilder pre-loaded with expected request fields.
 
@@ -219,8 +219,8 @@ class HttpPlugin(BasePlugin):
             sentinel=self._sentinel,
             method=method,
             url=url,
-            headers=headers if headers is not None else {},
-            body=body,
+            request_headers=request_headers if request_headers is not None else {},
+            request_body=request_body,
         )
 
     def mock_response(
