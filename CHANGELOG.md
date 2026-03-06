@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-03-06
+
+### Fixed
+
+- `SubprocessPlugin`: `_which_interceptor` now passes `**kwargs` (mode, path) through to `_handle_which` instead of silently dropping them.
+- `SubprocessPlugin`: `_handle_run` now raises `TypeError` when called with a string command instead of silently splitting it into characters (e.g., `"ls"` becoming `['l', 's']`).
+- Replaced loop-and-break plugin lookup patterns with idiomatic `next()` expressions in subprocess, popen, and proxy code.
+- Extracted `_push_cm()` helper in `_BigfootModule` to eliminate duplicated sandbox creation logic in `__enter__` and `__aenter__`.
+
 ## [0.10.0] - 2026-03-06
 
 ### Added
@@ -156,6 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.10.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.10.1
 [0.10.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.10.0
 [0.9.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.9.0
 [0.8.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.8.0

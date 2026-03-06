@@ -102,13 +102,13 @@ class SubprocessWhichSentinel:
 
 
 def _find_subprocess_plugin(verifier: "StrictVerifier") -> "SubprocessPlugin":
-    for plugin in verifier._plugins:
-        if isinstance(plugin, SubprocessPlugin):
-            return plugin
-    raise RuntimeError(
-        "BUG: bigfoot SubprocessPlugin interceptor is active but no "
-        "SubprocessPlugin is registered on the current verifier."
-    )
+    try:
+        return next(p for p in verifier._plugins if isinstance(p, SubprocessPlugin))
+    except StopIteration:
+        raise RuntimeError(
+            "BUG: bigfoot SubprocessPlugin interceptor is active but no "
+            "SubprocessPlugin is registered on the current verifier."
+        ) from None
 
 
 def _identify_subprocess_patcher(method: object) -> str:
@@ -285,7 +285,7 @@ class SubprocessPlugin(BasePlugin):
         def _which_interceptor(name: str, **kwargs: Any) -> str | None:  # noqa: ANN401
             verifier = _get_verifier_or_raise(_SOURCE_WHICH)
             plugin = _find_subprocess_plugin(verifier)
-            return plugin._handle_which(name)
+            return plugin._handle_which(name, **kwargs)
 
         _bigfoot_subprocess_run = _run_interceptor
         _bigfoot_shutil_which = _which_interceptor
@@ -318,6 +318,12 @@ class SubprocessPlugin(BasePlugin):
             cmd = args[0]
         else:
             cmd = kwargs.get("args", [])
+        if isinstance(cmd, str):
+            raise TypeError(
+                f"subprocess.run() was called with a string command {cmd!r}. "
+                f"bigfoot requires a list of arguments, e.g. {[cmd]!r}. "
+                f"Pass a list to avoid ambiguity between shell and non-shell invocations."
+            )
         cmd_list = list(cmd)
 
         if not self._run_queue:
@@ -366,7 +372,7 @@ class SubprocessPlugin(BasePlugin):
             stderr=config.stderr,
         )
 
-    def _handle_which(self, name: str) -> str | None:
+    def _handle_which(self, name: str, **kwargs: Any) -> str | None:  # noqa: ANN401
         """Always-on interceptor for shutil.which.
 
         Registered names: return configured value and record interaction.

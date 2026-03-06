@@ -51,13 +51,13 @@ _bigfoot_popen_class: Any = None
 
 def _find_popen_plugin() -> "PopenPlugin":
     verifier = _get_verifier_or_raise(_SOURCE_SPAWN)
-    for plugin in verifier._plugins:
-        if isinstance(plugin, PopenPlugin):
-            return plugin
-    raise RuntimeError(
-        "BUG: bigfoot PopenPlugin interceptor is active but no "
-        "PopenPlugin is registered on the current verifier."
-    )
+    try:
+        return next(p for p in verifier._plugins if isinstance(p, PopenPlugin))
+    except StopIteration:
+        raise RuntimeError(
+            "BUG: bigfoot PopenPlugin interceptor is active but no "
+            "PopenPlugin is registered on the current verifier."
+        ) from None
 
 
 # ---------------------------------------------------------------------------
