@@ -2,11 +2,14 @@
 
 import sqlite3
 import threading
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise
-from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin
+from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
+
+if TYPE_CHECKING:
+    from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # Source ID constants
@@ -77,7 +80,8 @@ class _FakeCursorProxy:
     def execute(self, sql: str, params: object = ()) -> "_FakeCursorProxy":
         handle = self._connection._plugin._lookup_session(self._connection)
         result = self._connection._plugin._execute_step(
-            handle, "execute", (sql,), {"params": params}, _SOURCE_EXECUTE
+            handle, "execute", (sql,), {"params": params}, _SOURCE_EXECUTE,
+            details={"sql": sql, "parameters": params},
         )
         self._connection._last_cursor = _FakeCursor(result)
         return self
@@ -117,7 +121,8 @@ class _FakeConnection:
     def execute(self, sql: str, params: object = ()) -> _FakeCursorProxy:
         handle = self._plugin._lookup_session(self)
         result = self._plugin._execute_step(
-            handle, "execute", (sql,), {"params": params}, _SOURCE_EXECUTE
+            handle, "execute", (sql,), {"params": params}, _SOURCE_EXECUTE,
+            details={"sql": sql, "parameters": params},
         )
         self._last_cursor = _FakeCursor(result)
         return _FakeCursorProxy(self)
@@ -127,15 +132,15 @@ class _FakeConnection:
 
     def commit(self) -> None:
         handle = self._plugin._lookup_session(self)
-        self._plugin._execute_step(handle, "commit", (), {}, _SOURCE_COMMIT)
+        self._plugin._execute_step(handle, "commit", (), {}, _SOURCE_COMMIT, details={})
 
     def rollback(self) -> None:
         handle = self._plugin._lookup_session(self)
-        self._plugin._execute_step(handle, "rollback", (), {}, _SOURCE_ROLLBACK)
+        self._plugin._execute_step(handle, "rollback", (), {}, _SOURCE_ROLLBACK, details={})
 
     def close(self) -> None:
         handle = self._plugin._lookup_session(self)
-        self._plugin._execute_step(handle, "close", (), {}, _SOURCE_CLOSE)
+        self._plugin._execute_step(handle, "close", (), {}, _SOURCE_CLOSE, details={})
         self._plugin._release_session(self)
 
 
@@ -148,6 +153,11 @@ def _patched_connect(database: str, **_kwargs: object) -> _FakeConnection:
     plugin = _get_database_plugin()
     fake_conn = _FakeConnection(plugin)
     plugin._bind_connection(fake_conn)
+    handle = plugin._lookup_session(fake_conn)
+    plugin._execute_step(
+        handle, "connect", (database,), {}, _SOURCE_CONNECT,
+        details={"database": database},
+    )
     return fake_conn
 
 
@@ -167,15 +177,44 @@ class DatabasePlugin(StateMachinePlugin):
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None  # noqa: ANN401
 
+    def __init__(self, verifier: "StrictVerifier") -> None:
+        super().__init__(verifier)
+        self._connect_sentinel = _StepSentinel(_SOURCE_CONNECT)
+        self._execute_sentinel = _StepSentinel(_SOURCE_EXECUTE)
+        self._commit_sentinel = _StepSentinel(_SOURCE_COMMIT)
+        self._rollback_sentinel = _StepSentinel(_SOURCE_ROLLBACK)
+        self._close_sentinel = _StepSentinel(_SOURCE_CLOSE)
+
+    @property
+    def connect(self) -> _StepSentinel:
+        return self._connect_sentinel
+
+    @property
+    def execute(self) -> _StepSentinel:
+        return self._execute_sentinel
+
+    @property
+    def commit(self) -> _StepSentinel:
+        return self._commit_sentinel
+
+    @property
+    def rollback(self) -> _StepSentinel:
+        return self._rollback_sentinel
+
+    @property
+    def close(self) -> _StepSentinel:
+        return self._close_sentinel
+
     # ------------------------------------------------------------------
     # StateMachinePlugin abstract methods
     # ------------------------------------------------------------------
 
     def _initial_state(self) -> str:
-        return "connected"
+        return "disconnected"
 
     def _transitions(self) -> dict[str, dict[str, str]]:
         return {
+            "connect": {"disconnected": "connected"},
             "execute": {"connected": "in_transaction", "in_transaction": "in_transaction"},
             "commit": {"in_transaction": "connected"},
             "rollback": {"in_transaction": "connected"},
@@ -246,8 +285,71 @@ class DatabasePlugin(StateMachinePlugin):
 
     def format_assert_hint(self, interaction: Interaction) -> str:
         sm = "bigfoot.db_mock"
-        method = interaction.details.get("method", "?")
-        return f"    # {sm}: session step '{method}' recorded (state-machine, auto-asserted)"
+        sid = interaction.source_id
+        if sid == _SOURCE_CONNECT:
+            database = interaction.details.get("database", "?")
+            return f"    {sm}.assert_connect(database={database!r})"
+        if sid == _SOURCE_EXECUTE:
+            sql = interaction.details.get("sql", "?")
+            params = interaction.details.get("parameters", ())
+            return f"    {sm}.assert_execute(sql={sql!r}, parameters={params!r})"
+        if sid == _SOURCE_COMMIT:
+            return f"    {sm}.assert_commit()"
+        if sid == _SOURCE_ROLLBACK:
+            return f"    {sm}.assert_rollback()"
+        if sid == _SOURCE_CLOSE:
+            return f"    {sm}.assert_close()"
+        return f"    # {sm}: unknown source_id={sid!r}"
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return assertable fields for each step type."""
+        if interaction.source_id == _SOURCE_CONNECT:
+            return frozenset({"database"})
+        if interaction.source_id == _SOURCE_EXECUTE:
+            return frozenset({"sql", "parameters"})
+        if interaction.source_id in (_SOURCE_COMMIT, _SOURCE_ROLLBACK, _SOURCE_CLOSE):
+            return frozenset()
+        return frozenset(interaction.details.keys())
+
+    def assert_connect(self, *, database: str) -> None:
+        """Assert the next database connect interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(
+            self._connect_sentinel, database=database
+        )
+
+    def assert_execute(self, *, sql: str, parameters: object) -> None:
+        """Assert the next database execute interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(
+            self._execute_sentinel, sql=sql, parameters=parameters
+        )
+
+    def assert_commit(self) -> None:
+        """Assert the next database commit interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(self._commit_sentinel)
+
+    def assert_rollback(self) -> None:
+        """Assert the next database rollback interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(self._rollback_sentinel)
+
+    def assert_close(self) -> None:
+        """Assert the next database close interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(self._close_sentinel)
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
         step: Any = mock_config  # noqa: ANN401

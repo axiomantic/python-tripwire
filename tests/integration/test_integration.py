@@ -254,9 +254,11 @@ def test_http_plugin_mock_response_full_round_trip() -> None:
         http.request,
         method="GET",
         url="https://api.example.com/items",
-        headers=AnyThing(),
-        body=AnyThing(),
+        request_headers=AnyThing(),
+        request_body=AnyThing(),
         status=200,
+        response_headers=AnyThing(),
+        response_body=AnyThing(),
     )
     verifier.verify_all()
 

@@ -30,6 +30,7 @@ def test_all_contains_expected_names() -> None:
         # Errors
         "BigfootError",
         "AssertionInsideSandboxError",
+        "AutoAssertError",
         "InvalidStateError",
         "NoActiveVerifierError",
         "UnmockedInteractionError",

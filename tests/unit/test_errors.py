@@ -8,6 +8,7 @@ import pytest
 
 from bigfoot._errors import (
     AssertionInsideSandboxError,
+    AutoAssertError,
     BigfootError,
     ConflictError,
     InteractionMismatchError,
@@ -42,6 +43,7 @@ def test_all_errors_subclass_bigfoot_error() -> None:
     assert issubclass(AssertionInsideSandboxError, BigfootError)
     assert issubclass(NoActiveVerifierError, BigfootError)
     assert issubclass(MissingAssertionFieldsError, BigfootError)
+    assert issubclass(AutoAssertError, BigfootError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -56,6 +58,7 @@ def test_all_errors_subclass_exception() -> None:
     assert issubclass(AssertionInsideSandboxError, Exception)
     assert issubclass(NoActiveVerifierError, Exception)
     assert issubclass(MissingAssertionFieldsError, Exception)
+    assert issubclass(AutoAssertError, Exception)
 
 
 # ---------------------------------------------------------------------------
@@ -582,3 +585,29 @@ def test_invalid_state_error_catchable_as_bigfoot_error() -> None:
             current_state="c",
             valid_states=frozenset({"v"}),
         )
+
+
+# ---------------------------------------------------------------------------
+# AutoAssertError
+# ---------------------------------------------------------------------------
+
+
+def test_auto_assert_error_is_bigfoot_error() -> None:
+    """AutoAssertError is a subclass of BigfootError."""
+    from bigfoot._errors import AutoAssertError, BigfootError
+    assert issubclass(AutoAssertError, BigfootError)
+
+
+def test_auto_assert_error_message() -> None:
+    """AutoAssertError stores the message passed to it."""
+    from bigfoot._errors import AutoAssertError
+    err = AutoAssertError("test message")
+    assert "test message" in str(err)
+
+
+def test_auto_assert_error_exported_from_bigfoot() -> None:
+    """AutoAssertError is accessible from the top-level bigfoot module."""
+    import bigfoot
+    assert hasattr(bigfoot, "AutoAssertError")
+    from bigfoot import AutoAssertError
+    assert AutoAssertError is not None

@@ -188,6 +188,15 @@ class MissingAssertionFieldsError(BigfootError):
         )
 
 
+class AutoAssertError(BigfootError):
+    """Raised when mark_asserted() is called while record() is in progress.
+
+    This indicates the auto-assert anti-pattern: a plugin calling
+    timeline.mark_asserted() immediately after record() inside its intercept
+    hook, bypassing the requirement for explicit test assertions.
+    """
+
+
 class InvalidStateError(BigfootError):
     """Raised when a state-machine method is called from an invalid state.
 

@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-03-06
+
+### Added
+
+- `AutoAssertError` — raised immediately when `mark_asserted()` is called while `record()` is in progress; prevents the auto-assert anti-pattern at runtime rather than silently passing tests
+- `HttpPlugin.assert_request()` — chained builder returning `HttpAssertionBuilder`; call `.assert_response(status, headers, body)` to assert all 7 HTTP fields in one ergonomic expression
+- Named per-step assertion helpers on all state-machine plugin proxies: `socket_mock.assert_connect/send/recv/close`, `db_mock.assert_connect/execute/commit/rollback/close`, `smtp_mock.assert_connect/ehlo/helo/starttls/login/sendmail/send_message/quit`, `popen_mock.assert_spawn/communicate/wait`, `async_websocket_mock.assert_connect/send/recv/close`, `sync_websocket_mock.assert_connect/send/recv/close`
+- `redis_mock.assert_command(command, args, kwargs)` — typed helper for Redis command assertions
+- `DatabasePlugin` now records a `connect` step when `sqlite3.connect()` is called; initial state changed from `"connected"` to `"disconnected"`
+
+### Changed
+
+- **BREAKING:** `HttpPlugin` interaction fields renamed and expanded: `headers` → `request_headers`, `body` → `request_body`; two new required fields added: `response_headers` and `response_body`. All 7 fields are now required in `assert_interaction()` calls.
+- **BREAKING:** `SubprocessPlugin` now requires all fields in assertions: `run` interactions require `command`, `returncode`, `stdout`, `stderr`; `which` interactions require `name` and `returns`.
+- **BREAKING:** `RedisPlugin` interactions are no longer auto-asserted; callers must explicitly call `assert_interaction()` or `assert_command()`. All three fields (`command`, `args`, `kwargs`) are now required.
+- **BREAKING:** All `StateMachinePlugin` subclasses (Socket, Database, Smtp, Popen, AsyncWebSocket, SyncWebSocket) now use named per-step fields in `interaction.details` instead of generic `{method, args, kwargs}`. Interactions are no longer auto-asserted.
+- **BREAKING:** `PopenPlugin` step renamed: `"init"` → `"spawn"`. Stream operations (`stdin.write`, `stdout.read`, `stderr.read`) removed; `_FakeStream.read()` returns `b""`, `write()` returns `0`.
+- `BasePlugin.assertable_fields()` changed from `@abstractmethod` to a concrete default returning `frozenset(interaction.details.keys())`. Subclasses may still override for steps with no assertable fields.
+
+### Fixed
+
+- Auto-assert anti-pattern eliminated from `StateMachinePlugin` and `RedisPlugin`: interactions no longer marked asserted at record time; tests that omit `assert_interaction()` calls now correctly fail at `verify_all()`.
+- `Timeline.mark_asserted()` raises `AutoAssertError` if called while `record()` is in progress, providing an immediate and actionable error message when plugins attempt to auto-assert.
+
 ## [0.4.1] - 2026-03-05
 
 ### Added

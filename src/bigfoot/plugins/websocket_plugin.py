@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 import threading
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
-from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin
+from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
+
+if TYPE_CHECKING:
+    from bigfoot._verifier import StrictVerifier
+
+
+# ---------------------------------------------------------------------------
+# Source ID constants
+# ---------------------------------------------------------------------------
+
+_ASYNC_SOURCE_CONNECT = "websocket:async:connect"
+_ASYNC_SOURCE_SEND = "websocket:async:send"
+_ASYNC_SOURCE_RECV = "websocket:async:recv"
+_ASYNC_SOURCE_CLOSE = "websocket:async:close"
+
+_SYNC_SOURCE_CONNECT = "websocket:sync:connect"
+_SYNC_SOURCE_SEND = "websocket:sync:send"
+_SYNC_SOURCE_RECV = "websocket:sync:recv"
+_SYNC_SOURCE_CLOSE = "websocket:sync:close"
 
 # ---------------------------------------------------------------------------
 # Optional dependency guards
@@ -70,13 +88,25 @@ class _FakeAsyncWebSocket:
         self._plugin = plugin
 
     async def send(self, data: Any) -> Any:  # noqa: ANN401
-        return self._plugin._execute_step(self._handle, "send", (data,), {}, "websocket:async:send")
+        return self._plugin._execute_step(
+            self._handle, "send", (data,), {}, _ASYNC_SOURCE_SEND,
+            details={"message": data},
+        )
 
     async def recv(self) -> Any:  # noqa: ANN401
-        return self._plugin._execute_step(self._handle, "recv", (), {}, "websocket:async:recv")
+        result, interaction = self._plugin._execute_step(
+            self._handle, "recv", (), {}, _ASYNC_SOURCE_RECV,
+            details={"message": None},
+            return_interaction=True,
+        )
+        interaction.details["message"] = result
+        return result
 
     async def close(self) -> Any:  # noqa: ANN401
-        result = self._plugin._execute_step(self._handle, "close", (), {}, "websocket:async:close")
+        result = self._plugin._execute_step(
+            self._handle, "close", (), {}, _ASYNC_SOURCE_CLOSE,
+            details={},
+        )
         self._plugin._release_session(self)
         return result
 
@@ -90,9 +120,10 @@ class _FakeAsyncWebSocketCM:
     not when the async with block is entered.
     """
 
-    def __init__(self, handle: SessionHandle, plugin: AsyncWebSocketPlugin) -> None:
+    def __init__(self, handle: SessionHandle, plugin: AsyncWebSocketPlugin, uri: str) -> None:
         self._handle = handle
         self._plugin = plugin
+        self._uri = uri
         self._fake_ws: _FakeAsyncWebSocket | None = None
 
     async def __aenter__(self) -> _FakeAsyncWebSocket:
@@ -101,7 +132,10 @@ class _FakeAsyncWebSocketCM:
         # Register in active_sessions now that we have the fake_ws identity.
         self._plugin._register_connection(self._handle, fake_ws)
         # Execute the "connect" transition step.
-        self._plugin._execute_step(self._handle, "connect", (), {}, "websocket:async:connect")
+        self._plugin._execute_step(
+            self._handle, "connect", (), {}, _ASYNC_SOURCE_CONNECT,
+            details={"uri": self._uri},
+        )
         return fake_ws
 
     async def __aexit__(
@@ -130,6 +164,33 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
 
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None
+
+    # ------------------------------------------------------------------
+    # Plugin init: create per-instance sentinels
+    # ------------------------------------------------------------------
+
+    def __init__(self, verifier: "StrictVerifier") -> None:
+        super().__init__(verifier)
+        self._connect_sentinel = _StepSentinel(_ASYNC_SOURCE_CONNECT)
+        self._send_sentinel = _StepSentinel(_ASYNC_SOURCE_SEND)
+        self._recv_sentinel = _StepSentinel(_ASYNC_SOURCE_RECV)
+        self._close_sentinel = _StepSentinel(_ASYNC_SOURCE_CLOSE)
+
+    @property
+    def connect(self) -> _StepSentinel:
+        return self._connect_sentinel
+
+    @property
+    def send(self) -> _StepSentinel:
+        return self._send_sentinel
+
+    @property
+    def recv(self) -> _StepSentinel:
+        return self._recv_sentinel
+
+    @property
+    def close(self) -> _StepSentinel:
+        return self._close_sentinel
 
     # ------------------------------------------------------------------
     # StateMachinePlugin abstract methods
@@ -182,6 +243,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
 
         def _patched_websockets_connect(*args: Any, **kwargs: Any) -> _FakeAsyncWebSocketCM:  # noqa: ANN401
             plugin = _get_async_websocket_plugin()
+            uri = args[0] if args else kwargs.get("uri", "")
             # Pop from queue at websockets.connect() call time (FIFO).
             with plugin._registry_lock:
                 if not plugin._session_queue:
@@ -194,7 +256,7 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
                         hint=hint,
                     )
                 handle = plugin._session_queue.popleft()
-            return _FakeAsyncWebSocketCM(handle, plugin)
+            return _FakeAsyncWebSocketCM(handle, plugin, uri)
 
         _ws.connect = _patched_websockets_connect  # type: ignore[misc,assignment]
 
@@ -210,16 +272,24 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     # ------------------------------------------------------------------
 
     def format_interaction(self, interaction: Interaction) -> str:
-        method = interaction.details.get("method", "?")
-        args = interaction.details.get("args", ())
-        kwargs = interaction.details.get("kwargs", {})
-        parts = [repr(a) for a in args]
-        parts += [f"{k}={v!r}" for k, v in kwargs.items()]
-        return f"[AsyncWebSocketPlugin] websockets.{method}({', '.join(parts)})"
+        sid = interaction.source_id
+        if sid == _ASYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"[AsyncWebSocketPlugin] websockets.connect({uri!r})"
+        if sid == _ASYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"[AsyncWebSocketPlugin] websockets.send({message!r})"
+        if sid == _ASYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"[AsyncWebSocketPlugin] websockets.recv() -> {message!r}"
+        if sid == _ASYNC_SOURCE_CLOSE:
+            return "[AsyncWebSocketPlugin] websockets.close()"
+        return f"[AsyncWebSocketPlugin] websockets.?() source_id={sid!r}"
 
     def format_mock_hint(self, interaction: Interaction) -> str:
-        method = interaction.details.get("method", "?")
-        return f"    bigfoot.async_websocket_mock.new_session().expect({method!r}, returns=...)"
+        sid = interaction.source_id
+        step = sid.split(":")[-1] if ":" in sid else sid
+        return f"    bigfoot.async_websocket_mock.new_session().expect({step!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -236,8 +306,60 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
 
     def format_assert_hint(self, interaction: Interaction) -> str:
         sm = "bigfoot.async_websocket_mock"
-        method = interaction.details.get("method", "?")
-        return f"    # {sm}: session step '{method}' recorded (state-machine, auto-asserted)"
+        sid = interaction.source_id
+        if sid == _ASYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"    {sm}.assert_connect(uri={uri!r})"
+        if sid == _ASYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_send(message={message!r})"
+        if sid == _ASYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_recv(message={message!r})"
+        if sid == _ASYNC_SOURCE_CLOSE:
+            return f"    {sm}.assert_close()"
+        return f"    # {sm}: unknown source_id={sid!r}"
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return assertable fields for each step type."""
+        if interaction.source_id == _ASYNC_SOURCE_CLOSE:
+            return frozenset()
+        return frozenset(interaction.details.keys())
+
+    def assert_connect(self, *, uri: str) -> None:
+        """Assert the next async websocket connect interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._connect_sentinel, uri=uri)
+
+    def assert_send(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next async websocket send interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._send_sentinel, message=message)
+
+    def assert_recv(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next async websocket recv interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._recv_sentinel, message=message)
+
+    def assert_close(self) -> None:
+        """Assert the next async websocket close interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._close_sentinel)
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
         step: Any = mock_config
@@ -261,13 +383,25 @@ class _FakeSyncWebSocket:
         self._plugin = plugin
 
     def send(self, data: Any) -> Any:  # noqa: ANN401
-        return self._plugin._execute_step(self._handle, "send", (data,), {}, "websocket:sync:send")
+        return self._plugin._execute_step(
+            self._handle, "send", (data,), {}, _SYNC_SOURCE_SEND,
+            details={"message": data},
+        )
 
     def recv(self) -> Any:  # noqa: ANN401
-        return self._plugin._execute_step(self._handle, "recv", (), {}, "websocket:sync:recv")
+        result, interaction = self._plugin._execute_step(
+            self._handle, "recv", (), {}, _SYNC_SOURCE_RECV,
+            details={"message": None},
+            return_interaction=True,
+        )
+        interaction.details["message"] = result
+        return result
 
     def close(self) -> Any:  # noqa: ANN401
-        result = self._plugin._execute_step(self._handle, "close", (), {}, "websocket:sync:close")
+        result = self._plugin._execute_step(
+            self._handle, "close", (), {}, _SYNC_SOURCE_CLOSE,
+            details={},
+        )
         self._plugin._release_session(self)
         return result
 
@@ -287,6 +421,33 @@ class SyncWebSocketPlugin(StateMachinePlugin):
 
     # Saved original, restored when count reaches 0.
     _original_create_connection: ClassVar[Any] = None
+
+    # ------------------------------------------------------------------
+    # Plugin init: create per-instance sentinels
+    # ------------------------------------------------------------------
+
+    def __init__(self, verifier: "StrictVerifier") -> None:
+        super().__init__(verifier)
+        self._connect_sentinel = _StepSentinel(_SYNC_SOURCE_CONNECT)
+        self._send_sentinel = _StepSentinel(_SYNC_SOURCE_SEND)
+        self._recv_sentinel = _StepSentinel(_SYNC_SOURCE_RECV)
+        self._close_sentinel = _StepSentinel(_SYNC_SOURCE_CLOSE)
+
+    @property
+    def connect(self) -> _StepSentinel:
+        return self._connect_sentinel
+
+    @property
+    def send(self) -> _StepSentinel:
+        return self._send_sentinel
+
+    @property
+    def recv(self) -> _StepSentinel:
+        return self._recv_sentinel
+
+    @property
+    def close(self) -> _StepSentinel:
+        return self._close_sentinel
 
     # ------------------------------------------------------------------
     # StateMachinePlugin abstract methods
@@ -339,6 +500,7 @@ class SyncWebSocketPlugin(StateMachinePlugin):
 
         def _patched_create_connection(*args: Any, **kwargs: Any) -> _FakeSyncWebSocket:  # noqa: ANN401
             plugin = _get_sync_websocket_plugin()
+            uri = args[0] if args else kwargs.get("url", "")
             # Pop from queue immediately at create_connection() call time (FIFO).
             with plugin._registry_lock:
                 if not plugin._session_queue:
@@ -355,7 +517,10 @@ class SyncWebSocketPlugin(StateMachinePlugin):
             fake_ws = _FakeSyncWebSocket(handle, plugin)
             plugin._register_connection(handle, fake_ws)
             # Execute the "connect" transition step.
-            plugin._execute_step(handle, "connect", (), {}, "websocket:sync:connect")
+            plugin._execute_step(
+                handle, "connect", (), {}, _SYNC_SOURCE_CONNECT,
+                details={"uri": uri},
+            )
             return fake_ws
 
         _wsc.create_connection = _patched_create_connection
@@ -372,16 +537,24 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     # ------------------------------------------------------------------
 
     def format_interaction(self, interaction: Interaction) -> str:
-        method = interaction.details.get("method", "?")
-        args = interaction.details.get("args", ())
-        kwargs = interaction.details.get("kwargs", {})
-        parts = [repr(a) for a in args]
-        parts += [f"{k}={v!r}" for k, v in kwargs.items()]
-        return f"[SyncWebSocketPlugin] websocket.{method}({', '.join(parts)})"
+        sid = interaction.source_id
+        if sid == _SYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"[SyncWebSocketPlugin] websocket.create_connection({uri!r})"
+        if sid == _SYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"[SyncWebSocketPlugin] websocket.send({message!r})"
+        if sid == _SYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"[SyncWebSocketPlugin] websocket.recv() -> {message!r}"
+        if sid == _SYNC_SOURCE_CLOSE:
+            return "[SyncWebSocketPlugin] websocket.close()"
+        return f"[SyncWebSocketPlugin] websocket.?() source_id={sid!r}"
 
     def format_mock_hint(self, interaction: Interaction) -> str:
-        method = interaction.details.get("method", "?")
-        return f"    bigfoot.sync_websocket_mock.new_session().expect({method!r}, returns=...)"
+        sid = interaction.source_id
+        step = sid.split(":")[-1] if ":" in sid else sid
+        return f"    bigfoot.sync_websocket_mock.new_session().expect({step!r}, returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -398,8 +571,60 @@ class SyncWebSocketPlugin(StateMachinePlugin):
 
     def format_assert_hint(self, interaction: Interaction) -> str:
         sm = "bigfoot.sync_websocket_mock"
-        method = interaction.details.get("method", "?")
-        return f"    # {sm}: session step '{method}' recorded (state-machine, auto-asserted)"
+        sid = interaction.source_id
+        if sid == _SYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"    {sm}.assert_connect(uri={uri!r})"
+        if sid == _SYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_send(message={message!r})"
+        if sid == _SYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_recv(message={message!r})"
+        if sid == _SYNC_SOURCE_CLOSE:
+            return f"    {sm}.assert_close()"
+        return f"    # {sm}: unknown source_id={sid!r}"
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return assertable fields for each step type."""
+        if interaction.source_id == _SYNC_SOURCE_CLOSE:
+            return frozenset()
+        return frozenset(interaction.details.keys())
+
+    def assert_connect(self, *, uri: str) -> None:
+        """Assert the next sync websocket connect interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._connect_sentinel, uri=uri)
+
+    def assert_send(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next sync websocket send interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._send_sentinel, message=message)
+
+    def assert_recv(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next sync websocket recv interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._recv_sentinel, message=message)
+
+    def assert_close(self) -> None:
+        """Assert the next sync websocket close interaction."""
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._close_sentinel)
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
         step: Any = mock_config

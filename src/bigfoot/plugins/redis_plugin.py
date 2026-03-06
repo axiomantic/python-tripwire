@@ -71,6 +71,18 @@ def _get_redis_plugin() -> RedisPlugin:
 
 
 # ---------------------------------------------------------------------------
+# Sentinel
+# ---------------------------------------------------------------------------
+
+
+class _RedisSentinel:
+    """Opaque handle for a Redis command; used as source filter in assert_interaction."""
+
+    def __init__(self, source_id: str) -> None:
+        self.source_id = source_id
+
+
+# ---------------------------------------------------------------------------
 # Patched execute_command
 # ---------------------------------------------------------------------------
 
@@ -99,7 +111,7 @@ def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwa
         plugin=plugin,
     )
     plugin.record(interaction)
-    plugin.verifier._timeline.mark_asserted(interaction)
+    # No mark_asserted() — test authors must call assert_interaction() or assert_command()
 
     if config.raises is not None:
         raise config.raises
@@ -194,12 +206,19 @@ class RedisPlugin(BasePlugin):
     # ------------------------------------------------------------------
 
     def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
-        """Always returns True -- Redis interactions are auto-matched."""
-        return True
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
-        """Returns empty frozenset -- no fields are required in assert_interaction()."""
-        return frozenset()
+        """All three fields (command, args, kwargs) are required in assert_interaction()."""
+        return frozenset({"command", "args", "kwargs"})
 
     def get_unused_mocks(self) -> list[RedisMockConfig]:
         """Return all RedisMockConfig with required=True still in any queue."""
@@ -236,8 +255,17 @@ class RedisPlugin(BasePlugin):
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
+        sm = "bigfoot.redis_mock"
         command = interaction.details.get("command", "?")
-        return f"    # bigfoot.redis_mock: command {command!r} recorded (stateless, auto-asserted)"
+        args = interaction.details.get("args", ())
+        kwargs = interaction.details.get("kwargs", {})
+        return (
+            f"    {sm}.assert_command(\n"
+            f"        command={command!r},\n"
+            f"        args={args!r},\n"
+            f"        kwargs={kwargs!r},\n"
+            f"    )"
+        )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
         config: RedisMockConfig = mock_config  # type: ignore[assignment]
@@ -246,4 +274,28 @@ class RedisPlugin(BasePlugin):
         return (
             f"redis.{command}(...) was mocked (required=True) but never called.\n"
             f"Registered at:\n{tb}"
+        )
+
+    def assert_command(
+        self,
+        command: str,
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Typed helper: assert the next Redis command interaction.
+
+        Wraps assert_interaction() for ergonomic use. All three fields
+        (command, args, kwargs) are required.
+        """
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        kw = kwargs if kwargs is not None else {}
+        cmd_upper = command.upper()
+        source_id = f"redis:{cmd_upper.lower()}"
+        sentinel = _RedisSentinel(source_id)
+        _get_test_verifier_or_raise().assert_interaction(
+            sentinel,
+            command=cmd_upper,
+            args=args,
+            kwargs=kw,
         )

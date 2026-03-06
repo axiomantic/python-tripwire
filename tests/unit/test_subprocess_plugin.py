@@ -158,7 +158,7 @@ def test_mock_run_returns_completed_process() -> None:
     assert result.args == ["echo", "hello"]
 
     # Assert the interaction was recorded; use verifier directly to avoid unasserted error
-    v.assert_interaction(p.run, command=["echo", "hello"])
+    v.assert_interaction(p.run, command=["echo", "hello"], returncode=0, stdout="hello", stderr="")
 
 
 # ESCAPE: test_mock_run_fifo_order
@@ -184,8 +184,8 @@ def test_mock_run_fifo_order() -> None:
     assert result2.returncode == 0
     assert result2.stdout == "abc123"
 
-    v.assert_interaction(p.run, command=["git", "status"])
-    v.assert_interaction(p.run, command=["git", "log"])
+    v.assert_interaction(p.run, command=["git", "status"], returncode=0, stdout="nothing to commit", stderr="")
+    v.assert_interaction(p.run, command=["git", "log"], returncode=0, stdout="abc123", stderr="")
 
 
 # ESCAPE: test_mock_run_command_mismatch_raises
@@ -274,7 +274,7 @@ def test_mock_run_in_sandbox(bigfoot_verifier: StrictVerifier) -> None:
     assert result.stderr == ""
     assert result.args == ["make", "build"]
 
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["make", "build"])
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["make", "build"], returncode=0, stdout="ok", stderr="")
 
 
 # ESCAPE: test_unregistered_run_in_sandbox_raises
@@ -341,7 +341,7 @@ def test_mock_which_registered_returns_path() -> None:
 
     assert result == "/usr/bin/git"
 
-    v.assert_interaction(p.which, name="git")
+    v.assert_interaction(p.which, name="git", returns="/usr/bin/git")
 
 
 # ESCAPE: test_mock_which_unregistered_returns_none
@@ -408,7 +408,7 @@ def test_assert_interaction_run(bigfoot_verifier: StrictVerifier) -> None:
         subprocess.run(["pytest", "--tb=short"])
 
     # Must not raise
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["pytest", "--tb=short"])
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["pytest", "--tb=short"], returncode=0, stdout="passed", stderr="")
 
 
 # ESCAPE: test_assert_interaction_which
@@ -425,7 +425,7 @@ def test_assert_interaction_which(bigfoot_verifier: StrictVerifier) -> None:
         shutil.which("python3")
 
     # Must not raise
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="python3")
+    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="python3", returns="/usr/bin/python3")
 
 
 # ---------------------------------------------------------------------------
@@ -503,32 +503,31 @@ def test_subprocess_mock_proxy_raises_outside_sandbox() -> None:
 
 
 # ESCAPE: test_assertable_fields_run
-#   CLAIM: SubprocessPlugin.assertable_fields(interaction) returns frozenset({"command"})
+#   CLAIM: SubprocessPlugin.assertable_fields(interaction) returns all four run fields
 #          when interaction.source_id == "subprocess:run".
-#   PATH:  assertable_fields checks source_id == _SOURCE_RUN -> return frozenset({"command"}).
-#   CHECK: result == frozenset({"command"}).
-#   MUTATION: Returning an empty frozenset skips completeness enforcement on run assertions.
-#   ESCAPE: frozenset({"command", "extra_field"}) would also fail the equality check.
+#   PATH:  assertable_fields checks source_id == _SOURCE_RUN -> return frozenset({"command", "returncode", "stdout", "stderr"}).
+#   CHECK: result == frozenset({"command", "returncode", "stdout", "stderr"}).
+#   MUTATION: Returning only frozenset({"command"}) skips completeness enforcement on returncode/stdout/stderr.
+#   ESCAPE: frozenset({"command"}) would fail the equality check.
 def test_assertable_fields_run() -> None:
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(source_id="subprocess:run", sequence=0, details={}, plugin=p)
     result = p.assertable_fields(interaction)
-    assert result == frozenset({"command"})
+    assert result == frozenset({"command", "returncode", "stdout", "stderr"})
 
 
 # ESCAPE: test_assertable_fields_which
-#   CLAIM: SubprocessPlugin.assertable_fields(interaction) returns frozenset({"name"})
+#   CLAIM: SubprocessPlugin.assertable_fields(interaction) returns frozenset({"name", "returns"})
 #          when interaction.source_id == "subprocess:which".
-#   PATH:  assertable_fields checks source_id == _SOURCE_WHICH -> return frozenset({"name"}).
-#   CHECK: result == frozenset({"name"}).
-#   MUTATION: Returning frozenset({"name", "returns"}) changes the required assertion fields.
-#   ESCAPE: frozenset() (empty) would pass frozenset equality incorrectly -- but the assertion
-#           uses exact equality so it would fail.
+#   PATH:  assertable_fields checks source_id == _SOURCE_WHICH -> return frozenset({"name", "returns"}).
+#   CHECK: result == frozenset({"name", "returns"}).
+#   MUTATION: Returning frozenset({"name"}) skips completeness enforcement on the returns field.
+#   ESCAPE: frozenset() (empty) would also fail the equality check.
 def test_assertable_fields_which() -> None:
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(source_id="subprocess:which", sequence=0, details={}, plugin=p)
     result = p.assertable_fields(interaction)
-    assert result == frozenset({"name"})
+    assert result == frozenset({"name", "returns"})
 
 
 # ESCAPE: test_assertable_fields_unknown_source
@@ -617,7 +616,7 @@ def test_called_required_which_does_not_raise(clean_install_count) -> None:
     assert result == "/usr/bin/git"
 
     # Assert the interaction to avoid UnassertedInteractionsError
-    v.assert_interaction(p.which, name="git")
+    v.assert_interaction(p.which, name="git", returns="/usr/bin/git")
 
     # verify_all() must not raise: the mock was called and asserted
     v.verify_all()

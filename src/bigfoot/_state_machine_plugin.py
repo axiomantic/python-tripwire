@@ -42,6 +42,27 @@ class ScriptStep:
 
 
 # ---------------------------------------------------------------------------
+# _StepSentinel
+# ---------------------------------------------------------------------------
+
+
+class _StepSentinel:
+    """Opaque handle representing a specific state-machine step.
+
+    Used as the source filter argument in assert_interaction() calls.
+    Each step (connect, send, recv, etc.) has its own sentinel instance
+    on the plugin, accessible as a property.
+
+    Attributes:
+        source_id: The string source_id recorded in Interaction objects
+            for this step.
+    """
+
+    def __init__(self, source_id: str) -> None:
+        self.source_id = source_id
+
+
+# ---------------------------------------------------------------------------
 # SessionHandle
 # ---------------------------------------------------------------------------
 
@@ -227,6 +248,9 @@ class StateMachinePlugin(BasePlugin):
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
         source_id: str,
+        details: dict[str, Any] | None = None,
+        *,
+        return_interaction: bool = False,
     ) -> Any:  # noqa: ANN401
         """Execute the next script step for the given handle and method.
 
@@ -234,8 +258,17 @@ class StateMachinePlugin(BasePlugin):
         1. Validate that method is allowed from the current state.
         2. Pop the next ScriptStep (FIFO).
         3. Advance handle._state.
-        4. Record the Interaction on the timeline and immediately mark it asserted.
+        4. Record the Interaction on the timeline (NOT auto-asserted).
         5. If step.raises is set, raise it; otherwise return step.returns.
+
+        Args:
+            details: Named fields dict to store in the Interaction. When None,
+                falls back to the legacy format {"method": method, "args": args,
+                "kwargs": kwargs}. All concrete plugins in this release pass
+                explicit dicts.
+            return_interaction: When True, returns (result, interaction) tuple
+                instead of just result. Used by recv() implementations that need
+                to update interaction.details["data"] after the step executes.
 
         Raises:
             InvalidStateError: If the current state is not a valid from-state
@@ -280,32 +313,45 @@ class StateMachinePlugin(BasePlugin):
             # Advance state
             handle._state = method_transitions[handle._state]
 
-            # Record interaction and immediately mark asserted
+            # Build details dict — use caller-supplied named fields or legacy fallback
+            resolved_details: dict[str, Any] = (
+                details if details is not None
+                else {"method": method, "args": args, "kwargs": kwargs}
+            )
+
+            # Record interaction on the timeline — test authors must assert explicitly
             interaction = Interaction(
                 source_id=source_id,
                 sequence=0,
-                details={"method": method, "args": args, "kwargs": kwargs},
+                details=resolved_details,
                 plugin=self,
             )
             self.record(interaction)
-            self.verifier._timeline.mark_asserted(interaction)
+            # No mark_asserted() — auto-assert anti-pattern is prohibited
 
             # Execute step
             if step.raises is not None:
                 raise step.raises
-            return step.returns
+
+            result = step.returns
+            if return_interaction:
+                return result, interaction
+            return result
 
     # ------------------------------------------------------------------
     # BasePlugin: overridden concrete methods
     # ------------------------------------------------------------------
 
     def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
-        """Always returns True — state machine interactions are auto-matched."""
-        return True
+        """Placeholder — each concrete StateMachine plugin task (5–12) overrides this.
 
-    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
-        """Returns empty frozenset — no fields are required in assert_interaction()."""
-        return frozenset()
+        Retained here so all concrete subclasses remain instantiable during the
+        transition period before each per-plugin task provides a typed override.
+        BasePlugin.matches() is abstract; this placeholder satisfies that
+        requirement at the StateMachinePlugin level until every concrete class
+        defines its own implementation.
+        """
+        return True
 
     # ------------------------------------------------------------------
     # BasePlugin: get_unused_mocks

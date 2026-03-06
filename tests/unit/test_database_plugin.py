@@ -57,7 +57,7 @@ def clean_install_count() -> None:
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_initial_state() -> None:
     v, p = _make_verifier_with_plugin()
-    assert p._initial_state() == "connected"
+    assert p._initial_state() == "disconnected"
 
 
 # ESCAPE: test_transitions_structure
@@ -69,6 +69,7 @@ def test_initial_state() -> None:
 def test_transitions_structure() -> None:
     v, p = _make_verifier_with_plugin()
     assert p._transitions() == {
+        "connect": {"disconnected": "connected"},
         "execute": {"connected": "in_transaction", "in_transaction": "in_transaction"},
         "commit": {"in_transaction": "connected"},
         "rollback": {"in_transaction": "connected"},
@@ -165,6 +166,7 @@ def test_reference_counting_nested() -> None:
 def test_basic_execute_fetchall() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[[1, "Alice"], [2, "Bob"]])
     session.expect("close", returns=None)
 
@@ -174,6 +176,9 @@ def test_basic_execute_fetchall() -> None:
         rows = cursor.fetchall()
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT id, name FROM users", parameters=())
+    v.assert_interaction(p.close)
     assert rows == [[1, "Alice"], [2, "Bob"]]
 
 
@@ -194,6 +199,7 @@ def test_basic_execute_fetchall() -> None:
 def test_execute_fetchone() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[[1, "Alice"], [2, "Bob"]])
     session.expect("close", returns=None)
 
@@ -204,6 +210,9 @@ def test_execute_fetchone() -> None:
         second = cursor.fetchone()
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT id, name FROM users", parameters=())
+    v.assert_interaction(p.close)
     assert first == [1, "Alice"]
     assert second == [2, "Bob"]
 
@@ -225,6 +234,7 @@ def test_execute_fetchone() -> None:
 def test_cursor_execute_fetchall() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[["x"], ["y"]])
     session.expect("close", returns=None)
 
@@ -235,6 +245,9 @@ def test_cursor_execute_fetchall() -> None:
         rows = cursor.fetchall()
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT val FROM t", parameters=())
+    v.assert_interaction(p.close)
     assert rows == [["x"], ["y"]]
 
 
@@ -256,6 +269,7 @@ def test_cursor_execute_fetchall() -> None:
 def test_commit_state_transition() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[])
     session.expect("commit", returns=None)
     session.expect("execute", returns=[])  # only valid if commit reset state to "connected"
@@ -268,6 +282,11 @@ def test_commit_state_transition() -> None:
         conn.execute("INSERT INTO t VALUES (2)")  # would fail if state stuck at "in_transaction"
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="INSERT INTO t VALUES (1)", parameters=())
+    v.assert_interaction(p.commit)
+    v.assert_interaction(p.execute, sql="INSERT INTO t VALUES (2)", parameters=())
+    v.assert_interaction(p.close)
     assert p.get_unused_mocks() == []
 
 
@@ -287,6 +306,7 @@ def test_commit_state_transition() -> None:
 def test_rollback_state_transition() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[])
     session.expect("rollback", returns=None)
     session.expect("execute", returns=[])  # only valid if rollback reset state to "connected"
@@ -299,6 +319,11 @@ def test_rollback_state_transition() -> None:
         conn.execute("INSERT INTO t VALUES (2)")  # would fail if state stuck at "in_transaction"
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="INSERT INTO t VALUES (1)", parameters=())
+    v.assert_interaction(p.rollback)
+    v.assert_interaction(p.execute, sql="INSERT INTO t VALUES (2)", parameters=())
+    v.assert_interaction(p.close)
     assert p.get_unused_mocks() == []
 
 
@@ -319,6 +344,7 @@ def test_rollback_state_transition() -> None:
 def test_close_releases_session() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[])
     session.expect("close", returns=None)
 
@@ -327,6 +353,9 @@ def test_close_releases_session() -> None:
         conn.execute("SELECT 1")
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT 1", parameters=())
+    v.assert_interaction(p.close)
     assert len(p._active_sessions) == 0
     assert p.get_unused_mocks() == []
 
@@ -349,7 +378,8 @@ def test_close_releases_session() -> None:
 def test_commit_before_execute_raises_invalid_state() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    # No execute step needed -- we expect commit to fail immediately
+    # Connect step brings us to "connected"; commit from "connected" is invalid
+    session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
     with v.sandbox():
@@ -358,6 +388,8 @@ def test_commit_before_execute_raises_invalid_state() -> None:
             conn.commit()
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.close)
     exc = exc_info.value
     assert exc.source_id == "db:commit"
     assert exc.method == "commit"
@@ -383,6 +415,7 @@ def test_commit_before_execute_raises_invalid_state() -> None:
 def test_get_unused_mocks_returns_unconsumed_steps() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[])
     session.expect("commit", returns=None)  # will NOT be consumed
 
@@ -391,6 +424,8 @@ def test_get_unused_mocks_returns_unconsumed_steps() -> None:
         conn.execute("SELECT 1")
         # deliberately NOT calling commit or close
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT 1", parameters=())
     unused: list[ScriptStep] = p.get_unused_mocks()
     assert len(unused) == 1
     assert unused[0].method == "commit"
@@ -498,6 +533,7 @@ def test_db_mock_proxy_raises_outside_context() -> None:
 def test_fetchone_exhaustion_returns_none() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[[42]])
     session.expect("close", returns=None)
 
@@ -508,6 +544,9 @@ def test_fetchone_exhaustion_returns_none() -> None:
         second = cursor.fetchone()
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT val FROM t", parameters=())
+    v.assert_interaction(p.close)
     assert first == [42]
     assert second is None
 
@@ -529,6 +568,7 @@ def test_fetchone_exhaustion_returns_none() -> None:
 def test_fetchmany() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[[1], [2], [3], [4]])
     session.expect("close", returns=None)
 
@@ -539,6 +579,9 @@ def test_fetchmany() -> None:
         second_batch = cursor.fetchmany(2)
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT val FROM t", parameters=())
+    v.assert_interaction(p.close)
     assert first_batch == [[1], [2]]
     assert second_batch == [[3], [4]]
 
@@ -558,6 +601,7 @@ def test_fetchmany() -> None:
 def test_execute_returns_none_gives_empty_fetchall() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=None)
     session.expect("close", returns=None)
 
@@ -567,6 +611,9 @@ def test_execute_returns_none_gives_empty_fetchall() -> None:
         rows = cursor.fetchall()
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="INSERT INTO t VALUES (1)", parameters=())
+    v.assert_interaction(p.close)
     assert rows == []
 
 
@@ -585,6 +632,7 @@ def test_execute_returns_none_gives_empty_fetchall() -> None:
 def test_cursor_iter() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
+    session.expect("connect", returns=None)
     session.expect("execute", returns=[[1], [2], [3]])
     session.expect("close", returns=None)
 
@@ -594,6 +642,9 @@ def test_cursor_iter() -> None:
         collected = list(cursor)
         conn.close()
 
+    v.assert_interaction(p.connect, database=":memory:")
+    v.assert_interaction(p.execute, sql="SELECT val FROM t", parameters=())
+    v.assert_interaction(p.close)
     assert collected == [[1], [2], [3]]
 
 

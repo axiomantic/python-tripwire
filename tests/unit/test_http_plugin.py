@@ -21,6 +21,7 @@ from bigfoot.plugins.http import (
     _HTTPX_ORIGINAL_ASYNC_HANDLE,
     _HTTPX_ORIGINAL_HANDLE,
     _REQUESTS_ORIGINAL_SEND,
+    HttpAssertionBuilder,
     HttpPlugin,
 )
 
@@ -640,7 +641,15 @@ def test_format_assert_hint_returns_correct_snippet() -> None:
     interaction = Interaction(
         source_id="http:request",
         sequence=0,
-        details={"method": "GET", "url": "https://api.example.com/data", "status": 200},
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "status": 200,
+            "request_headers": {},
+            "request_body": "",
+            "response_headers": {},
+            "response_body": "",
+        },
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
@@ -649,9 +658,11 @@ def test_format_assert_hint_returns_correct_snippet() -> None:
         "    http.request,\n"
         '    method="GET",\n'
         '    url="https://api.example.com/data",\n'
-        "    headers={},\n"
-        "    body='',\n"
+        "    request_headers={},\n"
+        "    request_body='',\n"
         "    status=200,\n"
+        "    response_headers={},\n"
+        "    response_body='',\n"
         ")"
     )
 
@@ -1061,8 +1072,8 @@ def test_restore_patches_is_idempotent_when_originals_are_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_http_plugin_assertable_fields_returns_all_five() -> None:
-    """assertable_fields() returns frozenset of all five HTTP details."""
+def test_http_plugin_assertable_fields_returns_all_seven() -> None:
+    """assertable_fields() returns frozenset of all seven HTTP details."""
     v, p = _make_verifier_with_plugin()
 
     interaction = Interaction(
@@ -1071,14 +1082,18 @@ def test_http_plugin_assertable_fields_returns_all_five() -> None:
         details={
             "method": "GET",
             "url": "https://example.com",
-            "headers": {},
-            "body": "",
+            "request_headers": {},
+            "request_body": "",
             "status": 200,
+            "response_headers": {},
+            "response_body": "",
         },
         plugin=p,
     )
     result = p.assertable_fields(interaction)
-    assert result == frozenset({"method", "url", "headers", "body", "status"})
+    assert result == frozenset(
+        {"method", "url", "request_headers", "request_body", "status", "response_headers", "response_body"}
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1206,3 +1221,160 @@ def test_unused_pass_through_rule_does_not_raise_at_verify_all() -> None:
         pass  # No requests made
 
     v.verify_all()  # Must not raise
+
+
+# ---------------------------------------------------------------------------
+# HttpAssertionBuilder tests
+# ---------------------------------------------------------------------------
+
+
+# ESCAPE: test_assert_request_returns_http_assertion_builder
+#   CLAIM: p.assert_request() returns an HttpAssertionBuilder instance.
+#   PATH:  HttpPlugin.assert_request() -> HttpAssertionBuilder(...).
+#   CHECK: isinstance check.
+#   MUTATION: Returning None or a different type fails isinstance.
+#   ESCAPE: Nothing reasonable -- isinstance check on the exact class.
+def test_assert_request_returns_http_assertion_builder() -> None:
+    v, p = _make_verifier_with_plugin()
+    builder = p.assert_request("GET", "https://example.com/api")
+    assert isinstance(builder, HttpAssertionBuilder)
+
+
+# ESCAPE: test_assert_request_stores_method_and_url
+#   CLAIM: HttpAssertionBuilder stores method and url from assert_request().
+#   PATH:  assert_request() passes method/url to HttpAssertionBuilder.__init__.
+#   CHECK: builder._method == "GET", builder._url == "https://example.com/api".
+#   MUTATION: Swapping method and url would fail both checks.
+#   ESCAPE: Nothing reasonable -- exact attribute equality.
+def test_assert_request_stores_method_and_url() -> None:
+    v, p = _make_verifier_with_plugin()
+    builder = p.assert_request("GET", "https://example.com/api")
+    assert builder._method == "GET"
+    assert builder._url == "https://example.com/api"
+
+
+# ESCAPE: test_assert_request_default_headers_and_body
+#   CLAIM: assert_request() defaults headers to {} and body to "".
+#   PATH:  assert_request() uses `headers if headers is not None else {}` and body="".
+#   CHECK: builder._headers == {}, builder._body == "".
+#   MUTATION: Defaulting headers to None would leave None stored.
+#   ESCAPE: Nothing reasonable -- exact equality.
+def test_assert_request_default_headers_and_body() -> None:
+    v, p = _make_verifier_with_plugin()
+    builder = p.assert_request("POST", "https://example.com/submit")
+    assert builder._headers == {}
+    assert builder._body == ""
+
+
+# ESCAPE: test_assert_request_with_explicit_headers_and_body
+#   CLAIM: assert_request() passes through explicit headers and body.
+#   PATH:  assert_request(headers=..., body=...) -> builder stores them.
+#   CHECK: builder._headers and builder._body match what was passed.
+#   MUTATION: Ignoring the kwargs and using defaults would fail.
+#   ESCAPE: Nothing reasonable -- exact dict/str equality.
+def test_assert_request_with_explicit_headers_and_body() -> None:
+    v, p = _make_verifier_with_plugin()
+    builder = p.assert_request(
+        "POST",
+        "https://example.com/submit",
+        headers={"Authorization": "Bearer tok"},
+        body='{"key": "val"}',
+    )
+    assert builder._headers == {"Authorization": "Bearer tok"}
+    assert builder._body == '{"key": "val"}'
+
+
+# ESCAPE: test_assert_response_calls_assert_interaction_with_all_seven_fields
+#   CLAIM: HttpAssertionBuilder.assert_response() calls verifier.assert_interaction()
+#          with all seven fields (method, url, request_headers, request_body, status,
+#          response_headers, response_body).
+#   PATH:  assert_response() -> verifier.assert_interaction(sentinel, **all_seven).
+#   CHECK: Full interaction is found in timeline after a real mock request.
+#   MUTATION: Omitting any field from assert_interaction call leaves it unasserted.
+#   ESCAPE: Verifier raises if any required field is missing from the expected dict.
+def test_assert_response_calls_assert_interaction_with_all_seven_fields() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response(
+        "GET",
+        "https://api.example.com/data",
+        json={"key": "value"},
+        status=200,
+        headers={"content-type": "application/json"},
+    )
+
+    with v.sandbox():
+        httpx.get("https://api.example.com/data")
+
+    # Capture actual recorded headers so we can assert them exactly
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    recorded_request_headers = interactions[0].details["request_headers"]
+
+    # Use the builder to assert all seven fields
+    p.assert_request(
+        "GET",
+        "https://api.example.com/data",
+        headers=recorded_request_headers,
+    ).assert_response(
+        status=200,
+        headers={"content-type": "application/json"},
+        body='{"key": "value"}',
+    )
+
+    # All interactions asserted -- verify_all must not raise
+    v.verify_all()
+
+
+# ESCAPE: test_assert_response_is_terminal_marks_interaction_asserted
+#   CLAIM: After assert_response(), the interaction is marked asserted on the timeline.
+#   PATH:  assert_response() -> assert_interaction() -> timeline.mark_asserted().
+#   CHECK: v._timeline.all_unasserted() is empty after assert_response().
+#   MUTATION: Not calling assert_interaction() leaves interaction unasserted.
+#   ESCAPE: Nothing reasonable -- empty list check is definitive.
+def test_assert_response_is_terminal_marks_interaction_asserted() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("POST", "https://api.example.com/create", json={"id": 1}, status=201)
+
+    with v.sandbox():
+        httpx.post("https://api.example.com/create", json={"payload": "x"})
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+
+    # Capture the actual recorded fields to use in assertion
+    recorded = interactions[0].details
+
+    p.assert_request(
+        "POST",
+        "https://api.example.com/create",
+        headers=recorded["request_headers"],
+        body=recorded["request_body"],
+    ).assert_response(
+        status=201,
+        headers={"content-type": "application/json"},
+        body='{"id": 1}',
+    )
+
+    assert len(v._timeline.all_unasserted()) == 0
+
+
+# ESCAPE: test_assert_request_lazy_does_not_touch_timeline
+#   CLAIM: Calling assert_request() alone (without assert_response()) does not
+#          modify the timeline.
+#   PATH:  assert_request() only stores fields; timeline is untouched until
+#          assert_response() is called.
+#   CHECK: all_unasserted() still contains the interaction after assert_request().
+#   MUTATION: If assert_request() touches the timeline the interaction would disappear.
+#   ESCAPE: Nothing reasonable -- count check is definitive.
+def test_assert_request_lazy_does_not_touch_timeline() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/lazy", json={"lazy": True})
+
+    with v.sandbox():
+        httpx.get("https://api.example.com/lazy")
+
+    # Call assert_request but NOT assert_response
+    p.assert_request("GET", "https://api.example.com/lazy")
+
+    # Timeline interaction should still be unasserted
+    assert len(v._timeline.all_unasserted()) == 1

@@ -210,6 +210,11 @@ def test_basic_connect_send_recv_close() -> None:
     assert recv_result == b"pong"
     assert close_result is None
 
+    v.assert_interaction(p.connect, host="127.0.0.1", port=9999)
+    v.assert_interaction(p.send, data=b"ping")
+    v.assert_interaction(p.recv, size=1024, data=b"pong")
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # InvalidStateError: recv before connect
@@ -298,6 +303,13 @@ def test_fifo_two_sessions() -> None:
     assert first_recv_result == b"first"
     assert second_recv_result == b"second"
 
+    v.assert_interaction(p.connect, host="127.0.0.1", port=9999)
+    v.assert_interaction(p.connect, host="127.0.0.1", port=9998)
+    v.assert_interaction(p.recv, size=1024, data=b"first")
+    v.assert_interaction(p.recv, size=1024, data=b"second")
+    v.assert_interaction(p.close)
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # get_unused_mocks: unconsumed required steps
@@ -323,6 +335,8 @@ def test_get_unused_mocks_returns_unconsumed_steps() -> None:
     with v.sandbox():
         sock.connect(("127.0.0.1", 9999))
         # deliberately NOT calling recv or close
+
+    v.assert_interaction(p.connect, host="127.0.0.1", port=9999)
 
     unused: list[ScriptStep] = p.get_unused_mocks()
     assert len(unused) == 1
@@ -444,6 +458,10 @@ def test_sendall_step() -> None:
 
     assert sendall_result is None
 
+    v.assert_interaction(p.connect, host="127.0.0.1", port=9999)
+    v.assert_interaction(p.sendall, data=b"hello world")
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # close() releases session
@@ -468,6 +486,9 @@ def test_close_releases_session() -> None:
     with v.sandbox():
         sock.connect(("127.0.0.1", 9999))
         sock.close()
+
+    v.assert_interaction(p.connect, host="127.0.0.1", port=9999)
+    v.assert_interaction(p.close)
 
     assert len(p._active_sessions) == 0
     assert p.get_unused_mocks() == []

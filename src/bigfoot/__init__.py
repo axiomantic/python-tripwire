@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, TypeVar
 from bigfoot._context import _get_test_verifier_or_raise
 from bigfoot._errors import (
     AssertionInsideSandboxError,
+    AutoAssertError,
     BigfootError,
     ConflictError,
     InteractionMismatchError,
@@ -72,6 +73,7 @@ __all__ = [
     # Errors
     "BigfootError",
     "AssertionInsideSandboxError",
+    "AutoAssertError",
     "InvalidStateError",
     "NoActiveVerifierError",
     "UnmockedInteractionError",

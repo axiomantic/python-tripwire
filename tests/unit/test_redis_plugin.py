@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from bigfoot._context import _current_test_verifier
-from bigfoot._errors import UnmockedInteractionError
+from bigfoot._errors import InteractionMismatchError, UnmockedInteractionError
 from bigfoot._verifier import StrictVerifier
 
 redis = pytest.importorskip("redis")
@@ -388,33 +388,44 @@ def test_unmocked_error_after_queue_exhausted() -> None:
 # ---------------------------------------------------------------------------
 
 
-# ESCAPE: test_matches_always_true
-#   CLAIM: matches() always returns True regardless of interaction or expected.
-#   PATH:  matches(interaction, expected) -> True.
-#   CHECK: result is True.
-#   MUTATION: Returning False always fails the check.
-#   ESCAPE: Nothing reasonable -- exact boolean.
-def test_matches_always_true() -> None:
+# ESCAPE: test_matches_field_comparison
+#   CLAIM: matches() does field-by-field comparison; returns True when fields match, False otherwise.
+#   PATH:  matches(interaction, expected) -> compare each expected key against details.
+#   CHECK: Empty expected matches anything; non-matching field returns False; matching field True.
+#   MUTATION: Returning True always fails the non-matching field check.
+#   ESCAPE: Nothing reasonable -- exact boolean equality on distinct cases.
+def test_matches_field_comparison() -> None:
     from bigfoot._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
-    interaction = Interaction(source_id="redis:get", sequence=0, details={}, plugin=p)
+    interaction = Interaction(
+        source_id="redis:get",
+        sequence=0,
+        details={"command": "GET", "args": ("mykey",), "kwargs": {}},
+        plugin=p,
+    )
+    # Empty expected matches any interaction
     assert p.matches(interaction, {}) is True
-    assert p.matches(interaction, {"foo": "bar"}) is True
+    # Field that matches returns True
+    assert p.matches(interaction, {"command": "GET"}) is True
+    # Field that does not match returns False
+    assert p.matches(interaction, {"command": "SET"}) is False
+    # Field not present in details returns False
+    assert p.matches(interaction, {"foo": "bar"}) is False
 
 
-# ESCAPE: test_assertable_fields_empty
-#   CLAIM: assertable_fields() returns frozenset().
-#   PATH:  assertable_fields(interaction) -> frozenset().
-#   CHECK: result == frozenset().
-#   MUTATION: Returning frozenset({"command"}) fails the equality check.
+# ESCAPE: test_assertable_fields_all_three
+#   CLAIM: assertable_fields() returns frozenset({"command", "args", "kwargs"}).
+#   PATH:  assertable_fields(interaction) -> frozenset({"command", "args", "kwargs"}).
+#   CHECK: result == frozenset({"command", "args", "kwargs"}).
+#   MUTATION: Returning frozenset() skips completeness enforcement entirely.
 #   ESCAPE: Nothing reasonable -- exact equality.
-def test_assertable_fields_empty() -> None:
+def test_assertable_fields_all_three() -> None:
     from bigfoot._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(source_id="redis:get", sequence=0, details={}, plugin=p)
-    assert p.assertable_fields(interaction) == frozenset()
+    assert p.assertable_fields(interaction) == frozenset({"command", "args", "kwargs"})
 
 
 # ---------------------------------------------------------------------------
@@ -499,8 +510,8 @@ def test_format_unmocked_hint() -> None:
 
 
 # ESCAPE: test_format_assert_hint
-#   CLAIM: format_assert_hint returns copy-pasteable comment for an auto-asserted interaction.
-#   PATH:  format_assert_hint(interaction) -> string.
+#   CLAIM: format_assert_hint returns assert_command() syntax with all three fields.
+#   PATH:  format_assert_hint(interaction) -> string with assert_command syntax.
 #   CHECK: result == exact expected string.
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Different format fails the equality check.
@@ -511,11 +522,17 @@ def test_format_assert_hint() -> None:
     interaction = Interaction(
         source_id="redis:get",
         sequence=0,
-        details={"command": "GET"},
+        details={"command": "GET", "args": ("mykey",), "kwargs": {}},
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == ("    # bigfoot.redis_mock: command 'GET' recorded (stateless, auto-asserted)")
+    assert result == (
+        "    bigfoot.redis_mock.assert_command(\n"
+        "        command='GET',\n"
+        "        args=('mykey',),\n"
+        "        kwargs={},\n"
+        "    )"
+    )
 
 
 # ESCAPE: test_format_unused_mock_hint
@@ -556,6 +573,7 @@ def test_redis_mock_proxy_mock_command(bigfoot_verifier: StrictVerifier) -> None
         result = r.execute_command("GET", "somekey")
 
     assert result == "proxy_value"
+    bigfoot.redis_mock.assert_command("GET", args=("somekey",), kwargs={})
 
 
 # ESCAPE: test_redis_mock_proxy_raises_outside_context
@@ -593,3 +611,50 @@ def test_redis_plugin_in_all() -> None:
 
     assert bigfoot.RedisPlugin is _RedisPlugin
     assert type(bigfoot.redis_mock).__name__ == "_RedisProxy"
+
+
+# ---------------------------------------------------------------------------
+# New tests: no auto-assert, assert_command() typed helper
+# ---------------------------------------------------------------------------
+
+
+def test_redis_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
+    """Redis interactions are NOT auto-asserted — they land on the timeline unasserted."""
+    import bigfoot
+
+    bigfoot.redis_mock.mock_command("GET", returns=b"value")
+    with bigfoot.sandbox():
+        client = redis.Redis()
+        client.execute_command("GET", "key")
+    # At this point the interaction is on the timeline but NOT asserted
+    timeline = bigfoot_verifier._timeline
+    interactions = timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].source_id == "redis:get"
+    # Assert it so verify_all() at teardown succeeds
+    bigfoot.redis_mock.assert_command("GET", args=("key",), kwargs={})
+
+
+def test_assert_command_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
+    """assert_command() asserts the next Redis interaction."""
+    import bigfoot
+
+    bigfoot.redis_mock.mock_command("SET", returns=True)
+    with bigfoot.sandbox():
+        client = redis.Redis()
+        client.execute_command("SET", "key", "value")
+    bigfoot.redis_mock.assert_command("SET", args=("key", "value"), kwargs={})
+
+
+def test_assert_command_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> None:
+    """assert_command() with wrong args raises InteractionMismatchError."""
+    import bigfoot
+
+    bigfoot.redis_mock.mock_command("GET", returns=b"val")
+    with bigfoot.sandbox():
+        client = redis.Redis()
+        client.execute_command("GET", "key")
+    with pytest.raises(InteractionMismatchError):
+        bigfoot.redis_mock.assert_command("GET", args=("wrong_key",), kwargs={})
+    # Now assert correctly so teardown passes
+    bigfoot.redis_mock.assert_command("GET", args=("key",), kwargs={})

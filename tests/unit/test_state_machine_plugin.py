@@ -66,6 +66,9 @@ class _TestPlugin(StateMachinePlugin):
     def format_unused_mock_hint(self, mock_config: object) -> str:
         return "Unused mock"
 
+    def matches(self, interaction: "Interaction", expected: dict[str, Any]) -> bool:
+        return True
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -730,16 +733,19 @@ def test_execute_step_records_interaction_on_timeline() -> None:
     assert all_interactions[0].source_id == "test:source"
 
 
-def test_execute_step_auto_marks_interaction_asserted() -> None:
-    """_execute_step() immediately marks the recorded interaction as asserted."""
+def test_execute_step_does_not_auto_mark_interaction_asserted() -> None:
+    """_execute_step() does NOT auto-mark the recorded interaction as asserted.
+
+    Test authors must call assert_interaction() explicitly. Auto-assert is prohibited.
+    """
     # ESCAPE:
-    # CLAIM: The interaction recorded by _execute_step() has _asserted=True.
-    # PATH: _execute_step() calls self.verifier._timeline.mark_asserted(interaction).
-    # CHECK: interaction._asserted is True.
-    # MUTATION: Not calling mark_asserted() would leave _asserted=False, causing
-    #           UnassertedInteractionsError at teardown.
+    # CLAIM: The interaction recorded by _execute_step() has _asserted=False.
+    # PATH: _execute_step() calls self.record() but NOT mark_asserted().
+    # CHECK: interaction._asserted is False.
+    # MUTATION: Adding a mark_asserted() call would set _asserted=True, defeating bigfoot's
+    #           certainty guarantee.
     # ESCAPE: Nothing reasonable.
-    # IMPACT: Every test using StateMachinePlugin would fail with UnassertedInteractionsError.
+    # IMPACT: Test authors could no longer trust that unasserted interactions cause test failures.
     v = _make_verifier()
     plugin = _TestPlugin(v)
     conn = _make_connection_obj()
@@ -750,7 +756,7 @@ def test_execute_step_auto_marks_interaction_asserted() -> None:
     plugin._execute_step(handle, "go", (), {}, "test:source")
 
     interaction = v._timeline._interactions[0]
-    assert interaction._asserted is True
+    assert interaction._asserted is False
 
 
 def test_execute_step_raises_configured_exception() -> None:
@@ -835,16 +841,23 @@ def test_execute_step_raises_unmocked_when_script_empty() -> None:
         plugin._execute_step(handle, "go", (), {}, "test:source")
 
 
-def test_execute_step_auto_mark_prevents_unasserted_error_at_teardown() -> None:
-    """verify_all() does NOT raise UnassertedInteractionsError after _execute_step()."""
+def test_execute_step_unasserted_interaction_raises_at_teardown() -> None:
+    """verify_all() raises UnassertedInteractionsError when _execute_step() interactions are not asserted.
+
+    Auto-assert is prohibited. Test authors must call assert_interaction() explicitly.
+    Without explicit assertions, verify_all() correctly detects unasserted interactions.
+    """
     # ESCAPE:
-    # CLAIM: The interaction recorded by _execute_step() is marked asserted, so
-    #        verify_all() does not raise UnassertedInteractionsError.
-    # PATH: _execute_step() records + marks asserted; verify_all() finds no unasserted interactions.
-    # CHECK: verify_all() does not raise.
-    # MUTATION: Not calling mark_asserted() would leave _asserted=False, causing the raise.
+    # CLAIM: verify_all() raises UnassertedInteractionsError after _execute_step() when
+    #        no assert_interaction() call is made.
+    # PATH: _execute_step() records but does NOT mark asserted; verify_all() finds
+    #       unasserted interactions and raises.
+    # CHECK: pytest.raises(UnassertedInteractionsError) confirms the error fires.
+    # MUTATION: Adding mark_asserted() back to _execute_step() would suppress the error.
     # ESCAPE: Nothing reasonable.
-    # IMPACT: Every test using StateMachinePlugin would fail at teardown.
+    # IMPACT: Tests that forgot assert_interaction() would silently pass instead of failing.
+    from bigfoot._errors import UnassertedInteractionsError
+
     v = _make_verifier()
     plugin = _TestPlugin(v)
     conn = _make_connection_obj()
@@ -854,9 +867,9 @@ def test_execute_step_auto_mark_prevents_unasserted_error_at_teardown() -> None:
 
     plugin._execute_step(handle, "go", (), {}, "test:source")
 
-    # Should not raise — the only interaction was auto-marked asserted,
-    # and the step was consumed so get_unused_mocks() returns [].
-    v.verify_all()
+    # Must raise — the interaction was recorded but NOT asserted.
+    with pytest.raises(UnassertedInteractionsError):
+        v.verify_all()
 
 
 def test_execute_step_sequential_fifo_order() -> None:

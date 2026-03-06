@@ -71,24 +71,21 @@ def test_initial_state() -> None:
 def test_transitions_structure() -> None:
     v, p = _make_verifier_with_plugin()
     assert p._transitions() == {
-        "init": {"created": "running"},
-        "stdin.write": {"running": "running"},
-        "stdout.read": {"running": "running"},
-        "stderr.read": {"running": "running"},
+        "spawn": {"created": "running"},
         "communicate": {"running": "terminated"},
         "wait": {"running": "terminated"},
     }
 
 
 # ESCAPE: test_unmocked_source_id
-#   CLAIM: _unmocked_source_id() returns "subprocess:popen:init".
+#   CLAIM: _unmocked_source_id() returns "subprocess:popen:spawn".
 #   PATH:  Direct call on plugin instance.
-#   CHECK: result == "subprocess:popen:init".
+#   CHECK: result == "subprocess:popen:spawn".
 #   MUTATION: Returning a different string fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_unmocked_source_id() -> None:
     v, p = _make_verifier_with_plugin()
-    assert p._unmocked_source_id() == "subprocess:popen:init"
+    assert p._unmocked_source_id() == "subprocess:popen:spawn"
 
 
 # ---------------------------------------------------------------------------
@@ -147,25 +144,27 @@ def test_reference_counting_nested() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Basic subprocess.Popen() call: init step
+# Basic subprocess.Popen() call: spawn step
 # ---------------------------------------------------------------------------
 
 
-# ESCAPE: test_popen_init_step_consumed
-#   CLAIM: subprocess.Popen(["cmd"]) inside a sandbox consumes the "init" step and
+# ESCAPE: test_popen_spawn_step_consumed
+#   CLAIM: subprocess.Popen(["cmd"]) inside a sandbox consumes the "spawn" step and
 #          returns a _FakePopen instance.
 #   PATH:  sandbox -> activate -> _FakePopen.__init__ -> _bind_connection ->
-#          _execute_step(handle, "init", ...) -> step consumed -> state = "running".
-#   CHECK: result is an instance of _FakePopen; handle state is "running" after init.
-#   MUTATION: Not consuming the "init" step leaves it in _script; state stays "created".
+#          _execute_step(handle, "spawn", ...) -> step consumed -> state = "running".
+#   CHECK: result is an instance of _FakePopen; handle state is "running" after spawn.
+#   MUTATION: Not consuming the "spawn" step leaves it in _script; state stays "created".
 #   ESCAPE: Returning an instance that is not _FakePopen would fail the isinstance check.
-def test_popen_init_step_consumed() -> None:
+def test_popen_spawn_step_consumed() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
 
     with v.sandbox():
         proc = subprocess.Popen(["ls", "-la"])
+
+    v.assert_interaction(p.spawn, command=["ls", "-la"], stdin=None)
 
     assert type(proc).__name__ == "_FakePopen"
     assert proc.pid == 12345
@@ -176,87 +175,84 @@ def test_popen_init_step_consumed() -> None:
 
 
 # ---------------------------------------------------------------------------
-# stdin.write() step
+# stdin.write() -- no-op, not recorded on timeline
 # ---------------------------------------------------------------------------
 
 
-# ESCAPE: test_stdin_write_step
-#   CLAIM: proc.stdin.write(b"data") inside a sandbox consumes the "stdin.write" step
-#          and returns the configured value.
-#   PATH:  _FakePopen.__init__ -> init step consumed; proc.stdin.write -> _execute_step
-#          (handle, "stdin.write", ...) -> returns configured value.
-#   CHECK: write_result == 5 (the configured return value); state stays "running".
-#   MUTATION: Returning wrong value (e.g., None) fails the equality check.
-#   ESCAPE: Returning 4 instead of 5 fails the equality check.
-def test_stdin_write_step() -> None:
+# ESCAPE: test_stdin_write_noop
+#   CLAIM: proc.stdin.write(b"data") returns 0 and does NOT consume any script step.
+#   PATH:  _FakeStream.write() -> returns 0 directly, no _execute_step call.
+#   CHECK: write_result == 0; state stays "running" (no additional step consumed).
+#   MUTATION: Returning a different value (e.g., 5) fails the equality check.
+#   ESCAPE: Nothing reasonable -- exact integer equality.
+def test_stdin_write_noop() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
-    session.expect("stdin.write", returns=5)
+    session.expect("spawn", returns=None)
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"], stdin=subprocess.PIPE)
         write_result = proc.stdin.write(b"hello")
 
-    assert write_result == 5
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+
+    assert write_result == 0
     assert len(p._active_sessions) == 1
     handle = list(p._active_sessions.values())[0]
     assert handle._state == "running"
 
 
 # ---------------------------------------------------------------------------
-# stdout.read() step
+# stdout.read() -- no-op, not recorded on timeline
 # ---------------------------------------------------------------------------
 
 
-# ESCAPE: test_stdout_read_step
-#   CLAIM: proc.stdout.read() inside a sandbox consumes the "stdout.read" step
-#          and returns the configured bytes.
-#   PATH:  _FakePopen.__init__ -> init step consumed; proc.stdout.read -> _execute_step
-#          (handle, "stdout.read", ...) -> returns configured value.
-#   CHECK: read_result == b"output data"; state stays "running".
-#   MUTATION: Returning b"wrong" instead of b"output data" fails the equality check.
+# ESCAPE: test_stdout_read_noop
+#   CLAIM: proc.stdout.read() returns b"" and does NOT consume any script step.
+#   PATH:  _FakeStream.read() -> returns b"" directly, no _execute_step call.
+#   CHECK: read_result == b""; state stays "running".
+#   MUTATION: Returning b"something" instead fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact bytes equality.
-def test_stdout_read_step() -> None:
+def test_stdout_read_noop() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
-    session.expect("stdout.read", returns=b"output data")
+    session.expect("spawn", returns=None)
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"], stdout=subprocess.PIPE)
         read_result = proc.stdout.read()
 
-    assert read_result == b"output data"
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+
+    assert read_result == b""
     assert len(p._active_sessions) == 1
     handle = list(p._active_sessions.values())[0]
     assert handle._state == "running"
 
 
 # ---------------------------------------------------------------------------
-# stderr.read() step
+# stderr.read() -- no-op, not recorded on timeline
 # ---------------------------------------------------------------------------
 
 
-# ESCAPE: test_stderr_read_step
-#   CLAIM: proc.stderr.read() inside a sandbox consumes the "stderr.read" step
-#          and returns the configured bytes.
-#   PATH:  _FakePopen.__init__ -> init step; proc.stderr.read -> _execute_step
-#          (handle, "stderr.read", ...) -> returns configured value.
-#   CHECK: read_result == b"error output"; state stays "running".
+# ESCAPE: test_stderr_read_noop
+#   CLAIM: proc.stderr.read() returns b"" and does NOT consume any script step.
+#   PATH:  _FakeStream.read() -> returns b"" directly, no _execute_step call.
+#   CHECK: read_result == b""; state stays "running".
 #   MUTATION: Returning b"other error" instead fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact bytes equality.
-def test_stderr_read_step() -> None:
+def test_stderr_read_noop() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
-    session.expect("stderr.read", returns=b"error output")
+    session.expect("spawn", returns=None)
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"], stderr=subprocess.PIPE)
         read_result = proc.stderr.read()
 
-    assert read_result == b"error output"
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+
+    assert read_result == b""
     assert len(p._active_sessions) == 1
     handle = list(p._active_sessions.values())[0]
     assert handle._state == "running"
@@ -271,7 +267,7 @@ def test_stderr_read_step() -> None:
 #   CLAIM: proc.communicate() inside a sandbox consumes the "communicate" step,
 #          returns (stdout, stderr) tuple, sets proc.returncode, and transitions
 #          state to "terminated".
-#   PATH:  _FakePopen.__init__ -> init step; communicate -> _execute_step
+#   PATH:  _FakePopen.__init__ -> spawn step; communicate -> _execute_step
 #          (handle, "communicate", ...) -> 3-tuple (stdout, stderr, returncode) ->
 #          proc.returncode set; state = "terminated".
 #   CHECK: stdout == b"out"; stderr == b"err"; proc.returncode == 0;
@@ -281,12 +277,15 @@ def test_stderr_read_step() -> None:
 def test_communicate_step() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"out", b"err", 0))
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"])
         stdout, stderr = proc.communicate()
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+    v.assert_interaction(p.communicate, input=None)
 
     assert stdout == b"out"
     assert stderr == b"err"
@@ -305,12 +304,15 @@ def test_communicate_step() -> None:
 def test_communicate_nonzero_returncode() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"", b"fail output", 1))
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"])
         stdout, stderr = proc.communicate()
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+    v.assert_interaction(p.communicate, input=None)
 
     assert stdout == b""
     assert stderr == b"fail output"
@@ -327,7 +329,7 @@ def test_communicate_nonzero_returncode() -> None:
 #          configured returncode int, sets proc.returncode, and transitions state
 #          to "terminated". The session remains in _active_sessions (wait() is
 #          idempotent and does not release the session).
-#   PATH:  _FakePopen.__init__ -> init step; wait -> _execute_step
+#   PATH:  _FakePopen.__init__ -> spawn step; wait -> _execute_step
 #          (handle, "wait", ...) -> int returncode -> proc.returncode set ->
 #          state = "terminated".
 #   CHECK: wait_result == 42; proc.returncode == 42; session state == "terminated".
@@ -336,12 +338,15 @@ def test_communicate_nonzero_returncode() -> None:
 def test_wait_step() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("wait", returns=42)
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"])
         wait_result = proc.wait()
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+    v.assert_interaction(p.wait)
 
     assert wait_result == 42
     assert proc.returncode == 42
@@ -362,7 +367,7 @@ def test_wait_step() -> None:
 def test_wait_is_idempotent() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("wait", returns=7)
 
     with v.sandbox():
@@ -370,6 +375,9 @@ def test_wait_is_idempotent() -> None:
         first = proc.wait()
         second = proc.wait()
         third = proc.wait()
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+    v.assert_interaction(p.wait)
 
     assert first == 7
     assert second == 7
@@ -394,7 +402,7 @@ def test_wait_is_idempotent() -> None:
 def test_poll_returns_returncode_without_consuming_step() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"", b"", 0))
 
     with v.sandbox():
@@ -402,6 +410,9 @@ def test_poll_returns_returncode_without_consuming_step() -> None:
         assert proc.poll() is None  # returncode not yet set
         proc.communicate()
         assert proc.poll() == 0  # returncode set by communicate
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+    v.assert_interaction(p.communicate, input=None)
 
 
 # ---------------------------------------------------------------------------
@@ -418,10 +429,12 @@ def test_poll_returns_returncode_without_consuming_step() -> None:
 def test_fake_popen_pid_attribute() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
 
     with v.sandbox():
         proc = subprocess.Popen(["cmd"])
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
 
     assert proc.pid == 12345
 
@@ -443,7 +456,7 @@ def test_fake_popen_pid_attribute() -> None:
 def test_communicate_twice_raises_invalid_state() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"out", b"", 0))
     # Second communicate: no step registered (irrelevant -- InvalidStateError fires first)
 
@@ -452,6 +465,9 @@ def test_communicate_twice_raises_invalid_state() -> None:
         proc.communicate()
         with pytest.raises(InvalidStateError) as exc_info:
             proc.communicate()
+
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
+    v.assert_interaction(p.communicate, input=None)
 
     exc = exc_info.value
     assert exc.method == "communicate"
@@ -465,9 +481,9 @@ def test_communicate_twice_raises_invalid_state() -> None:
 
 
 # ESCAPE: test_get_unused_mocks_unconsumed_steps
-#   CLAIM: When two steps are expected but only "init" is consumed (no communicate/wait),
+#   CLAIM: When two steps are expected but only "spawn" is consumed (no communicate/wait),
 #          get_unused_mocks() returns the one unconsumed required step.
-#   PATH:  new_session with two steps -> init consumed -> session in _active_sessions
+#   PATH:  new_session with two steps -> spawn consumed -> session in _active_sessions
 #          with one remaining required step -> get_unused_mocks() returns it.
 #   CHECK: len(unused) == 1; unused[0].method == "communicate".
 #   MUTATION: Not scanning _active_sessions for remaining steps would return [].
@@ -475,13 +491,14 @@ def test_communicate_twice_raises_invalid_state() -> None:
 def test_get_unused_mocks_unconsumed_steps() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"", b"", 0))  # will NOT be consumed
 
     with v.sandbox():
         subprocess.Popen(["cmd"])
         # deliberately NOT calling communicate or wait
 
+    v.assert_interaction(p.spawn, command=["cmd"], stdin=None)
     unused: list[ScriptStep] = p.get_unused_mocks()
     assert len(unused) == 1
     assert unused[0].method == "communicate"
@@ -492,19 +509,19 @@ def test_get_unused_mocks_unconsumed_steps() -> None:
 #          steps returned by get_unused_mocks().
 #   PATH:  new_session with two steps enqueued -> no Popen() call -> _session_queue
 #          still holds handle -> get_unused_mocks() iterates _session_queue.
-#   CHECK: len(unused) == 2; methods are ["init", "communicate"] in order.
+#   CHECK: len(unused) == 2; methods are ["spawn", "communicate"] in order.
 #   MUTATION: Not iterating _session_queue would return [].
 #   ESCAPE: Returning items in LIFO order would fail the method ordering check.
 def test_get_unused_mocks_queued_session_never_bound() -> None:
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"", b"", 0))
 
     # Never call Popen; the session stays in the queue
     unused: list[ScriptStep] = p.get_unused_mocks()
     assert len(unused) == 2
-    assert unused[0].method == "init"
+    assert unused[0].method == "spawn"
     assert unused[1].method == "communicate"
 
 
@@ -515,10 +532,10 @@ def test_get_unused_mocks_queued_session_never_bound() -> None:
 
 # ESCAPE: test_popen_with_empty_queue_raises_unmocked
 #   CLAIM: If no session is queued when subprocess.Popen() fires, UnmockedInteractionError
-#          is raised with source_id == "subprocess:popen:init".
+#          is raised with source_id == "subprocess:popen:spawn".
 #   PATH:  _FakePopen.__init__ -> _bind_connection -> queue empty ->
-#          UnmockedInteractionError(source_id="subprocess:popen:init").
-#   CHECK: UnmockedInteractionError raised; exc.source_id == "subprocess:popen:init".
+#          UnmockedInteractionError(source_id="subprocess:popen:spawn").
+#   CHECK: UnmockedInteractionError raised; exc.source_id == "subprocess:popen:spawn".
 #   MUTATION: Returning a dummy session for empty queue would not raise.
 #   ESCAPE: Raising with wrong source_id fails the source_id check.
 def test_popen_with_empty_queue_raises_unmocked() -> None:
@@ -529,7 +546,7 @@ def test_popen_with_empty_queue_raises_unmocked() -> None:
         with pytest.raises(UnmockedInteractionError) as exc_info:
             subprocess.Popen(["cmd"])
 
-    assert exc_info.value.source_id == "subprocess:popen:init"
+    assert exc_info.value.source_id == "subprocess:popen:spawn"
 
 
 # ---------------------------------------------------------------------------
@@ -550,7 +567,7 @@ def test_popen_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
 
     session = bigfoot.popen_mock.new_session()
     assert isinstance(session, SessionHandle)
-    result = session.expect("init", returns=None, required=False)
+    result = session.expect("spawn", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
@@ -670,7 +687,7 @@ def test_conflict_error_popen_already_patched() -> None:
 
 
 # ESCAPE: test_full_session_via_sandbox
-#   CLAIM: A complete Popen session (init -> communicate) runs end-to-end through
+#   CLAIM: A complete Popen session (spawn -> communicate) runs end-to-end through
 #          the module-level bigfoot.sandbox() API, returning the scripted values.
 #   PATH:  bigfoot.popen_mock.new_session() -> sandbox -> _FakePopen.__init__ -> communicate.
 #   CHECK: stdout == b"build output"; stderr == b""; proc.returncode == 0.
@@ -678,12 +695,15 @@ def test_conflict_error_popen_already_patched() -> None:
 #   ESCAPE: Nothing reasonable -- exact bytes equality on all three fields.
 def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
     session = bigfoot.popen_mock.new_session()
-    session.expect("init", returns=None)
+    session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"build output", b"", 0))
 
     with bigfoot.sandbox():
         proc = subprocess.Popen(["make", "all"])
         stdout, stderr = proc.communicate()
+
+    bigfoot.popen_mock.assert_spawn(command=["make", "all"], stdin=None)
+    bigfoot.popen_mock.assert_communicate(input=None)
 
     assert stdout == b"build output"
     assert stderr == b""

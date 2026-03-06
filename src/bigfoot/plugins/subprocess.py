@@ -463,17 +463,35 @@ class SubprocessPlugin(BasePlugin):
         sm = "bigfoot.subprocess_mock"
         if interaction.source_id == _SOURCE_RUN:
             cmd = interaction.details.get("command", [])
-            return f"    {sm}.assert_interaction({sm}.run, command={cmd!r})"
+            rc = interaction.details.get("returncode", 0)
+            stdout = interaction.details.get("stdout", "")
+            stderr = interaction.details.get("stderr", "")
+            return (
+                f"    {sm}.assert_interaction(\n"
+                f"        {sm}.run,\n"
+                f"        command={cmd!r},\n"
+                f"        returncode={rc!r},\n"
+                f"        stdout={stdout!r},\n"
+                f"        stderr={stderr!r},\n"
+                f"    )"
+            )
         if interaction.source_id == _SOURCE_WHICH:
             name = interaction.details.get("name", "?")
-            return f"    {sm}.assert_interaction({sm}.which, name={name!r})"
+            returns = interaction.details.get("returns")
+            return (
+                f"    {sm}.assert_interaction(\n"
+                f"        {sm}.which,\n"
+                f"        name={name!r},\n"
+                f"        returns={returns!r},\n"
+                f"    )"
+            )
         return f"    # unknown source_id={interaction.source_id!r}"
 
     def assertable_fields(self, interaction: "Interaction") -> frozenset[str]:
         if interaction.source_id == _SOURCE_RUN:
-            return frozenset({"command"})
+            return frozenset({"command", "returncode", "stdout", "stderr"})
         if interaction.source_id == _SOURCE_WHICH:
-            return frozenset({"name"})
+            return frozenset({"name", "returns"})
         return frozenset()
 
     def get_unused_mocks(self) -> list[tuple[str, dict[str, Any], str]]:

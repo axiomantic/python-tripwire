@@ -84,6 +84,63 @@ class HttpRequestSentinel:
 
 
 # ---------------------------------------------------------------------------
+# HttpAssertionBuilder
+# ---------------------------------------------------------------------------
+
+
+class HttpAssertionBuilder:
+    """Fluent builder for asserting HTTP interactions.
+
+    Usage::
+
+        http.assert_request("GET", "https://example.com/api") \\
+            .assert_response(200, {}, "")
+
+    ``assert_request()`` is lazy: it records the expected request fields but does
+    not touch the timeline.  ``assert_response()`` finalises the assertion by
+    calling ``verifier.assert_interaction()`` with all seven fields.
+    """
+
+    def __init__(
+        self,
+        verifier: "StrictVerifier",
+        sentinel: HttpRequestSentinel,
+        method: str,
+        url: str,
+        headers: dict[str, Any],
+        body: str,
+    ) -> None:
+        self._verifier = verifier
+        self._sentinel = sentinel
+        self._method = method
+        self._url = url
+        self._headers = headers
+        self._body = body
+
+    def assert_response(
+        self,
+        status: int,
+        headers: dict[str, Any],
+        body: str,
+    ) -> None:
+        """Assert the full interaction: request fields + response fields.
+
+        This is the terminal step that calls ``verifier.assert_interaction()``
+        with all seven assertable fields.
+        """
+        self._verifier.assert_interaction(
+            self._sentinel,
+            method=self._method,
+            url=self._url,
+            request_headers=self._headers,
+            request_body=self._body,
+            status=status,
+            response_headers=headers,
+            response_body=body,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
@@ -144,6 +201,27 @@ class HttpPlugin(BasePlugin):
     def request(self) -> HttpRequestSentinel:
         """Sentinel used as source argument in verifier.assert_interaction()."""
         return self._sentinel
+
+    def assert_request(
+        self,
+        method: str,
+        url: str,
+        headers: dict[str, Any] | None = None,
+        body: str = "",
+    ) -> "HttpAssertionBuilder":
+        """Return an HttpAssertionBuilder pre-loaded with expected request fields.
+
+        Call ``.assert_response()`` on the returned builder to complete the
+        assertion with all seven fields.
+        """
+        return HttpAssertionBuilder(
+            verifier=self.verifier,
+            sentinel=self._sentinel,
+            method=method,
+            url=url,
+            headers=headers if headers is not None else {},
+            body=body,
+        )
 
     def mock_response(
         self,
@@ -431,9 +509,11 @@ class HttpPlugin(BasePlugin):
         self,
         method: str,
         url: str,
-        headers: dict[str, str],
-        body: str,
+        request_headers: dict[str, str],
+        request_body: str,
         status: int,
+        response_headers: dict[str, str],
+        response_body: str,
     ) -> None:
         interaction = Interaction(
             source_id="http:request",
@@ -441,9 +521,11 @@ class HttpPlugin(BasePlugin):
             details={
                 "method": method.upper(),
                 "url": url,
-                "headers": dict(headers),
-                "body": body,
+                "request_headers": dict(request_headers),
+                "request_body": request_body,
                 "status": status,
+                "response_headers": dict(response_headers),
+                "response_body": response_body,
             },
             plugin=self,
         )
@@ -474,12 +556,15 @@ class HttpPlugin(BasePlugin):
             )
 
         body_str = request.content.decode("utf-8", errors="replace")
+        resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
             method=method,
             url=url,
-            headers=dict(request.headers),
-            body=body_str,
+            request_headers=dict(request.headers),
+            request_body=body_str,
             status=config.response_status,
+            response_headers=dict(config.response_headers),
+            response_body=resp_body_str,
         )
 
         return httpx.Response(
@@ -497,9 +582,11 @@ class HttpPlugin(BasePlugin):
         self._record_http_interaction(
             method=request.method,
             url=str(request.url),
-            headers=dict(request.headers),
-            body=request.content.decode("utf-8", errors="replace"),
+            request_headers=dict(request.headers),
+            request_body=request.content.decode("utf-8", errors="replace"),
             status=response.status_code,
+            response_headers=dict(response.headers),
+            response_body=response.text,
         )
         return response
 
@@ -525,12 +612,15 @@ class HttpPlugin(BasePlugin):
             )
 
         body_str = request.content.decode("utf-8", errors="replace")
+        resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
             method=method,
             url=url,
-            headers=dict(request.headers),
-            body=body_str,
+            request_headers=dict(request.headers),
+            request_body=body_str,
             status=config.response_status,
+            response_headers=dict(config.response_headers),
+            response_body=resp_body_str,
         )
 
         return httpx.Response(
@@ -548,9 +638,11 @@ class HttpPlugin(BasePlugin):
         self._record_http_interaction(
             method=request.method,
             url=str(request.url),
-            headers=dict(request.headers),
-            body=request.content.decode("utf-8", errors="replace"),
+            request_headers=dict(request.headers),
+            request_body=request.content.decode("utf-8", errors="replace"),
             status=response.status_code,
+            response_headers=dict(response.headers),
+            response_body=response.text,
         )
         return response
 
@@ -584,12 +676,15 @@ class HttpPlugin(BasePlugin):
             else:
                 body_str = str(request.body)
 
+        resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
             method=method,
             url=url,
-            headers=dict(request.headers),
-            body=body_str,
+            request_headers=dict(request.headers),
+            request_body=body_str,
             status=config.response_status,
+            response_headers=dict(config.response_headers),
+            response_body=resp_body_str,
         )
 
         response = requests.Response()
@@ -621,9 +716,11 @@ class HttpPlugin(BasePlugin):
         self._record_http_interaction(
             method=method,
             url=url,
-            headers=dict(request.headers),
-            body=body_str,
+            request_headers=dict(request.headers),
+            request_body=body_str,
             status=response.status_code,
+            response_headers=dict(response.headers),
+            response_body=response.text,
         )
         return response
 
@@ -655,12 +752,15 @@ class HttpPlugin(BasePlugin):
                 else str(data)  # pragma: no cover
             )
 
+        resp_body_str = config.response_body.decode("utf-8", errors="replace")
         self._record_http_interaction(
             method=method,
             url=url,
-            headers=headers_dict,
-            body=body_str,
+            request_headers=headers_dict,
+            request_body=body_str,
             status=config.response_status,
+            response_headers=dict(config.response_headers),
+            response_body=resp_body_str,
         )
 
         msg = HTTPMessage()
@@ -698,9 +798,11 @@ class HttpPlugin(BasePlugin):
         self._record_http_interaction(
             method=method,
             url=url,
-            headers=dict(req.headers),
-            body="",
+            request_headers=dict(req.headers),
+            request_body="",
             status=response.getcode() or 200,
+            response_headers={},
+            response_body="",
         )
         return response
 
@@ -771,23 +873,29 @@ class HttpPlugin(BasePlugin):
     def format_assert_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "GET")
         url = interaction.details.get("url", "?")
-        headers = interaction.details.get("headers", {})
-        body = interaction.details.get("body", "")
+        request_headers = interaction.details.get("request_headers", {})
+        request_body = interaction.details.get("request_body", "")
         status = interaction.details.get("status", 200)
+        response_headers = interaction.details.get("response_headers", {})
+        response_body = interaction.details.get("response_body", "")
         return (
             f"verifier.assert_interaction(\n"
             f"    http.request,\n"
             f'    method="{method}",\n'
             f'    url="{url}",\n'
-            f"    headers={headers!r},\n"
-            f"    body={body!r},\n"
+            f"    request_headers={request_headers!r},\n"
+            f"    request_body={request_body!r},\n"
             f"    status={status},\n"
+            f"    response_headers={response_headers!r},\n"
+            f"    response_body={response_body!r},\n"
             f")"
         )
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
         """Return the field names required in **expected when asserting an HTTP interaction."""
-        return frozenset({"method", "url", "headers", "body", "status"})
+        return frozenset(
+            {"method", "url", "request_headers", "request_body", "status", "response_headers", "response_body"}
+        )
 
     def get_unused_mocks(self) -> list[HttpMockConfig]:
         return [c for c in self._mock_queue if c.required]

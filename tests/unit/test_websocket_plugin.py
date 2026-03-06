@@ -218,6 +218,11 @@ async def test_async_basic_connect_send_recv_close() -> None:
     assert recv_result == "hello"
     assert close_result is None
 
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.send, message="ping")
+    v.assert_interaction(p.recv, message="hello")
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # InvalidStateError: recv before connect (state machine)
@@ -293,6 +298,15 @@ async def test_async_fifo_two_sessions() -> None:
     assert first_recv_result == "first"
     assert second_recv_result == "second"
 
+    # Timeline order: connect1, connect2, recv1, recv2, close1, close2
+    # The nested async with blocks fire __aenter__ for cm1 then cm2 before any recv.
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.recv, message="first")
+    v.assert_interaction(p.recv, message="second")
+    v.assert_interaction(p.close)
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # ImportError when websockets not installed
@@ -353,6 +367,9 @@ async def test_async_close_releases_session() -> None:
 
     assert len(p._active_sessions) == 0
     assert p.get_unused_mocks() == []
+
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.close)
 
 
 # ---------------------------------------------------------------------------
@@ -538,6 +555,11 @@ def test_sync_basic_connect_send_recv_close() -> None:
     assert recv_result == "hello"
     assert close_result is None
 
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.send, message="ping")
+    v.assert_interaction(p.recv, message="hello")
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # InvalidStateError: wrong state
@@ -655,6 +677,9 @@ def test_sync_close_releases_session() -> None:
     assert len(p._active_sessions) == 0
     assert p.get_unused_mocks() == []
 
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.close)
+
 
 # ---------------------------------------------------------------------------
 # FIFO ordering: two sequential sync sessions
@@ -691,6 +716,13 @@ def test_sync_fifo_two_sessions() -> None:
 
     assert first_recv_result == "first"
     assert second_recv_result == "second"
+
+    v.assert_interaction(p.connect, uri="ws://localhost:8765")
+    v.assert_interaction(p.connect, uri="ws://localhost:8766")
+    v.assert_interaction(p.recv, message="first")
+    v.assert_interaction(p.recv, message="second")
+    v.assert_interaction(p.close)
+    v.assert_interaction(p.close)
 
 
 # ---------------------------------------------------------------------------

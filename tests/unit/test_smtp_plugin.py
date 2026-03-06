@@ -546,3 +546,12 @@ def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
 
     assert sendmail_result == {}
     assert quit_result == (221, b"Bye")
+
+    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
+    bigfoot.smtp_mock.assert_ehlo(name="")
+    bigfoot.smtp_mock.assert_sendmail(
+        from_addr="from@example.com",
+        to_addrs=["to@example.com"],
+        msg="Subject: test\r\n\r\ntest",
+    )
+    bigfoot.smtp_mock.assert_quit()

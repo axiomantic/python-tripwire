@@ -29,14 +29,22 @@ def test_payment_flow():
         response = httpx.post("https://api.stripe.com/v1/charges",
                               json={"amount": 5000})
 
+    # Option A: explicit assert_interaction (all 7 fields required)
     bigfoot.assert_interaction(
         bigfoot.http.request,
         method="POST",
         url="https://api.stripe.com/v1/charges",
-        headers=IsMapping(),  # use dirty-equals or ANY for headers
-        body=None,
+        request_headers=IsMapping(),  # use dirty-equals or ANY for headers
+        request_body=None,
         status=200,
+        response_headers=IsMapping(),
+        response_body=IsMapping() | IsInstance(str),
     )
+    # Option B: chained helper
+    bigfoot.http.assert_request(
+        method="POST", url="https://api.stripe.com/v1/charges",
+        headers=IsMapping(), body=None,
+    ).assert_response(status=200, headers=IsMapping(), body=IsMapping() | IsInstance(str))
     assert response.json()["id"] == "ch_123"
     # verify_all() called automatically at test teardown
 ```

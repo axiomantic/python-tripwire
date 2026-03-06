@@ -235,7 +235,6 @@ def test_record_not_in_abstract_methods() -> None:
             "format_mock_hint",
             "format_unmocked_hint",
             "format_assert_hint",
-            "assertable_fields",
             "get_unused_mocks",
             "format_unused_mock_hint",
         }
@@ -507,41 +506,37 @@ def test_missing_format_assert_hint_prevents_instantiation() -> None:
         MissingFormatAssertHint(_StubVerifier())  # type: ignore[abstract]
 
 
-def test_missing_assertable_fields_prevents_instantiation() -> None:
-    """A subclass missing assertable_fields() cannot be instantiated."""
+def test_missing_assertable_fields_uses_default() -> None:
+    """A subclass missing assertable_fields() instantiates fine and uses the concrete default."""
+    # After Task 3, assertable_fields() is no longer abstract.
+    # A subclass that does not override it inherits the default.
 
-    class MissingAssertableFields(BasePlugin):  # type: ignore[abstract]
+    class MissingAssertableFields(BasePlugin):
         def activate(self) -> None:
             pass
-
         def deactivate(self) -> None:
             pass
-
         def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
             return True
-
         def format_interaction(self, interaction: Interaction) -> str:
             return ""
-
         def format_mock_hint(self, interaction: Interaction) -> str:
             return ""
-
         def format_unmocked_hint(
             self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]
         ) -> str:
             return ""
-
         def format_assert_hint(self, interaction: Interaction) -> str:
             return ""
-
         def get_unused_mocks(self) -> list[Any]:
             return []
-
         def format_unused_mock_hint(self, mock_config: Any) -> str:
             return ""
 
-    with pytest.raises(TypeError):
-        MissingAssertableFields(_StubVerifier())  # type: ignore[abstract]
+    verifier = _StubVerifier()
+    p = MissingAssertableFields(verifier)
+    i = Interaction(source_id="x", sequence=0, details={"k": "v"}, plugin=p)
+    assert p.assertable_fields(i) == frozenset({"k"})
 
 
 def test_missing_get_unused_mocks_prevents_instantiation() -> None:
@@ -640,41 +635,36 @@ def test_record_appends_multiple_interactions_in_order() -> None:
     assert verifier._timeline.appended == [i1, i2, i3]
 
 
-def test_assertable_fields_is_abstract() -> None:
-    """Concrete subclass that omits assertable_fields() cannot be instantiated."""
+def test_assertable_fields_has_concrete_default() -> None:
+    """A concrete subclass that omits assertable_fields() CAN be instantiated; it inherits the default."""
     from bigfoot._base_plugin import BasePlugin
 
-    class _IncompletePlugin(BasePlugin):
+    class _PluginWithoutAssertableFields(BasePlugin):
         def activate(self) -> None: ...
         def deactivate(self) -> None: ...
         def matches(self, interaction: Interaction, expected: dict) -> bool:
             return True  # type: ignore[override]
-
         def format_interaction(self, interaction: Interaction) -> str:
             return ""
-
         def format_mock_hint(self, interaction: Interaction) -> str:
             return ""
-
         def format_unmocked_hint(self, source_id: str, args: tuple, kwargs: dict) -> str:
             return ""  # type: ignore[override]
-
         def format_assert_hint(self, interaction: Interaction) -> str:
             return ""
-
         def get_unused_mocks(self) -> list:
             return []
-
         def format_unused_mock_hint(self, mock_config: object) -> str:
             return ""
-
-        # assertable_fields deliberately omitted
+        # assertable_fields deliberately omitted — should use default
 
     from bigfoot._verifier import StrictVerifier
-
     v = StrictVerifier()
-    with pytest.raises(TypeError, match="abstract"):
-        _IncompletePlugin(v)  # type: ignore[abstract]
+    p = _PluginWithoutAssertableFields(v)
+    # Default implementation returns frozenset of details keys
+    interaction = Interaction(source_id="x", sequence=0, details={"a": 1, "b": 2}, plugin=p)
+    result = p.assertable_fields(interaction)
+    assert result == frozenset({"a", "b"})
 
 
 def test_assertable_fields_contract_returns_frozenset() -> None:
@@ -715,3 +705,29 @@ def test_assertable_fields_contract_returns_frozenset() -> None:
     result = p.assertable_fields(None)  # type: ignore[arg-type]
     assert isinstance(result, frozenset)
     assert result == frozenset()
+
+
+def test_assertable_fields_default_returns_details_keys() -> None:
+    """Default assertable_fields() returns frozenset of all keys in interaction.details."""
+    from bigfoot._base_plugin import BasePlugin
+
+    class _DefaultPlugin(BasePlugin):
+        def activate(self) -> None: ...
+        def deactivate(self) -> None: ...
+        def matches(self, i: Interaction, e: dict) -> bool: return True  # type: ignore[override]
+        def format_interaction(self, i: Interaction) -> str: return ""
+        def format_mock_hint(self, i: Interaction) -> str: return ""
+        def format_unmocked_hint(self, s: str, a: tuple, k: dict) -> str: return ""  # type: ignore[override]
+        def format_assert_hint(self, i: Interaction) -> str: return ""
+        def get_unused_mocks(self) -> list: return []
+        def format_unused_mock_hint(self, m: object) -> str: return ""
+
+    from bigfoot._verifier import StrictVerifier
+    v = StrictVerifier()
+    p = _DefaultPlugin(v)
+    interaction2 = Interaction(source_id="x", sequence=0, details={"x": 1, "y": 2}, plugin=p)
+    assert p.assertable_fields(interaction2) == frozenset({"x", "y"})
+
+    # Empty details returns empty frozenset
+    interaction3 = Interaction(source_id="x", sequence=0, details={}, plugin=p)
+    assert p.assertable_fields(interaction3) == frozenset()

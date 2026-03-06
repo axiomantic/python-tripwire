@@ -5,6 +5,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from bigfoot._recording import _recording_in_progress
+
 if TYPE_CHECKING:
     from bigfoot._base_plugin import BasePlugin
 
@@ -54,6 +56,15 @@ class Timeline:
             return None
 
     def mark_asserted(self, interaction: Interaction) -> None:
+        from bigfoot._errors import AutoAssertError  # noqa: PLC0415 — avoids circular import at module level
+
+        if _recording_in_progress.get():
+            raise AutoAssertError(
+                f"mark_asserted() was called while record() is in progress for "
+                f"source_id={interaction.source_id!r}. This is the auto-assert "
+                f"anti-pattern: remove the mark_asserted() call from your plugin's "
+                f"intercept hook. Test authors must call assert_interaction() explicitly."
+            )
         with self._lock:
             interaction._asserted = True
 

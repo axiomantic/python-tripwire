@@ -3,6 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
+from bigfoot._recording import _recording_in_progress
+
 if TYPE_CHECKING:
     from bigfoot._timeline import Interaction
     from bigfoot._verifier import StrictVerifier
@@ -58,15 +60,20 @@ class BasePlugin(ABC):
     def format_assert_hint(self, interaction: "Interaction") -> str:
         """Copy-pasteable code to assert this interaction (resolves UnassertedInteractionsError)."""
 
-    @abstractmethod
     def assertable_fields(self, interaction: "Interaction") -> frozenset[str]:
         """Return the set of field names that must appear in **expected when asserting
         this interaction.
+
+        Default implementation: return all keys in interaction.details as assertable
+        fields. This is correct for any plugin that stores only user-assertable data
+        in details. Plugins with no-data steps (close, commit, etc.) must override
+        this to return frozenset() for those steps.
 
         The verifier calls this after matching by source_id to enforce completeness:
         any field in the returned set that is absent from **expected causes
         MissingAssertionFieldsError to be raised.
         """
+        return frozenset(interaction.details.keys())
 
     @abstractmethod
     def get_unused_mocks(self) -> list[Any]:
@@ -79,8 +86,12 @@ class BasePlugin(ABC):
     def record(self, interaction: "Interaction") -> None:
         """Concrete method: append interaction to the verifier's shared timeline.
 
-        This is NOT abstract -- all plugins share the same implementation.
-        Calls self.verifier._timeline.append(interaction), which assigns the
-        sequence number atomically under the timeline lock.
+        Sets _recording_in_progress for the duration of the append so that
+        Timeline.mark_asserted() can detect the auto-assert anti-pattern and
+        raise AutoAssertError immediately.
         """
-        self.verifier._timeline.append(interaction)
+        token = _recording_in_progress.set(True)
+        try:
+            self.verifier._timeline.append(interaction)
+        finally:
+            _recording_in_progress.reset(token)

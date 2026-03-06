@@ -353,9 +353,11 @@ def test_http_plugin_full_cycle_httpx() -> None:
         bigfoot.http.request,
         method="GET",
         url="https://api.stripe.com/v1/charges",
-        headers=AnyThing(),
-        body="",
+        request_headers=AnyThing(),
+        request_body="",
         status=200,
+        response_headers=AnyThing(),
+        response_body=AnyThing(),
     )
     # _bigfoot_auto_verifier fixture calls verify_all() at teardown
 
@@ -396,9 +398,11 @@ def test_mock_and_http_plugins_tracked_in_global_fifo_order() -> None:
         bigfoot.http.request,
         method="POST",
         url="https://api.example.com/data",
-        headers=AnyThing(),
-        body=AnyThing(),
+        request_headers=AnyThing(),
+        request_body=AnyThing(),
         status=201,
+        response_headers=AnyThing(),
+        response_body=AnyThing(),
     )
 
 
@@ -502,7 +506,9 @@ def test_http_pass_through_routes_to_real_backend() -> None:
         bigfoot.http.request,
         method="GET",
         url="https://real-api.example.com/data",
-        headers=AnyThing(),
-        body="",
+        request_headers=AnyThing(),
+        request_body="",
         status=200,
+        response_headers=AnyThing(),
+        response_body=AnyThing(),
     )

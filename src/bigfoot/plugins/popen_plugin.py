@@ -11,21 +11,21 @@ restore their respective targets correctly when deactivated.
 
 import subprocess
 import threading
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import _get_verifier_or_raise
 from bigfoot._errors import ConflictError
-from bigfoot._state_machine_plugin import StateMachinePlugin
+from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
+
+if TYPE_CHECKING:
+    from bigfoot._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # Source ID constants
 # ---------------------------------------------------------------------------
 
-_SOURCE_INIT = "subprocess:popen:init"
-_SOURCE_STDIN_WRITE = "subprocess:popen:stdin.write"
-_SOURCE_STDOUT_READ = "subprocess:popen:stdout.read"
-_SOURCE_STDERR_READ = "subprocess:popen:stderr.read"
+_SOURCE_SPAWN = "subprocess:popen:spawn"
 _SOURCE_COMMUNICATE = "subprocess:popen:communicate"
 _SOURCE_WAIT = "subprocess:popen:wait"
 
@@ -50,7 +50,7 @@ _bigfoot_popen_class: Any = None
 
 
 def _find_popen_plugin() -> "PopenPlugin":
-    verifier = _get_verifier_or_raise(_SOURCE_INIT)
+    verifier = _get_verifier_or_raise(_SOURCE_SPAWN)
     for plugin in verifier._plugins:
         if isinstance(plugin, PopenPlugin):
             return plugin
@@ -66,59 +66,24 @@ def _find_popen_plugin() -> "PopenPlugin":
 
 
 class _FakeStream:
-    """Fake file-like object delegating read/write to PopenPlugin._execute_step."""
+    """Fake file-like stream. Stream I/O is not recorded by bigfoot.
 
-    def __init__(
-        self,
-        plugin: "PopenPlugin",
-        popen_instance: "_FakePopen",
-        read_method: str | None,
-        write_method: str | None,
-    ) -> None:
-        self._plugin = plugin
-        self._popen = popen_instance
-        self._read_method = read_method
-        self._write_method = write_method
+    .write() returns 0 (no bytes written). .read() returns b"" (no data).
+    Use communicate() to observe stdin input and stdout/stderr output via
+    the named fields in the spawn interaction.
+    """
 
-    def write(self, data: bytes) -> Any:  # noqa: ANN401
-        if self._write_method is None:
-            raise io_error("write")
-        handle = self._plugin._lookup_session(self._popen)
-        return self._plugin._execute_step(
-            handle,
-            self._write_method,
-            (data,),
-            {},
-            f"subprocess:popen:{self._write_method}",
-        )
+    def write(self, data: bytes) -> int:
+        """No-op write. Returns 0. Not recorded on the timeline."""
+        return 0
 
-    def read(self, size: int = -1) -> Any:  # noqa: ANN401
-        if self._read_method is None:
-            raise io_error("read")
-        handle = self._plugin._lookup_session(self._popen)
-        return self._plugin._execute_step(
-            handle,
-            self._read_method,
-            (size,),
-            {},
-            f"subprocess:popen:{self._read_method}",
-        )
+    def read(self, size: int = -1) -> bytes:
+        """No-op read. Returns b"". Not recorded on the timeline."""
+        return b""
 
-    def readline(self) -> Any:  # noqa: ANN401
-        if self._read_method is None:
-            raise io_error("readline")
-        handle = self._plugin._lookup_session(self._popen)
-        return self._plugin._execute_step(
-            handle,
-            self._read_method,
-            (),
-            {},
-            f"subprocess:popen:{self._read_method}.readline",
-        )
-
-
-def io_error(op: str) -> OSError:
-    return OSError(f"_FakeStream does not support {op}")
+    def readline(self) -> bytes:
+        """No-op readline. Returns b"". Not recorded on the timeline."""
+        return b""
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +104,15 @@ class _FakePopen:
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
         plugin = _find_popen_plugin()
-        plugin._bind_connection(self)  # partial init
-        plugin._execute_step(plugin._lookup_session(self), "init", (args,), {}, _SOURCE_INIT)
-        self.stdin: _FakeStream | None = _FakeStream(plugin, self, None, "stdin.write")
-        self.stdout: _FakeStream | None = _FakeStream(plugin, self, "stdout.read", None)
-        self.stderr: _FakeStream | None = _FakeStream(plugin, self, "stderr.read", None)
+        plugin._bind_connection(self)
+        command = list(args) if hasattr(args, "__iter__") and not isinstance(args, str) else [args]
+        plugin._execute_step(
+            plugin._lookup_session(self), "spawn", (args,), {}, _SOURCE_SPAWN,
+            details={"command": command, "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None},
+        )
+        self.stdin: _FakeStream = _FakeStream()
+        self.stdout: _FakeStream = _FakeStream()
+        self.stderr: _FakeStream = _FakeStream()
         self.returncode: int | None = None
         self.pid: int = 12345  # fake PID
 
@@ -154,7 +123,10 @@ class _FakePopen:
     ) -> tuple[bytes, bytes]:
         plugin = _find_popen_plugin()
         handle = plugin._lookup_session(self)
-        result = plugin._execute_step(handle, "communicate", (), {}, _SOURCE_COMMUNICATE)
+        result = plugin._execute_step(
+            handle, "communicate", (), {}, _SOURCE_COMMUNICATE,
+            details={"input": input},
+        )
         # result is (stdout: bytes, stderr: bytes, returncode: int) 3-tuple
         out_bytes, err_bytes, returncode = result
         self.returncode = returncode
@@ -165,7 +137,10 @@ class _FakePopen:
             return self.returncode
         plugin = _find_popen_plugin()
         handle = plugin._lookup_session(self)
-        result = plugin._execute_step(handle, "wait", (), {}, _SOURCE_WAIT)
+        result = plugin._execute_step(
+            handle, "wait", (), {}, _SOURCE_WAIT,
+            details={},
+        )
         # result is returncode int
         self.returncode = int(result)
         return self.returncode
@@ -200,6 +175,24 @@ class PopenPlugin(StateMachinePlugin):
     # Saved original, restored when count reaches 0.
     _original_popen: ClassVar[Any] = None
 
+    def __init__(self, verifier: "StrictVerifier") -> None:
+        super().__init__(verifier)
+        self._spawn_sentinel = _StepSentinel(_SOURCE_SPAWN)
+        self._communicate_sentinel = _StepSentinel(_SOURCE_COMMUNICATE)
+        self._wait_sentinel = _StepSentinel(_SOURCE_WAIT)
+
+    @property
+    def spawn(self) -> _StepSentinel:
+        return self._spawn_sentinel
+
+    @property
+    def communicate(self) -> _StepSentinel:
+        return self._communicate_sentinel
+
+    @property
+    def wait(self) -> _StepSentinel:
+        return self._wait_sentinel
+
     # ------------------------------------------------------------------
     # StateMachinePlugin abstract methods
     # ------------------------------------------------------------------
@@ -209,16 +202,13 @@ class PopenPlugin(StateMachinePlugin):
 
     def _transitions(self) -> dict[str, dict[str, str]]:
         return {
-            "init": {"created": "running"},
-            "stdin.write": {"running": "running"},
-            "stdout.read": {"running": "running"},
-            "stderr.read": {"running": "running"},
+            "spawn": {"created": "running"},
             "communicate": {"running": "terminated"},
             "wait": {"running": "terminated"},
         }
 
     def _unmocked_source_id(self) -> str:
-        return "subprocess:popen:init"
+        return "subprocess:popen:spawn"
 
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
@@ -270,14 +260,24 @@ class PopenPlugin(StateMachinePlugin):
     # ------------------------------------------------------------------
 
     def format_interaction(self, interaction: Interaction) -> str:
-        method = interaction.details.get("method", "?")
-        args = interaction.details.get("args", ())
-        parts = [repr(a) for a in args]
-        return f"[PopenPlugin] popen.{method}({', '.join(parts)})"
+        if interaction.source_id == _SOURCE_SPAWN:
+            command = interaction.details.get("command", [])
+            return f"[PopenPlugin] popen.spawn({command!r})"
+        if interaction.source_id == _SOURCE_COMMUNICATE:
+            inp = interaction.details.get("input")
+            return f"[PopenPlugin] popen.communicate(input={inp!r})"
+        if interaction.source_id == _SOURCE_WAIT:
+            return "[PopenPlugin] popen.wait()"
+        return f"[PopenPlugin] popen.?(source_id={interaction.source_id!r})"
 
     def format_mock_hint(self, interaction: Interaction) -> str:
-        method = interaction.details.get("method", "?")
-        return f"    bigfoot.popen_mock.new_session().expect({method!r}, returns=...)"
+        if interaction.source_id == _SOURCE_SPAWN:
+            return "    bigfoot.popen_mock.new_session().expect('spawn', returns=None)"
+        if interaction.source_id == _SOURCE_COMMUNICATE:
+            return "    bigfoot.popen_mock.new_session().expect('communicate', returns=(b'', b'', 0))"
+        if interaction.source_id == _SOURCE_WAIT:
+            return "    bigfoot.popen_mock.new_session().expect('wait', returns=0)"
+        return f"    bigfoot.popen_mock.new_session().expect('?', returns=...)"
 
     def format_unmocked_hint(
         self,
@@ -294,8 +294,50 @@ class PopenPlugin(StateMachinePlugin):
 
     def format_assert_hint(self, interaction: Interaction) -> str:
         pm = "bigfoot.popen_mock"
-        method = interaction.details.get("method", "?")
-        return f"    # {pm}: session step '{method}' recorded (state-machine, auto-asserted)"
+        sid = interaction.source_id
+        if sid == _SOURCE_SPAWN:
+            command = interaction.details.get("command", [])
+            stdin = interaction.details.get("stdin")
+            return f"    {pm}.assert_spawn(command={command!r}, stdin={stdin!r})"
+        if sid == _SOURCE_COMMUNICATE:
+            inp = interaction.details.get("input")
+            return f"    {pm}.assert_communicate(input={inp!r})"
+        if sid == _SOURCE_WAIT:
+            return f"    {pm}.assert_wait()"
+        return f"    # {pm}: unknown source_id={sid!r}"
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return assertable fields for each step type."""
+        if interaction.source_id == _SOURCE_WAIT:
+            return frozenset()
+        return frozenset(interaction.details.keys())
+
+    def assert_spawn(self, *, command: list[str], stdin: bytes | None) -> None:
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(
+            self._spawn_sentinel, command=command, stdin=stdin
+        )
+
+    def assert_communicate(self, *, input: bytes | None) -> None:  # noqa: A002
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(
+            self._communicate_sentinel, input=input
+        )
+
+    def assert_wait(self) -> None:
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+        _get_test_verifier_or_raise().assert_interaction(self._wait_sentinel)
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
         step: Any = mock_config
