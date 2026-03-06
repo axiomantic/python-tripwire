@@ -231,10 +231,10 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
             AsyncSubprocessPlugin._install_count = max(0, AsyncSubprocessPlugin._install_count - 1)
             if AsyncSubprocessPlugin._install_count == 0:
                 if AsyncSubprocessPlugin._original_exec is not None:
-                    asyncio.create_subprocess_exec = AsyncSubprocessPlugin._original_exec  # type: ignore[assignment]
+                    asyncio.create_subprocess_exec = AsyncSubprocessPlugin._original_exec
                     AsyncSubprocessPlugin._original_exec = None
                 if AsyncSubprocessPlugin._original_shell is not None:
-                    asyncio.create_subprocess_shell = AsyncSubprocessPlugin._original_shell  # type: ignore[assignment]
+                    asyncio.create_subprocess_shell = AsyncSubprocessPlugin._original_shell
                     AsyncSubprocessPlugin._original_shell = None
                 _bigfoot_create_subprocess_exec = None
                 _bigfoot_create_subprocess_shell = None

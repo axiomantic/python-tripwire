@@ -147,11 +147,17 @@ __all__ = [
 _T = TypeVar("_T")
 
 
+_MISSING = object()
+
+
 def _get_or_create_plugin(verifier: StrictVerifier, plugin_type: type[_T]) -> _T:
     """Return the first plugin of plugin_type on verifier, creating it if absent."""
-    for p in verifier._plugins:
-        if isinstance(p, plugin_type):
-            return p
+    existing = next(
+        (p for p in verifier._plugins if isinstance(p, plugin_type)),
+        _MISSING,
+    )
+    if existing is not _MISSING:
+        return existing  # type: ignore[return-value]
     return plugin_type(verifier)  # type: ignore[call-arg]
 
 
@@ -528,11 +534,15 @@ class _BigfootModule(types.ModuleType):
     Both forms return the active :class:`StrictVerifier` from ``__enter__``.
     """
 
-    def __enter__(self) -> StrictVerifier:
+    def _push_cm(self) -> SandboxContext:
+        """Create a sandbox context manager and push it onto the thread-local stack."""
         cm = sandbox()
         stack = _sandbox_stack.__dict__.setdefault("stack", [])
         stack.append(cm)
-        return cm.__enter__()
+        return cm
+
+    def __enter__(self) -> StrictVerifier:
+        return self._push_cm().__enter__()
 
     def __exit__(
         self,
@@ -543,10 +553,7 @@ class _BigfootModule(types.ModuleType):
         _sandbox_stack.stack.pop().__exit__(exc_type, exc_val, exc_tb)
 
     async def __aenter__(self) -> StrictVerifier:
-        cm = sandbox()
-        stack = _sandbox_stack.__dict__.setdefault("stack", [])
-        stack.append(cm)
-        return await cm.__aenter__()
+        return await self._push_cm().__aenter__()
 
     async def __aexit__(
         self,
