@@ -59,6 +59,14 @@ def _reset_install_count() -> None:
         if HttpPlugin._original_requests_adapter_send is not None:
             requests.adapters.HTTPAdapter.send = HttpPlugin._original_requests_adapter_send
             HttpPlugin._original_requests_adapter_send = None
+        if HttpPlugin._original_aiohttp_request is not None:
+            from bigfoot.plugins.http import _AIOHTTP_AVAILABLE
+
+            if _AIOHTTP_AVAILABLE:
+                import aiohttp as _aiohttp
+
+                _aiohttp.ClientSession._request = HttpPlugin._original_aiohttp_request
+            HttpPlugin._original_aiohttp_request = None
 
 
 @pytest.fixture(autouse=True)
@@ -1529,3 +1537,336 @@ def test_assert_request_terminal_missing_field_raises() -> None:
             "https://api.example.com/mismatch",
             headers=recorded_headers,
         )
+
+
+# ---------------------------------------------------------------------------
+# aiohttp tests
+# ---------------------------------------------------------------------------
+
+aiohttp_mod = pytest.importorskip("aiohttp")
+
+
+async def _aiohttp_get(url: str) -> "aiohttp_mod.ClientResponse":
+    """Helper: perform a GET request via aiohttp.ClientSession."""
+    async with aiohttp_mod.ClientSession() as session:
+        return await session.get(url)
+
+
+async def _aiohttp_post(
+    url: str, json: object = None, data: object = None
+) -> "aiohttp_mod.ClientResponse":
+    """Helper: perform a POST request via aiohttp.ClientSession."""
+    async with aiohttp_mod.ClientSession() as session:
+        return await session.post(url, json=json, data=data)
+
+
+# ESCAPE: None -- aiohttp GET with mocked response exercises the full intercept path.
+# CHECK: Intercepted aiohttp GET returns correct status, body, and records interaction.
+# MUTATION: Removing the aiohttp interceptor would cause a real network call or error.
+@pytest.mark.asyncio
+async def test_aiohttp_get_basic() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/data", json={"value": 42})
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            response = await _aiohttp_get("https://api.example.com/data")
+            assert response.status == 200
+            body = await response.json()
+            assert body == {"value": 42}
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["method"] == "GET"
+    assert interactions[0].details["url"] == "https://api.example.com/data"
+    assert interactions[0].details["status"] == 200
+    assert interactions[0].details["response_body"] == '{"value": 42}'
+
+    v.assert_interaction(
+        p.request,
+        method="GET",
+        url="https://api.example.com/data",
+        request_headers={},
+        request_body="",
+        status=200,
+        response_headers={"content-type": "application/json"},
+        response_body='{"value": 42}',
+    )
+
+
+# ESCAPE: None -- exercises POST with JSON body through aiohttp.
+# CHECK: Request body is captured from json kwarg and recorded correctly.
+# MUTATION: Not extracting json kwarg would record empty body.
+@pytest.mark.asyncio
+async def test_aiohttp_post_json() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response(
+        "POST", "https://api.example.com/items", json={"id": 1}, status=201
+    )
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            response = await _aiohttp_post(
+                "https://api.example.com/items", json={"name": "widget"}
+            )
+            assert response.status == 201
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["method"] == "POST"
+    assert interactions[0].details["request_body"] == '{"name": "widget"}'
+
+    v.assert_interaction(
+        p.request,
+        method="POST",
+        url="https://api.example.com/items",
+        request_headers={},
+        request_body='{"name": "widget"}',
+        status=201,
+        response_headers={"content-type": "application/json"},
+        response_body='{"id": 1}',
+    )
+
+
+# ESCAPE: None -- exercises POST with raw data body through aiohttp.
+# CHECK: Request body is captured from data kwarg (bytes) and recorded correctly.
+# MUTATION: Not extracting data kwarg would record empty body.
+@pytest.mark.asyncio
+async def test_aiohttp_post_data() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("POST", "https://api.example.com/upload", body="ok", status=200)
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            async with aiohttp_mod.ClientSession() as session:
+                response = await session.post(
+                    "https://api.example.com/upload", data=b"raw bytes"
+                )
+                assert response.status == 200
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["request_body"] == "raw bytes"
+
+    v.assert_interaction(
+        p.request,
+        method="POST",
+        url="https://api.example.com/upload",
+        request_headers={},
+        request_body="raw bytes",
+        status=200,
+        response_headers={},
+        response_body="ok",
+    )
+
+
+# ESCAPE: None -- tests custom response headers are returned correctly.
+# CHECK: Mock response headers are recorded and available on the fake response.
+# MUTATION: Not passing headers through to _FakeAiohttpResponse would lose them.
+@pytest.mark.asyncio
+async def test_aiohttp_mock_response_with_headers() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response(
+        "GET",
+        "https://api.example.com/data",
+        json={"ok": True},
+        headers={"x-custom": "value", "content-type": "application/json"},
+    )
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            response = await _aiohttp_get("https://api.example.com/data")
+            assert response.headers["x-custom"] == "value"
+    finally:
+        _active_verifier.reset(token)
+
+    v.assert_interaction(
+        p.request,
+        method="GET",
+        url="https://api.example.com/data",
+        request_headers={},
+        request_body="",
+        status=200,
+        response_headers={"x-custom": "value", "content-type": "application/json"},
+        response_body='{"ok": true}',
+    )
+
+
+# ESCAPE: None -- assert_request/assert_response chaining works with aiohttp.
+# CHECK: The chained builder pattern works identically for aiohttp interactions.
+# MUTATION: If aiohttp interactions were recorded differently, chaining would fail.
+@pytest.mark.asyncio
+async def test_aiohttp_assert_request_assert_response_chaining() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/chain", json={"chained": True})
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            await _aiohttp_get("https://api.example.com/chain")
+    finally:
+        _active_verifier.reset(token)
+
+    builder = p.assert_request(
+        "GET",
+        "https://api.example.com/chain",
+        headers={},
+        body="",
+        require_response=True,
+    )
+    assert builder is not None
+    builder.assert_response(
+        200,
+        {"content-type": "application/json"},
+        '{"chained": true}',
+    )
+
+
+# ESCAPE: None -- unmocked aiohttp raises UnmockedInteractionError.
+# CHECK: An aiohttp request with no matching mock raises immediately.
+# MUTATION: Without the unmocked check, the request would hit the real network.
+@pytest.mark.asyncio
+async def test_aiohttp_unmocked_raises() -> None:
+    v, p = _make_verifier_with_plugin()
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            with pytest.raises(UnmockedInteractionError):
+                await _aiohttp_get("https://api.example.com/unmocked")
+    finally:
+        _active_verifier.reset(token)
+
+
+# ESCAPE: None -- request headers passed via aiohttp kwargs are captured.
+# CHECK: Headers dict from the request is recorded in interaction details.
+# MUTATION: Not reading kwargs["headers"] would record empty headers.
+@pytest.mark.asyncio
+async def test_aiohttp_request_headers_captured() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/auth", json={"ok": True})
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            async with aiohttp_mod.ClientSession() as session:
+                await session.get(
+                    "https://api.example.com/auth",
+                    headers={"Authorization": "Bearer tok123"},
+                )
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["request_headers"]["Authorization"] == "Bearer tok123"
+
+    v.assert_interaction(
+        p.request,
+        method="GET",
+        url="https://api.example.com/auth",
+        request_headers={"Authorization": "Bearer tok123"},
+        request_body="",
+        status=200,
+        response_headers={"content-type": "application/json"},
+        response_body='{"ok": true}',
+    )
+
+
+# ESCAPE: None -- fake aiohttp response text() method works correctly.
+# CHECK: The _FakeAiohttpResponse.text() returns decoded body.
+# MUTATION: Not implementing text() would break callers using await response.text().
+@pytest.mark.asyncio
+async def test_aiohttp_response_text() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/text", body="hello world")
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            response = await _aiohttp_get("https://api.example.com/text")
+            text = await response.text()
+            assert text == "hello world"
+    finally:
+        _active_verifier.reset(token)
+
+    v.assert_interaction(
+        p.request,
+        method="GET",
+        url="https://api.example.com/text",
+        request_headers={},
+        request_body="",
+        status=200,
+        response_headers={},
+        response_body="hello world",
+    )
+
+
+# ESCAPE: None -- fake aiohttp response read() method returns raw bytes.
+# CHECK: The _FakeAiohttpResponse.read() returns the body as bytes.
+# MUTATION: Not implementing read() would break callers using await response.read().
+@pytest.mark.asyncio
+async def test_aiohttp_response_read() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/binary", body=b"\x00\x01\x02")
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            response = await _aiohttp_get("https://api.example.com/binary")
+            raw = await response.read()
+            assert raw == b"\x00\x01\x02"
+    finally:
+        _active_verifier.reset(token)
+
+    v.assert_interaction(
+        p.request,
+        method="GET",
+        url="https://api.example.com/binary",
+        request_headers={},
+        request_body="",
+        status=200,
+        response_headers={},
+        response_body="\x00\x01\x02",
+    )
+
+
+# ESCAPE: None -- fake aiohttp response works as async context manager.
+# CHECK: The _FakeAiohttpResponse supports async with syntax.
+# MUTATION: Not implementing __aenter__/__aexit__ would break callers using async with.
+@pytest.mark.asyncio
+async def test_aiohttp_response_as_context_manager() -> None:
+    v, p = _make_verifier_with_plugin()
+    p.mock_response("GET", "https://api.example.com/ctx", json={"ctx": True})
+
+    token = _active_verifier.set(v)
+    try:
+        async with v.sandbox():
+            async with aiohttp_mod.ClientSession() as session:
+                async with session.get("https://api.example.com/ctx") as response:
+                    assert response.status == 200
+                    body = await response.json()
+                    assert body == {"ctx": True}
+    finally:
+        _active_verifier.reset(token)
+
+    v.assert_interaction(
+        p.request,
+        method="GET",
+        url="https://api.example.com/ctx",
+        request_headers={},
+        request_body="",
+        status=200,
+        response_headers={"content-type": "application/json"},
+        response_body='{"ctx": true}',
+    )

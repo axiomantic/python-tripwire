@@ -15,6 +15,7 @@ Every call accounted for. Every assertion mandatory. No exceptions.
 ```bash
 pip install bigfoot                       # Core: MockPlugin + SubprocessPlugin + DatabasePlugin + SmtpPlugin + SocketPlugin + PopenPlugin + AsyncSubprocessPlugin
 pip install bigfoot[http]                 # + HttpPlugin (httpx, requests, urllib)
+pip install bigfoot[aiohttp]             # + aiohttp support for HttpPlugin
 pip install bigfoot[websockets]           # + AsyncWebSocketPlugin (websockets library)
 pip install bigfoot[websocket-client]     # + SyncWebSocketPlugin (websocket-client library)
 pip install bigfoot[redis]                # + RedisPlugin (redis-py)
@@ -686,7 +687,33 @@ An explicit `bigfoot_verifier` fixture is available as an escape hatch when you 
 - `urllib.request.urlopen()` (via `install_opener`)
 - `asyncio.BaseEventLoop.run_in_executor` (propagates context to thread pool executors)
 
-Not intercepted: `httpx.ASGITransport`, `httpx.WSGITransport`, `aiohttp`.
+Not intercepted: `httpx.ASGITransport`, `httpx.WSGITransport`.
+
+### aiohttp support
+
+When `bigfoot[aiohttp]` is installed, `HttpPlugin` also intercepts `aiohttp.ClientSession` requests. The same `mock_response()`, `assert_request()`, and `assert_response()` APIs work identically:
+
+```python
+import bigfoot
+import aiohttp
+
+async def test_aiohttp():
+    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
+
+    async with bigfoot:
+        async with aiohttp.ClientSession() as session:
+            response = await session.get("https://api.example.com/data")
+            assert response.status == 200
+            body = await response.json()
+            assert body == {"value": 42}
+
+    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+                                headers={}, body="",
+                                require_response=True) \
+        .assert_response(200, {"content-type": "application/json"}, '{"value": 42}')
+```
+
+aiohttp is optional. If not installed, `HttpPlugin` works normally for httpx, requests, and urllib.
 
 ## HTTP Plugin: assert_request and require_response
 

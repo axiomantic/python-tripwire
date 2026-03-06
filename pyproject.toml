@@ -48,8 +48,11 @@ websockets = [
 redis = [
     "redis>=5.0.0",
 ]
+aiohttp = [
+    "aiohttp>=3.9.0",
+]
 all = [
-    "bigfoot[http,matchers,websockets,websocket-client,redis]",
+    "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp]",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -58,7 +61,7 @@ docs = [
     "mike>=2.1",
 ]
 dev = [
-    "bigfoot[http,matchers,docs,websockets,websocket-client,redis]",
+    "bigfoot[http,matchers,docs,websockets,websocket-client,redis,aiohttp]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",

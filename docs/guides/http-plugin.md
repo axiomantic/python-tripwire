@@ -1,14 +1,16 @@
 # HttpPlugin Guide
 
-`HttpPlugin` intercepts HTTP calls made through `httpx` (sync and async), `requests`, and `urllib`. It requires the `bigfoot[http]` extra.
+`HttpPlugin` intercepts HTTP calls made through `httpx` (sync and async), `requests`, `urllib`, and `aiohttp` (if installed). It requires the `bigfoot[http]` extra. For aiohttp support, also install `bigfoot[aiohttp]`.
 
 ## Installation
 
 ```bash
-pip install bigfoot[http]
+pip install bigfoot[http]              # httpx, requests, urllib
+pip install bigfoot[aiohttp]           # + aiohttp support
+pip install bigfoot[http,aiohttp]      # both
 ```
 
-This installs `httpx>=0.25.0` and `requests>=2.31.0`.
+`bigfoot[http]` installs `httpx>=0.25.0` and `requests>=2.31.0`. `bigfoot[aiohttp]` installs `aiohttp>=3.9.0`.
 
 ## Setup
 
@@ -292,6 +294,50 @@ builder.assert_response(201, {"content-type": "application/json"}, '{"id": 1}')
 
 See the [Configuration Guide](configuration.md) for full details on `[tool.bigfoot.http]`.
 
+## Using with aiohttp
+
+Requires `bigfoot[aiohttp]`. If aiohttp is not installed, `HttpPlugin` works normally for other transports.
+
+```python
+import bigfoot, aiohttp
+
+async def test_aiohttp_get():
+    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
+
+    async with bigfoot:
+        async with aiohttp.ClientSession() as session:
+            response = await session.get("https://api.example.com/data")
+            assert response.status == 200
+            body = await response.json()
+            assert body == {"value": 42}
+
+    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+                                headers={}, body="",
+                                require_response=True) \
+        .assert_response(200, {"content-type": "application/json"}, '{"value": 42}')
+```
+
+aiohttp POST with JSON body:
+
+```python
+async def test_aiohttp_post():
+    bigfoot.http.mock_response("POST", "https://api.example.com/items",
+                               json={"id": 1}, status=201)
+
+    async with bigfoot:
+        async with aiohttp.ClientSession() as session:
+            response = await session.post("https://api.example.com/items",
+                                          json={"name": "widget"})
+            assert response.status == 201
+
+    bigfoot.http.assert_request("POST", "https://api.example.com/items",
+                                headers={}, body='{"name": "widget"}',
+                                require_response=True) \
+        .assert_response(201, {"content-type": "application/json"}, '{"id": 1}')
+```
+
+The fake aiohttp response supports `response.status`, `await response.json()`, `await response.text()`, `await response.read()`, `response.headers`, and `async with session.get(...) as response:` context manager usage.
+
 ## What HttpPlugin patches
 
 When the sandbox activates, `HttpPlugin` installs class-level patches on:
@@ -300,6 +346,7 @@ When the sandbox activates, `HttpPlugin` installs class-level patches on:
 - `httpx.AsyncHTTPTransport.handle_async_request` (async httpx)
 - `requests.adapters.HTTPAdapter.send` (requests library)
 - `urllib.request` opener (urllib)
+- `aiohttp.ClientSession._request` (aiohttp, if installed)
 - `asyncio.BaseEventLoop.run_in_executor` (propagates ContextVar to thread pool executors)
 
 All patches are reference-counted. Nested sandboxes increment/decrement the count; the actual method replacement only happens at count transitions from 0 to 1 and from 1 to 0.

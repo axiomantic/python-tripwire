@@ -1,4 +1,4 @@
-"""HttpPlugin: intercepts httpx, requests, and urllib HTTP calls."""
+"""HttpPlugin: intercepts httpx, requests, urllib, and aiohttp HTTP calls."""
 
 import functools
 import io
@@ -21,6 +21,14 @@ except ImportError as exc:  # pragma: no cover
         "bigfoot[http] extra is required to use HttpPlugin. Install with: pip install bigfoot[http]"
     ) from exc
 
+try:
+    import aiohttp
+    import aiohttp.client_reqrep
+
+    _AIOHTTP_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _AIOHTTP_AVAILABLE = False
+
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import _get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
@@ -38,6 +46,10 @@ _HTTPX_ORIGINAL_HANDLE: Any = httpx.HTTPTransport.handle_request
 _HTTPX_ORIGINAL_ASYNC_HANDLE: Any = httpx.AsyncHTTPTransport.handle_async_request
 _REQUESTS_ORIGINAL_SEND: Any = requests.adapters.HTTPAdapter.send
 
+_AIOHTTP_ORIGINAL_REQUEST: Any = None
+if _AIOHTTP_AVAILABLE:
+    _AIOHTTP_ORIGINAL_REQUEST = aiohttp.ClientSession._request
+
 # ---------------------------------------------------------------------------
 # Module-level references to our own interceptors.
 # Set during _install_patches so _check_conflicts can distinguish bigfoot
@@ -47,6 +59,7 @@ _REQUESTS_ORIGINAL_SEND: Any = requests.adapters.HTTPAdapter.send
 _bigfoot_httpx_handle: Any = None
 _bigfoot_httpx_async_handle: Any = None
 _bigfoot_requests_send: Any = None
+_bigfoot_aiohttp_request: Any = None
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +172,78 @@ def _find_http_plugin(verifier: "StrictVerifier") -> "HttpPlugin":
     )
 
 
+# ---------------------------------------------------------------------------
+# Fake aiohttp response
+# ---------------------------------------------------------------------------
+
+
+class _FakeAiohttpResponse:
+    """Lightweight stand-in for ``aiohttp.ClientResponse``.
+
+    Only implements the subset of attributes / methods that callers typically
+    use after ``await session.get(...)`` or ``await session.request(...)``.
+    """
+
+    def __init__(
+        self,
+        method: str,
+        url: str,
+        *,
+        status: int,
+        headers: dict[str, str],
+        body: bytes,
+    ) -> None:
+        self.method = method
+        self.status = status
+        self.headers = headers
+        self._body = body
+        self.reason = "OK" if 200 <= status < 400 else "Error"
+        self.content_type = headers.get("content-type", "application/octet-stream")
+
+        if _AIOHTTP_AVAILABLE:
+            from yarl import URL
+
+            self.url = URL(url)
+            self.real_url = self.url
+        else:  # pragma: no cover
+            self.url = url
+            self.real_url = url
+
+    @property
+    def ok(self) -> bool:
+        return 200 <= self.status < 300
+
+    async def read(self) -> bytes:
+        return self._body
+
+    async def text(self, encoding: str = "utf-8") -> str:
+        return self._body.decode(encoding, errors="replace")
+
+    async def json(
+        self,
+        *,
+        content_type: str | None = "application/json",
+        encoding: str | None = None,
+    ) -> Any:  # noqa: ANN401
+        return json_module.loads(self._body)
+
+    def release(self) -> None:
+        pass
+
+    async def __aenter__(self) -> "_FakeAiohttpResponse":
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:  # noqa: ANN401
+        pass
+
+    @property
+    def closed(self) -> bool:
+        return False
+
+    def close(self) -> None:
+        pass
+
+
 def _identify_patcher(method: object) -> str:
     mod = getattr(method, "__module__", None) or ""
     qualname = getattr(method, "__qualname__", None) or ""
@@ -180,8 +265,8 @@ class HttpPlugin(BasePlugin):
     """HTTP interception plugin. Requires bigfoot[http] extra.
 
     Patches httpx sync/async transports, requests HTTPAdapter, urllib openers,
-    and asyncio.BaseEventLoop.run_in_executor at the class level. Uses
-    reference counting so nested sandboxes work correctly.
+    aiohttp ClientSession (if installed), and asyncio.BaseEventLoop.run_in_executor
+    at the class level. Uses reference counting so nested sandboxes work correctly.
     """
 
     # Class-level reference counting — shared across all instances/verifiers.
@@ -194,6 +279,7 @@ class HttpPlugin(BasePlugin):
     _original_requests_adapter_send: Any = None
     _original_urllib_opener: Any = None
     _original_run_in_executor: Any = None
+    _original_aiohttp_request: Any = None
 
     def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
         super().__init__(verifier)
@@ -401,12 +487,25 @@ class HttpPlugin(BasePlugin):
                 patcher=patcher,
             )
 
+        if _AIOHTTP_AVAILABLE:
+            current_aiohttp = aiohttp.ClientSession._request
+            if (
+                current_aiohttp is not _AIOHTTP_ORIGINAL_REQUEST
+                and current_aiohttp is not _bigfoot_aiohttp_request
+            ):
+                patcher = _identify_patcher(current_aiohttp)
+                raise ConflictError(
+                    target="aiohttp.ClientSession._request",
+                    patcher=patcher,
+                )
+
     # ------------------------------------------------------------------
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
     def _install_patches(self) -> None:
         global _bigfoot_httpx_handle, _bigfoot_httpx_async_handle, _bigfoot_requests_send
+        global _bigfoot_aiohttp_request
 
         # Save originals so we can restore them later.
         HttpPlugin._original_httpx_transport_handle = httpx.HTTPTransport.handle_request
@@ -453,9 +552,11 @@ class HttpPlugin(BasePlugin):
 
         self._install_urllib()
         self._patch_run_in_executor()
+        self._install_aiohttp()
 
     def _restore_patches(self) -> None:
         global _bigfoot_httpx_handle, _bigfoot_httpx_async_handle, _bigfoot_requests_send
+        global _bigfoot_aiohttp_request
 
         if HttpPlugin._original_httpx_transport_handle is not None:
             httpx.HTTPTransport.handle_request = HttpPlugin._original_httpx_transport_handle  # type: ignore[method-assign]
@@ -475,6 +576,11 @@ class HttpPlugin(BasePlugin):
         urllib.request.install_opener(HttpPlugin._original_urllib_opener)
         HttpPlugin._original_urllib_opener = None
 
+        # aiohttp
+        if _AIOHTTP_AVAILABLE and HttpPlugin._original_aiohttp_request is not None:
+            aiohttp.ClientSession._request = HttpPlugin._original_aiohttp_request  # type: ignore[method-assign]
+            HttpPlugin._original_aiohttp_request = None
+
         # run_in_executor
         import asyncio
 
@@ -485,6 +591,7 @@ class HttpPlugin(BasePlugin):
         _bigfoot_httpx_handle = None
         _bigfoot_httpx_async_handle = None
         _bigfoot_requests_send = None
+        _bigfoot_aiohttp_request = None
 
     def _install_urllib(self) -> None:
         HttpPlugin._original_urllib_opener = urllib.request._opener  # type: ignore[attr-defined]
@@ -526,6 +633,27 @@ class HttpPlugin(BasePlugin):
             return _original(loop, executor, wrapped)
 
         asyncio.BaseEventLoop.run_in_executor = _patched_run_in_executor  # type: ignore[assignment]
+
+    def _install_aiohttp(self) -> None:
+        global _bigfoot_aiohttp_request
+
+        if not _AIOHTTP_AVAILABLE:
+            return
+
+        HttpPlugin._original_aiohttp_request = aiohttp.ClientSession._request
+
+        async def _aiohttp_interceptor(
+            session_self: "aiohttp.ClientSession",
+            method: str,
+            str_or_url: Any,  # noqa: ANN401
+            **kwargs: Any,  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
+            verifier = _get_verifier_or_raise("http:request")
+            plugin = _find_http_plugin(verifier)
+            return await plugin._handle_aiohttp_request(session_self, method, str_or_url, **kwargs)
+
+        _bigfoot_aiohttp_request = _aiohttp_interceptor
+        aiohttp.ClientSession._request = _aiohttp_interceptor  # type: ignore[assignment]
 
     # ------------------------------------------------------------------
     # Mock config lookup
@@ -859,6 +987,106 @@ class HttpPlugin(BasePlugin):
             status=response.getcode() or 200,
             response_headers={},
             response_body="",
+        )
+        return response
+
+    async def _handle_aiohttp_request(
+        self,
+        session_self: Any,  # noqa: ANN401
+        method: str,
+        str_or_url: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
+    ) -> "_FakeAiohttpResponse":
+        """Handle an intercepted aiohttp request."""
+        url = str(str_or_url)
+
+        if self._matches_pass_through_rule(method, url):
+            return await self._execute_aiohttp_pass_through(
+                session_self, method, str_or_url, **kwargs
+            )
+
+        config = self._find_matching_config(method, url)
+
+        if config is None:
+            hint = self.format_unmocked_hint("http:request", (method, url), {})
+            raise UnmockedInteractionError(
+                source_id="http:request",
+                args=(method, url),
+                kwargs={},
+                hint=hint,
+            )
+
+        # Extract request body from kwargs
+        body_str = ""
+        if "data" in kwargs and kwargs["data"] is not None:
+            data = kwargs["data"]
+            if isinstance(data, bytes):
+                body_str = data.decode("utf-8", errors="replace")
+            elif isinstance(data, str):
+                body_str = data
+            else:
+                body_str = str(data)
+        elif "json" in kwargs and kwargs["json"] is not None:
+            body_str = json_module.dumps(kwargs["json"])
+
+        # Extract request headers from kwargs
+        req_headers: dict[str, str] = {}
+        if "headers" in kwargs and kwargs["headers"] is not None:
+            req_headers = dict(kwargs["headers"])
+
+        resp_body_str = config.response_body.decode("utf-8", errors="replace")
+        self._record_http_interaction(
+            method=method,
+            url=url,
+            request_headers=req_headers,
+            request_body=body_str,
+            status=config.response_status,
+            response_headers=dict(config.response_headers),
+            response_body=resp_body_str,
+        )
+
+        return _FakeAiohttpResponse(
+            method=method,
+            url=url,
+            status=config.response_status,
+            headers=config.response_headers,
+            body=config.response_body,
+        )
+
+    async def _execute_aiohttp_pass_through(
+        self,
+        session_self: Any,  # noqa: ANN401
+        method: str,
+        str_or_url: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
+        """Forward an aiohttp request to the real backend and record the interaction."""
+        original = HttpPlugin._original_aiohttp_request
+        response = await original(session_self, method, str_or_url, **kwargs)
+        url = str(str_or_url)
+        body_str = ""
+        if "data" in kwargs and kwargs["data"] is not None:
+            data = kwargs["data"]
+            if isinstance(data, bytes):
+                body_str = data.decode("utf-8", errors="replace")
+            elif isinstance(data, str):
+                body_str = data
+            else:
+                body_str = str(data)
+        elif "json" in kwargs and kwargs["json"] is not None:
+            body_str = json_module.dumps(kwargs["json"])
+        req_headers: dict[str, str] = {}
+        if "headers" in kwargs and kwargs["headers"] is not None:
+            req_headers = dict(kwargs["headers"])
+        resp_body = await response.read()
+        self._record_http_interaction(
+            method=method,
+            url=url,
+            request_headers=req_headers,
+            request_body=body_str,
+            status=response.status,
+            response_headers=dict(response.headers),
+            response_body=resp_body.decode("utf-8", errors="replace"),
         )
         return response
 

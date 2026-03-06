@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-03-06
+
+### Added
+
+- `aiohttp.ClientSession` interception in `HttpPlugin` -- when `bigfoot[aiohttp]` is installed, `HttpPlugin` intercepts all requests made through `aiohttp.ClientSession` (GET, POST, etc.) alongside the existing httpx, requests, and urllib transports. Mock responses return a lightweight fake response supporting `.status`, `.json()`, `.text()`, `.read()`, `.headers`, and async context manager usage.
+- `bigfoot[aiohttp]` optional extra -- adds `aiohttp>=3.9.0` dependency.
+- Conflict detection for `aiohttp.ClientSession._request` -- raises `ConflictError` if another library has patched it before bigfoot activates.
+- Pass-through support for aiohttp requests -- `http.pass_through(method, url)` works with aiohttp the same as with other transports.
+
 ## [0.8.0] - 2026-03-06
 
 ### Added
