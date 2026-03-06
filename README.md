@@ -17,7 +17,7 @@ pip install bigfoot                       # Core: MockPlugin + SubprocessPlugin 
 pip install bigfoot[psycopg2]             # + Psycopg2Plugin
 pip install bigfoot[asyncpg]              # + AsyncpgPlugin
 pip install bigfoot[http]                 # + HttpPlugin (httpx, requests, urllib)
-pip install bigfoot[aiohttp]             # + aiohttp support for HttpPlugin
+pip install bigfoot[aiohttp]              # + aiohttp support for HttpPlugin
 pip install bigfoot[websockets]           # + AsyncWebSocketPlugin (websockets library)
 pip install bigfoot[websocket-client]     # + SyncWebSocketPlugin (websocket-client library)
 pip install bigfoot[redis]                # + RedisPlugin (redis-py)
