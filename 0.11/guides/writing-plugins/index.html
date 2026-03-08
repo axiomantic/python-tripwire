@@ -1,0 +1,2686 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Every call recorded. Every field asserted. Zero guesswork.">
+      
+      
+      
+        <link rel="canonical" href="https://axiomantic.github.io/bigfoot/0.11/guides/writing-plugins/">
+      
+      
+        <link rel="prev" href="../pytest-integration/">
+      
+      
+        <link rel="next" href="../../reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Writing Plugins - bigfoot</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#writing-plugins" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="bigfoot" class="md-header__button md-logo" aria-label="bigfoot" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            bigfoot
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Writing Plugins
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/axiomantic/bigfoot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    axiomantic/bigfoot
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="bigfoot" class="md-nav__button md-logo" aria-label="bigfoot" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    bigfoot
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/axiomantic/bigfoot" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    axiomantic/bigfoot
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mock-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MockPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HttpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logging-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoggingPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../popen-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PopenPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async-subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncSubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DatabasePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../psycopg2-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Psycopg2Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../asyncpg-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncpgPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../smtp-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SmtpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../socket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SocketPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../redis-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RedisPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websocket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stateful-plugins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pytest-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pytest Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing Plugins
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#baseplugin-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BasePlugin contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#abstract-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Abstract methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#activate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        activate()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deactivate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        deactivate()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#matches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        matches()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_interaction()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_mock_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_mock_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_unmocked_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_unmocked_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_assert_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_assert_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assertable_fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        assertable_fields()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_unused_mocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_unused_mocks()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_unused_mock_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_unused_mock_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-record-method-concrete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The record() method (concrete)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interaction-dataclass-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interaction dataclass fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minimal-example-a-database-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimal example: a database plugin
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registering-and-using-the-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registering and using the plugin
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#statemachineplugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StateMachinePlugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="StateMachinePlugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-choose-statemachineplugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to choose StateMachinePlugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#abstract-methods_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Abstract methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_initial_stateself-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _initial_state(self) -&gt; str
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_transitionsself-dictstr-dictstr-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _transitions(self) -&gt; dict[str, dict[str, str]]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_unmocked_source_idself-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _unmocked_source_id(self) -&gt; str
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-scripting-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session scripting API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interaction-recording-and-assertions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interaction recording and assertions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#minimal-implementation-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimal implementation example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/verifier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StrictVerifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/mock-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MockPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HttpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/logging-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoggingPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/popen-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PopenPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/async-subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncSubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/database-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DatabasePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/psycopg2-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Psycopg2Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/asyncpg-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncpgPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/smtp-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SmtpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/socket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SocketPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/redis-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RedisPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/websocket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#baseplugin-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BasePlugin contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#abstract-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Abstract methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#activate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        activate()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deactivate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        deactivate()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#matches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        matches()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_interaction()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_mock_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_mock_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_unmocked_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_unmocked_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_assert_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_assert_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#assertable_fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        assertable_fields()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_unused_mocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_unused_mocks()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_unused_mock_hint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        format_unused_mock_hint()
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-record-method-concrete" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The record() method (concrete)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interaction-dataclass-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interaction dataclass fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minimal-example-a-database-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimal example: a database plugin
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registering-and-using-the-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registering and using the plugin
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#statemachineplugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        StateMachinePlugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="StateMachinePlugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-choose-statemachineplugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to choose StateMachinePlugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#abstract-methods_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abstract methods
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Abstract methods">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_initial_stateself-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _initial_state(self) -&gt; str
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_transitionsself-dictstr-dictstr-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _transitions(self) -&gt; dict[str, dict[str, str]]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_unmocked_source_idself-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _unmocked_source_id(self) -&gt; str
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#session-scripting-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session scripting API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#interaction-recording-and-assertions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interaction recording and assertions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#minimal-implementation-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimal implementation example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="writing-plugins">Writing Plugins<a class="headerlink" href="#writing-plugins" title="Permanent link">&para;</a></h1>
+<p>bigfoot's plugin system allows you to add interception for any type of interaction, not just HTTP or method calls. Custom plugins follow the <code>BasePlugin</code> abstract base class.</p>
+<h2 id="baseplugin-contract">BasePlugin contract<a class="headerlink" href="#baseplugin-contract" title="Permanent link">&para;</a></h2>
+<p>All plugins must subclass <code>BasePlugin</code> and implement ten abstract methods. The <code>__init__</code> method must call <code>super().__init__(verifier)</code>, which registers the plugin with the verifier.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._base_plugin</span><span class="w"> </span><span class="kn">import</span> <span class="n">BasePlugin</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._timeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interaction</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._verifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
+</code></pre></div>
+<h2 id="abstract-methods">Abstract methods<a class="headerlink" href="#abstract-methods" title="Permanent link">&para;</a></h2>
+<h3 id="activate">activate()<a class="headerlink" href="#activate" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Called when the sandbox is entered. Install your interceptors here. Must be thread-safe. Use class-level reference counting (increment a <code>_install_count</code> under a <code>_install_lock</code>) so nested sandboxes work correctly. Only install if count transitions from 0 to 1.</p>
+<p>Check for conflicts before installing. If another library has already patched your target, raise <code>ConflictError</code>.</p>
+<h3 id="deactivate">deactivate()<a class="headerlink" href="#deactivate" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">deactivate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Called when the sandbox exits. Remove interceptors and decrement the count. Only restore originals if the count reaches 0. Must not raise; collect errors for the caller to raise after ContextVar reset.</p>
+<h3 id="matches">matches()<a class="headerlink" href="#matches" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">,</span> <span class="n">expected</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Called by <code>assert_interaction()</code> to check whether an interaction matches the expected fields. Return <code>True</code> if all expected key-value pairs are satisfied. Must never raise; catch exceptions and return <code>False</code>.</p>
+<h3 id="format_interaction">format_interaction()<a class="headerlink" href="#format_interaction" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_interaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return a one-line human-readable description of the interaction for error messages and the remaining-timeline display. Example: <code>"[HttpPlugin] POST https://api.example.com/v1"</code>.</p>
+<h3 id="format_mock_hint">format_mock_hint()<a class="headerlink" href="#format_mock_hint" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_mock_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return copy-pasteable code that would configure a mock for this interaction. Used in <code>UnassertedInteractionsError</code> hints to guide the developer.</p>
+<h3 id="format_unmocked_hint">format_unmocked_hint()<a class="headerlink" href="#format_unmocked_hint" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_unmocked_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return copy-pasteable code for mocking a call that fired before reaching the timeline (i.e., the queue was empty or no mock matched). Used in <code>UnmockedInteractionError</code> hints.</p>
+<h3 id="format_assert_hint">format_assert_hint()<a class="headerlink" href="#format_assert_hint" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_assert_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return copy-pasteable code that would assert this specific interaction. Used in <code>UnassertedInteractionsError</code> hints.</p>
+<h3 id="assertable_fields">assertable_fields()<a class="headerlink" href="#assertable_fields" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">assertable_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return the set of <code>interaction.details</code> keys that callers MUST include in <code>assert_interaction(**expected)</code>. Any key returned here that is absent from the caller's <code>**expected</code> causes <code>assert_interaction()</code> to raise <code>MissingAssertionFieldsError</code> before any matching logic runs.</p>
+<p>Implement to return only keys that carry meaningful signal. Do not include keys that are redundant with <code>source_id</code> (such as <code>mock_name</code> or <code>method_name</code> when the source already identifies the method). The goal is to prevent silent partial assertions, not to force callers to repeat information already encoded in the source.</p>
+<p>For example, <code>MockPlugin</code> returns <code>frozenset({"args", "kwargs"})</code> because callers should not be able to assert a mock interaction without confirming what it was called with.</p>
+<h3 id="get_unused_mocks">get_unused_mocks()<a class="headerlink" href="#get_unused_mocks" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_unused_mocks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return all mock configuration objects that are <code>required=True</code> and were never consumed. <code>verify_all()</code> iterates plugins and calls this method.</p>
+<h3 id="format_unused_mock_hint">format_unused_mock_hint()<a class="headerlink" href="#format_unused_mock_hint" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">format_unused_mock_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mock_config</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<p>Return a hint string for one unused mock. Typically includes the registration traceback and instructions to either remove the mock or mark it <code>required=False</code>.</p>
+<h2 id="the-record-method-concrete">The record() method (concrete)<a class="headerlink" href="#the-record-method-concrete" title="Permanent link">&para;</a></h2>
+<p><code>BasePlugin</code> provides a concrete <code>record()</code> method that appends an <code>Interaction</code> to the verifier's shared timeline:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">verifier</span><span class="o">.</span><span class="n">_timeline</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">interaction</span><span class="p">)</span>
+</code></pre></div>
+<p>Call <code>self.record(interaction)</code> from your interceptor after a call fires.</p>
+<h2 id="interaction-dataclass-fields">Interaction dataclass fields<a class="headerlink" href="#interaction-dataclass-fields" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source_id</code></td>
+<td><code>str</code></td>
+<td>Unique identifier for this interceptor (e.g., <code>"mock:Name.method"</code>, <code>"http:request"</code>)</td>
+</tr>
+<tr>
+<td><code>sequence</code></td>
+<td><code>int</code></td>
+<td>Assigned atomically by <code>Timeline.append()</code>. Set to <code>0</code> before recording.</td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td><code>dict[str, Any]</code></td>
+<td>Plugin-specific data; queried by <code>matches()</code> and <code>format_*()</code> methods</td>
+</tr>
+<tr>
+<td><code>plugin</code></td>
+<td><code>BasePlugin</code></td>
+<td>Reference to the plugin that recorded this interaction</td>
+</tr>
+</tbody>
+</table>
+<h2 id="minimal-example-a-database-plugin">Minimal example: a database plugin<a class="headerlink" href="#minimal-example-a-database-plugin" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._base_plugin</span><span class="w"> </span><span class="kn">import</span> <span class="n">BasePlugin</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnmockedInteractionError</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._timeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interaction</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._verifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">DbMockConfig</span><span class="p">:</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">required</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="n">query</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="n">result</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">required</span> <span class="o">=</span> <span class="n">required</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="k">class</span><span class="w"> </span><span class="nc">DatabasePlugin</span><span class="p">(</span><span class="n">BasePlugin</span><span class="p">):</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>    <span class="n">_install_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>    <span class="n">_install_lock</span><span class="p">:</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a>    <span class="n">_original_execute</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verifier</span><span class="p">:</span> <span class="n">StrictVerifier</span><span class="p">,</span> <span class="n">connection</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">verifier</span><span class="p">)</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span> <span class="o">=</span> <span class="n">connection</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_mock_queue</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">DbMockConfig</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a>
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">mock_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">required</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_mock_queue</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">DbMockConfig</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="n">result</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="n">required</span><span class="p">))</span>
+<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>
+<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a>        <span class="k">with</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_lock</span><span class="p">:</span>
+<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a>            <span class="k">if</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a>                <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_original_execute</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">execute</span>
+<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a>                <span class="n">plugin_ref</span> <span class="o">=</span> <span class="bp">self</span>
+<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a>
+<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a>                <span class="k">def</span><span class="w"> </span><span class="nf">_interceptor</span><span class="p">(</span><span class="n">conn_self</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a>                    <span class="n">config</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+<a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a>                        <span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">plugin_ref</span><span class="o">.</span><span class="n">_mock_queue</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">query</span> <span class="o">==</span> <span class="n">query</span><span class="p">),</span> <span class="kc">None</span>
+<a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a>                    <span class="p">)</span>
+<a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a>                    <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a>                        <span class="n">hint</span> <span class="o">=</span> <span class="n">plugin_ref</span><span class="o">.</span><span class="n">format_unmocked_hint</span><span class="p">(</span><span class="s2">&quot;db:execute&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">query</span><span class="p">,),</span> <span class="p">{})</span>
+<a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a>                        <span class="k">raise</span> <span class="n">UnmockedInteractionError</span><span class="p">(</span>
+<a id="__codelineno-12-42" name="__codelineno-12-42" href="#__codelineno-12-42"></a>                            <span class="n">source_id</span><span class="o">=</span><span class="s2">&quot;db:execute&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">query</span><span class="p">,),</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">hint</span><span class="o">=</span><span class="n">hint</span>
+<a id="__codelineno-12-43" name="__codelineno-12-43" href="#__codelineno-12-43"></a>                        <span class="p">)</span>
+<a id="__codelineno-12-44" name="__codelineno-12-44" href="#__codelineno-12-44"></a>                    <span class="n">plugin_ref</span><span class="o">.</span><span class="n">_mock_queue</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-12-45" name="__codelineno-12-45" href="#__codelineno-12-45"></a>                    <span class="n">interaction</span> <span class="o">=</span> <span class="n">Interaction</span><span class="p">(</span>
+<a id="__codelineno-12-46" name="__codelineno-12-46" href="#__codelineno-12-46"></a>                        <span class="n">source_id</span><span class="o">=</span><span class="s2">&quot;db:execute&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-47" name="__codelineno-12-47" href="#__codelineno-12-47"></a>                        <span class="n">sequence</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-12-48" name="__codelineno-12-48" href="#__codelineno-12-48"></a>                        <span class="n">details</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="n">query</span><span class="p">},</span>
+<a id="__codelineno-12-49" name="__codelineno-12-49" href="#__codelineno-12-49"></a>                        <span class="n">plugin</span><span class="o">=</span><span class="n">plugin_ref</span><span class="p">,</span>
+<a id="__codelineno-12-50" name="__codelineno-12-50" href="#__codelineno-12-50"></a>                    <span class="p">)</span>
+<a id="__codelineno-12-51" name="__codelineno-12-51" href="#__codelineno-12-51"></a>                    <span class="n">plugin_ref</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">interaction</span><span class="p">)</span>
+<a id="__codelineno-12-52" name="__codelineno-12-52" href="#__codelineno-12-52"></a>                    <span class="k">return</span> <span class="n">config</span><span class="o">.</span><span class="n">result</span>
+<a id="__codelineno-12-53" name="__codelineno-12-53" href="#__codelineno-12-53"></a>
+<a id="__codelineno-12-54" name="__codelineno-12-54" href="#__codelineno-12-54"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">execute</span> <span class="o">=</span> <span class="n">_interceptor</span>
+<a id="__codelineno-12-55" name="__codelineno-12-55" href="#__codelineno-12-55"></a>            <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-12-56" name="__codelineno-12-56" href="#__codelineno-12-56"></a>
+<a id="__codelineno-12-57" name="__codelineno-12-57" href="#__codelineno-12-57"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">deactivate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-12-58" name="__codelineno-12-58" href="#__codelineno-12-58"></a>        <span class="k">with</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_lock</span><span class="p">:</span>
+<a id="__codelineno-12-59" name="__codelineno-12-59" href="#__codelineno-12-59"></a>            <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-12-60" name="__codelineno-12-60" href="#__codelineno-12-60"></a>            <span class="k">if</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_original_execute</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-12-61" name="__codelineno-12-61" href="#__codelineno-12-61"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">_connection</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="n">execute</span> <span class="o">=</span> <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_original_execute</span>
+<a id="__codelineno-12-62" name="__codelineno-12-62" href="#__codelineno-12-62"></a>                <span class="n">DatabasePlugin</span><span class="o">.</span><span class="n">_original_execute</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-12-63" name="__codelineno-12-63" href="#__codelineno-12-63"></a>
+<a id="__codelineno-12-64" name="__codelineno-12-64" href="#__codelineno-12-64"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">matches</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">,</span> <span class="n">expected</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-12-65" name="__codelineno-12-65" href="#__codelineno-12-65"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-12-66" name="__codelineno-12-66" href="#__codelineno-12-66"></a>            <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">expected</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+<a id="__codelineno-12-67" name="__codelineno-12-67" href="#__codelineno-12-67"></a>        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+<a id="__codelineno-12-68" name="__codelineno-12-68" href="#__codelineno-12-68"></a>            <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-12-69" name="__codelineno-12-69" href="#__codelineno-12-69"></a>
+<a id="__codelineno-12-70" name="__codelineno-12-70" href="#__codelineno-12-70"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_interaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-12-71" name="__codelineno-12-71" href="#__codelineno-12-71"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;[DatabasePlugin] execute: </span><span class="si">{</span><span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;query&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;?&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-12-72" name="__codelineno-12-72" href="#__codelineno-12-72"></a>
+<a id="__codelineno-12-73" name="__codelineno-12-73" href="#__codelineno-12-73"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_mock_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-12-74" name="__codelineno-12-74" href="#__codelineno-12-74"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="s2">&quot;SELECT ...&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-75" name="__codelineno-12-75" href="#__codelineno-12-75"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;db.mock_query(&quot;</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s1">&quot;, result=[...])&#39;</span>
+<a id="__codelineno-12-76" name="__codelineno-12-76" href="#__codelineno-12-76"></a>
+<a id="__codelineno-12-77" name="__codelineno-12-77" href="#__codelineno-12-77"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_unmocked_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-12-78" name="__codelineno-12-78" href="#__codelineno-12-78"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">args</span> <span class="k">else</span> <span class="s2">&quot;SELECT ...&quot;</span>
+<a id="__codelineno-12-79" name="__codelineno-12-79" href="#__codelineno-12-79"></a>        <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-12-80" name="__codelineno-12-80" href="#__codelineno-12-80"></a>            <span class="sa">f</span><span class="s2">&quot;Unexpected DB query: </span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="se">\n\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-12-81" name="__codelineno-12-81" href="#__codelineno-12-81"></a>            <span class="sa">f</span><span class="s2">&quot;  To mock this query, add before your sandbox:</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-12-82" name="__codelineno-12-82" href="#__codelineno-12-82"></a>            <span class="sa">f</span><span class="s1">&#39;    db.mock_query(&quot;</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s1">&quot;, result=[...])&#39;</span>
+<a id="__codelineno-12-83" name="__codelineno-12-83" href="#__codelineno-12-83"></a>        <span class="p">)</span>
+<a id="__codelineno-12-84" name="__codelineno-12-84" href="#__codelineno-12-84"></a>
+<a id="__codelineno-12-85" name="__codelineno-12-85" href="#__codelineno-12-85"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_assert_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-12-86" name="__codelineno-12-86" href="#__codelineno-12-86"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)</span>
+<a id="__codelineno-12-87" name="__codelineno-12-87" href="#__codelineno-12-87"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;verifier.assert_interaction(db_sentinel, query=&quot;</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s1">&quot;)&#39;</span>
+<a id="__codelineno-12-88" name="__codelineno-12-88" href="#__codelineno-12-88"></a>
+<a id="__codelineno-12-89" name="__codelineno-12-89" href="#__codelineno-12-89"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">assertable_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-12-90" name="__codelineno-12-90" href="#__codelineno-12-90"></a>        <span class="k">return</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;query&quot;</span><span class="p">})</span>
+<a id="__codelineno-12-91" name="__codelineno-12-91" href="#__codelineno-12-91"></a>
+<a id="__codelineno-12-92" name="__codelineno-12-92" href="#__codelineno-12-92"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_unused_mocks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DbMockConfig</span><span class="p">]:</span>
+<a id="__codelineno-12-93" name="__codelineno-12-93" href="#__codelineno-12-93"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mock_queue</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">required</span><span class="p">]</span>
+<a id="__codelineno-12-94" name="__codelineno-12-94" href="#__codelineno-12-94"></a>
+<a id="__codelineno-12-95" name="__codelineno-12-95" href="#__codelineno-12-95"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_unused_mock_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mock_config</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-12-96" name="__codelineno-12-96" href="#__codelineno-12-96"></a>        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mock_config</span><span class="p">,</span> <span class="n">DbMockConfig</span><span class="p">)</span>
+<a id="__codelineno-12-97" name="__codelineno-12-97" href="#__codelineno-12-97"></a>        <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-12-98" name="__codelineno-12-98" href="#__codelineno-12-98"></a>            <span class="sa">f</span><span class="s2">&quot;db:execute query=</span><span class="si">{</span><span class="n">mock_config</span><span class="o">.</span><span class="n">query</span><span class="si">!r}</span><span class="s2"> was registered but never called.</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-12-99" name="__codelineno-12-99" href="#__codelineno-12-99"></a>            <span class="sa">f</span><span class="s2">&quot;  - Remove this mock if it&#39;s not needed</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-12-100" name="__codelineno-12-100" href="#__codelineno-12-100"></a>            <span class="sa">f</span><span class="s1">&#39;  - Mark it optional: db.mock_query(&quot;</span><span class="si">{</span><span class="n">mock_config</span><span class="o">.</span><span class="n">query</span><span class="si">}</span><span class="s1">&quot;, ..., required=False)&#39;</span>
+<a id="__codelineno-12-101" name="__codelineno-12-101" href="#__codelineno-12-101"></a>        <span class="p">)</span>
+</code></pre></div>
+<h2 id="registering-and-using-the-plugin">Registering and using the plugin<a class="headerlink" href="#registering-and-using-the-plugin" title="Permanent link">&para;</a></h2>
+<p>In pytest, use <code>bigfoot.current_verifier()</code> to register the plugin against the autouse verifier:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_db_query</span><span class="p">():</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>    <span class="n">db</span> <span class="o">=</span> <span class="n">DatabasePlugin</span><span class="p">(</span><span class="n">bigfoot</span><span class="o">.</span><span class="n">current_verifier</span><span class="p">(),</span> <span class="n">my_connection</span><span class="p">)</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="n">db</span><span class="o">.</span><span class="n">mock_query</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM users&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}])</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="k">with</span> <span class="n">bigfoot</span><span class="p">:</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>        <span class="n">rows</span> <span class="o">=</span> <span class="n">my_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM users&quot;</span><span class="p">)</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>        <span class="k">assert</span> <span class="n">rows</span> <span class="o">==</span> <span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}]</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="c1"># query= is the sole assertable field for DatabasePlugin</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">db_sentinel</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="s2">&quot;SELECT * FROM users&quot;</span><span class="p">)</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    <span class="c1"># verify_all() called automatically at teardown</span>
+</code></pre></div>
+<p>For manual use outside pytest:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">verifier</span> <span class="o">=</span> <span class="n">StrictVerifier</span><span class="p">()</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">db</span> <span class="o">=</span> <span class="n">DatabasePlugin</span><span class="p">(</span><span class="n">verifier</span><span class="p">,</span> <span class="n">my_connection</span><span class="p">)</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">db</span><span class="o">.</span><span class="n">mock_query</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM users&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}])</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">with</span> <span class="n">verifier</span><span class="o">.</span><span class="n">sandbox</span><span class="p">():</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="n">rows</span> <span class="o">=</span> <span class="n">my_connection</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT * FROM users&quot;</span><span class="p">)</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="k">assert</span> <span class="n">rows</span> <span class="o">==</span> <span class="p">[{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}]</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>
+<a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="n">verifier</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">db_sentinel</span><span class="p">,</span> <span class="n">query</span><span class="o">=</span><span class="s2">&quot;SELECT * FROM users&quot;</span><span class="p">)</span>
+<a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="n">verifier</span><span class="o">.</span><span class="n">verify_all</span><span class="p">()</span>
+</code></pre></div>
+<hr />
+<h2 id="statemachineplugin">StateMachinePlugin<a class="headerlink" href="#statemachineplugin" title="Permanent link">&para;</a></h2>
+<p>Use <code>StateMachinePlugin</code> when the protocol your plugin models has a defined sequence of states — a connection that must be established before messages can flow, and closed before the object is discarded. Use <code>BasePlugin</code> directly when calls are stateless (HTTP requests, Redis GET/SET, arbitrary method mocks that carry no ordering constraint).</p>
+<h3 id="when-to-choose-statemachineplugin">When to choose StateMachinePlugin<a class="headerlink" href="#when-to-choose-statemachineplugin" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Base class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Socket (connect → send/recv → close)</td>
+<td><code>StateMachinePlugin</code></td>
+</tr>
+<tr>
+<td>Database (connect → execute → commit → close)</td>
+<td><code>StateMachinePlugin</code></td>
+</tr>
+<tr>
+<td>WebSocket (open → send/recv → close)</td>
+<td><code>StateMachinePlugin</code></td>
+</tr>
+<tr>
+<td>SMTP (connect → ehlo → login → sendmail → quit)</td>
+<td><code>StateMachinePlugin</code></td>
+</tr>
+<tr>
+<td>HTTP request/response cycle</td>
+<td><code>BasePlugin</code></td>
+</tr>
+<tr>
+<td>Redis commands (GET, SET, DEL — stateless)</td>
+<td><code>BasePlugin</code></td>
+</tr>
+<tr>
+<td>Generic method mock</td>
+<td><code>BasePlugin</code> via <code>MockPlugin</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>StateMachinePlugin</code> enforces that method calls happen from the correct state. Calling <code>recv</code> before <code>connect</code> raises <code>InvalidStateError</code> immediately, making bugs visible at the call site rather than as mysterious data corruption later.</p>
+<h3 id="abstract-methods_1">Abstract methods<a class="headerlink" href="#abstract-methods_1" title="Permanent link">&para;</a></h3>
+<p><code>StateMachinePlugin</code> requires seven abstract methods from <code>BasePlugin</code> (<code>activate</code>, <code>deactivate</code>, <code>format_interaction</code>, <code>format_mock_hint</code>, <code>format_unmocked_hint</code>, <code>format_assert_hint</code>, and <code>format_unused_mock_hint</code>) plus three of its own:</p>
+<h4 id="_initial_stateself-str"><code>_initial_state(self) -&gt; str</code><a class="headerlink" href="#_initial_stateself-str" title="Permanent link">&para;</a></h4>
+<p>Return the name of the state a fresh connection starts in.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_initial_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="k">return</span> <span class="s2">&quot;disconnected&quot;</span>
+</code></pre></div>
+<h4 id="_transitionsself-dictstr-dictstr-str"><code>_transitions(self) -&gt; dict[str, dict[str, str]]</code><a class="headerlink" href="#_transitionsself-dictstr-dictstr-str" title="Permanent link">&para;</a></h4>
+<p>Return the full transition table as a nested dict:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span><span class="n">method_name</span><span class="p">:</span> <span class="p">{</span><span class="n">from_state</span><span class="p">:</span> <span class="n">to_state</span><span class="p">,</span> <span class="o">...</span><span class="p">},</span> <span class="o">...</span><span class="p">}</span>
+</code></pre></div>
+<p>A method may appear in multiple from-states (for example, a <code>close</code> that is valid from either <code>connected</code> or <code>in_transaction</code>). A method that stays in the same state (like <code>send</code> while connected) uses <code>{current: current}</code> as the from/to pair.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_transitions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>        <span class="s2">&quot;connect&quot;</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;disconnected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>        <span class="s2">&quot;send&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>        <span class="s2">&quot;recv&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        <span class="s2">&quot;close&quot;</span><span class="p">:</span>    <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;closed&quot;</span><span class="p">},</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="p">}</span>
+</code></pre></div>
+<h4 id="_unmocked_source_idself-str"><code>_unmocked_source_id(self) -&gt; str</code><a class="headerlink" href="#_unmocked_source_idself-str" title="Permanent link">&para;</a></h4>
+<p>Return the source ID string reported in <code>UnmockedInteractionError</code> when <code>new_session()</code> has not been called before a connection attempt. Conventionally matches the "entry point" interceptor.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_unmocked_source_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    <span class="k">return</span> <span class="s2">&quot;myprotocol:connect&quot;</span>
+</code></pre></div>
+<h3 id="session-scripting-api">Session scripting API<a class="headerlink" href="#session-scripting-api" title="Permanent link">&para;</a></h3>
+<p>Before the sandbox runs, register one session per expected connection:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">handle</span> <span class="o">=</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">socket_mock</span><span class="o">.</span><span class="n">new_session</span><span class="p">()</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">handle</span><span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;connect&quot;</span><span class="p">,</span> <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">handle</span><span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;recv&quot;</span><span class="p">,</span>    <span class="n">returns</span><span class="o">=</span><span class="sa">b</span><span class="s2">&quot;pong&quot;</span><span class="p">)</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="n">handle</span><span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;close&quot;</span><span class="p">,</span>   <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+<p><code>new_session()</code> returns a <code>SessionHandle</code>. <code>expect()</code> appends one <code>ScriptStep</code> to the handle's FIFO script and returns the handle, so calls chain naturally:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">(</span><span class="n">bigfoot</span><span class="o">.</span><span class="n">socket_mock</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    <span class="o">.</span><span class="n">new_session</span><span class="p">()</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;connect&quot;</span><span class="p">,</span> <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>    <span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;send&quot;</span><span class="p">,</span>    <span class="n">returns</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>    <span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;recv&quot;</span><span class="p">,</span>    <span class="n">returns</span><span class="o">=</span><span class="sa">b</span><span class="s2">&quot;pong&quot;</span><span class="p">)</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>    <span class="o">.</span><span class="n">expect</span><span class="p">(</span><span class="s2">&quot;close&quot;</span><span class="p">,</span>   <span class="n">returns</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span>
+</code></pre></div>
+<p><code>expect</code> parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>method</code></td>
+<td><code>str</code></td>
+<td>required</td>
+<td>Method name, must match a key in <code>_transitions()</code></td>
+</tr>
+<tr>
+<td><code>returns</code></td>
+<td><code>Any</code></td>
+<td>required</td>
+<td>Value returned when this step executes</td>
+</tr>
+<tr>
+<td><code>raises</code></td>
+<td><code>BaseException \| None</code></td>
+<td><code>None</code></td>
+<td>Exception raised instead of returning</td>
+</tr>
+<tr>
+<td><code>required</code></td>
+<td><code>bool</code></td>
+<td><code>True</code></td>
+<td>When <code>True</code>, teardown reports the step as unused if never consumed</td>
+</tr>
+</tbody>
+</table>
+<p>Sessions are consumed in FIFO order. The first call to the connection entry point (e.g., <code>socket.connect()</code>) pops the first queued <code>SessionHandle</code> and binds it to that connection object. All subsequent method calls on the same connection object consume steps from that handle in order.</p>
+<h3 id="interaction-recording-and-assertions">Interaction recording and assertions<a class="headerlink" href="#interaction-recording-and-assertions" title="Permanent link">&para;</a></h3>
+<p>State machine plugins auto-assert every interaction at the time it is recorded. You do not call <code>bigfoot.assert_interaction()</code> for stateful plugins — there is nothing to assert after the sandbox. <code>verify_all()</code> still runs at teardown and will report any <code>required=True</code> steps that were configured but never consumed.</p>
+<h3 id="minimal-implementation-example">Minimal implementation example<a class="headerlink" href="#minimal-implementation-example" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._state_machine_plugin</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateMachinePlugin</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot._timeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Interaction</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="k">class</span><span class="w"> </span><span class="nc">FtpPlugin</span><span class="p">(</span><span class="n">StateMachinePlugin</span><span class="p">):</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Mock plugin for a simple two-state FTP-like protocol.&quot;&quot;&quot;</span>
+<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>
+<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>    <span class="n">_install_count</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>    <span class="n">_install_lock</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">]</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>    <span class="n">_original_connect</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a>
+<a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>    <span class="c1"># -- StateMachinePlugin abstract methods --------------------------------</span>
+<a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a>
+<a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_initial_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a>        <span class="k">return</span> <span class="s2">&quot;disconnected&quot;</span>
+<a id="__codelineno-21-19" name="__codelineno-21-19" href="#__codelineno-21-19"></a>
+<a id="__codelineno-21-20" name="__codelineno-21-20" href="#__codelineno-21-20"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_transitions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-21-21" name="__codelineno-21-21" href="#__codelineno-21-21"></a>        <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-21-22" name="__codelineno-21-22" href="#__codelineno-21-22"></a>            <span class="s2">&quot;connect&quot;</span><span class="p">:</span>  <span class="p">{</span><span class="s2">&quot;disconnected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-21-23" name="__codelineno-21-23" href="#__codelineno-21-23"></a>            <span class="s2">&quot;list&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-21-24" name="__codelineno-21-24" href="#__codelineno-21-24"></a>            <span class="s2">&quot;get&quot;</span><span class="p">:</span>      <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-21-25" name="__codelineno-21-25" href="#__codelineno-21-25"></a>            <span class="s2">&quot;put&quot;</span><span class="p">:</span>      <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">},</span>
+<a id="__codelineno-21-26" name="__codelineno-21-26" href="#__codelineno-21-26"></a>            <span class="s2">&quot;quit&quot;</span><span class="p">:</span>     <span class="p">{</span><span class="s2">&quot;connected&quot;</span><span class="p">:</span> <span class="s2">&quot;closed&quot;</span><span class="p">},</span>
+<a id="__codelineno-21-27" name="__codelineno-21-27" href="#__codelineno-21-27"></a>        <span class="p">}</span>
+<a id="__codelineno-21-28" name="__codelineno-21-28" href="#__codelineno-21-28"></a>
+<a id="__codelineno-21-29" name="__codelineno-21-29" href="#__codelineno-21-29"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_unmocked_source_id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-30" name="__codelineno-21-30" href="#__codelineno-21-30"></a>        <span class="k">return</span> <span class="s2">&quot;ftp:connect&quot;</span>
+<a id="__codelineno-21-31" name="__codelineno-21-31" href="#__codelineno-21-31"></a>
+<a id="__codelineno-21-32" name="__codelineno-21-32" href="#__codelineno-21-32"></a>    <span class="c1"># -- BasePlugin lifecycle -----------------------------------------------</span>
+<a id="__codelineno-21-33" name="__codelineno-21-33" href="#__codelineno-21-33"></a>
+<a id="__codelineno-21-34" name="__codelineno-21-34" href="#__codelineno-21-34"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">activate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-21-35" name="__codelineno-21-35" href="#__codelineno-21-35"></a>        <span class="k">with</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_lock</span><span class="p">:</span>
+<a id="__codelineno-21-36" name="__codelineno-21-36" href="#__codelineno-21-36"></a>            <span class="k">if</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-21-37" name="__codelineno-21-37" href="#__codelineno-21-37"></a>                <span class="kn">import</span><span class="w"> </span><span class="nn">ftplib</span>
+<a id="__codelineno-21-38" name="__codelineno-21-38" href="#__codelineno-21-38"></a>                <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_original_connect</span> <span class="o">=</span> <span class="n">ftplib</span><span class="o">.</span><span class="n">FTP</span><span class="o">.</span><span class="n">connect</span>
+<a id="__codelineno-21-39" name="__codelineno-21-39" href="#__codelineno-21-39"></a>                <span class="c1"># ... install interceptors ...</span>
+<a id="__codelineno-21-40" name="__codelineno-21-40" href="#__codelineno-21-40"></a>            <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-21-41" name="__codelineno-21-41" href="#__codelineno-21-41"></a>
+<a id="__codelineno-21-42" name="__codelineno-21-42" href="#__codelineno-21-42"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">deactivate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-21-43" name="__codelineno-21-43" href="#__codelineno-21-43"></a>        <span class="k">with</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_lock</span><span class="p">:</span>
+<a id="__codelineno-21-44" name="__codelineno-21-44" href="#__codelineno-21-44"></a>            <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-21-45" name="__codelineno-21-45" href="#__codelineno-21-45"></a>            <span class="k">if</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_install_count</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_original_connect</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-21-46" name="__codelineno-21-46" href="#__codelineno-21-46"></a>                <span class="kn">import</span><span class="w"> </span><span class="nn">ftplib</span>
+<a id="__codelineno-21-47" name="__codelineno-21-47" href="#__codelineno-21-47"></a>                <span class="n">ftplib</span><span class="o">.</span><span class="n">FTP</span><span class="o">.</span><span class="n">connect</span> <span class="o">=</span> <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_original_connect</span>
+<a id="__codelineno-21-48" name="__codelineno-21-48" href="#__codelineno-21-48"></a>                <span class="n">FtpPlugin</span><span class="o">.</span><span class="n">_original_connect</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-21-49" name="__codelineno-21-49" href="#__codelineno-21-49"></a>
+<a id="__codelineno-21-50" name="__codelineno-21-50" href="#__codelineno-21-50"></a>    <span class="c1"># -- BasePlugin format methods ------------------------------------------</span>
+<a id="__codelineno-21-51" name="__codelineno-21-51" href="#__codelineno-21-51"></a>
+<a id="__codelineno-21-52" name="__codelineno-21-52" href="#__codelineno-21-52"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_interaction</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-53" name="__codelineno-21-53" href="#__codelineno-21-53"></a>        <span class="n">method</span> <span class="o">=</span> <span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;method&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-54" name="__codelineno-21-54" href="#__codelineno-21-54"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;[FtpPlugin] ftp.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">(...)&quot;</span>
+<a id="__codelineno-21-55" name="__codelineno-21-55" href="#__codelineno-21-55"></a>
+<a id="__codelineno-21-56" name="__codelineno-21-56" href="#__codelineno-21-56"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_mock_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-57" name="__codelineno-21-57" href="#__codelineno-21-57"></a>        <span class="n">method</span> <span class="o">=</span> <span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;method&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-58" name="__codelineno-21-58" href="#__codelineno-21-58"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;    bigfoot.ftp_mock.new_session().expect(</span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">, returns=...)&quot;</span>
+<a id="__codelineno-21-59" name="__codelineno-21-59" href="#__codelineno-21-59"></a>
+<a id="__codelineno-21-60" name="__codelineno-21-60" href="#__codelineno-21-60"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_unmocked_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-61" name="__codelineno-21-61" href="#__codelineno-21-61"></a>        <span class="n">method</span> <span class="o">=</span> <span class="n">source_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="s2">&quot;:&quot;</span> <span class="ow">in</span> <span class="n">source_id</span> <span class="k">else</span> <span class="n">source_id</span>
+<a id="__codelineno-21-62" name="__codelineno-21-62" href="#__codelineno-21-62"></a>        <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-21-63" name="__codelineno-21-63" href="#__codelineno-21-63"></a>            <span class="sa">f</span><span class="s2">&quot;ftp.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">(...) was called but no session was queued.</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-21-64" name="__codelineno-21-64" href="#__codelineno-21-64"></a>            <span class="sa">f</span><span class="s2">&quot;Register a session with:</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-21-65" name="__codelineno-21-65" href="#__codelineno-21-65"></a>            <span class="sa">f</span><span class="s2">&quot;    bigfoot.ftp_mock.new_session().expect(</span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">, returns=...)&quot;</span>
+<a id="__codelineno-21-66" name="__codelineno-21-66" href="#__codelineno-21-66"></a>        <span class="p">)</span>
+<a id="__codelineno-21-67" name="__codelineno-21-67" href="#__codelineno-21-67"></a>
+<a id="__codelineno-21-68" name="__codelineno-21-68" href="#__codelineno-21-68"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_assert_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interaction</span><span class="p">:</span> <span class="n">Interaction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-69" name="__codelineno-21-69" href="#__codelineno-21-69"></a>        <span class="n">method</span> <span class="o">=</span> <span class="n">interaction</span><span class="o">.</span><span class="n">details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;method&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-70" name="__codelineno-21-70" href="#__codelineno-21-70"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;    # ftp_mock: session step &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39; recorded (state-machine, auto-asserted)&quot;</span>
+<a id="__codelineno-21-71" name="__codelineno-21-71" href="#__codelineno-21-71"></a>
+<a id="__codelineno-21-72" name="__codelineno-21-72" href="#__codelineno-21-72"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">format_unused_mock_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mock_config</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-21-73" name="__codelineno-21-73" href="#__codelineno-21-73"></a>        <span class="n">method</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mock_config</span><span class="p">,</span> <span class="s2">&quot;method&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-74" name="__codelineno-21-74" href="#__codelineno-21-74"></a>        <span class="n">tb</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mock_config</span><span class="p">,</span> <span class="s2">&quot;registration_traceback&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-21-75" name="__codelineno-21-75" href="#__codelineno-21-75"></a>        <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-21-76" name="__codelineno-21-76" href="#__codelineno-21-76"></a>            <span class="sa">f</span><span class="s2">&quot;ftp.</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">(...) was mocked (required=True) but never called.</span><span class="se">\n</span><span class="s2">&quot;</span>
+<a id="__codelineno-21-77" name="__codelineno-21-77" href="#__codelineno-21-77"></a>            <span class="sa">f</span><span class="s2">&quot;Registered at:</span><span class="se">\n</span><span class="si">{</span><span class="n">tb</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-21-78" name="__codelineno-21-78" href="#__codelineno-21-78"></a>        <span class="p">)</span>
+</code></pre></div>
+<p>Key implementation rules:</p>
+<ul>
+<li>Capture originals at <strong>import time</strong> (module-level constants) or store them in class variables only after the first <code>activate()</code>. Never look up originals inside an interceptor function.</li>
+<li>Increment <code>_install_count</code> <strong>after</strong> installing patches; decrement <strong>before</strong> restoring them (or in a pattern where the decrement and restore are atomic under the lock).</li>
+<li>Call <code>_bind_connection(conn_obj)</code> at the connection entry point (e.g., inside the patched <code>connect()</code> method) to pop the next queued session.</li>
+<li>Call <code>_lookup_session(conn_obj)</code> inside each subsequent method interceptor to retrieve the bound session.</li>
+<li>Call <code>_release_session(conn_obj)</code> at the close/quit/disconnect point to free the session slot.</li>
+<li>Call <code>_execute_step(handle, method, args, kwargs, source_id)</code> to validate the state transition, pop the next script step, advance the state, record the interaction, and return the configured value.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.code.annotate", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
