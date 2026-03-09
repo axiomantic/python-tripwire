@@ -669,15 +669,44 @@ def test_format_assert_hint_returns_correct_snippet() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "verifier.assert_interaction(\n"
-        "    http.request,\n"
-        '    method="GET",\n'
-        '    url="https://api.example.com/data",\n'
-        "    request_headers={},\n"
-        "    request_body='',\n"
-        "    status=200,\n"
-        "    response_headers={},\n"
-        "    response_body='',\n"
+        "http.assert_request(\n"
+        '    "GET",\n'
+        '    "https://api.example.com/data",\n'
+        "    headers={},\n"
+        "    body='',\n"
+        ")"
+    )
+
+
+def test_format_assert_hint_with_require_response() -> None:
+    v = StrictVerifier()
+    p = HttpPlugin(v, require_response=True)
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "POST",
+            "url": "https://api.example.com/create",
+            "status": 201,
+            "request_headers": {"content-type": "application/json"},
+            "request_body": '{"name": "test"}',
+            "response_headers": {"content-type": "application/json"},
+            "response_body": '{"id": 1}',
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        "http.assert_request(\n"
+        '    "POST",\n'
+        '    "https://api.example.com/create",\n'
+        "    headers={'content-type': 'application/json'},\n"
+        "    body='{\"name\": \"test\"}',\n"
+        "    require_response=True,\n"
+        ").assert_response(\n"
+        "    status=201,\n"
+        "    headers={'content-type': 'application/json'},\n"
+        "    body='{\"id\": 1}',\n"
         ")"
     )
 

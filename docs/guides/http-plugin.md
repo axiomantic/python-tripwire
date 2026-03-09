@@ -26,8 +26,8 @@ def test_api():
         import httpx
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
-                               headers=IsMapping(), body=None, status=200)
+    bigfoot.http.assert_request("GET", "https://api.example.com/users",
+                                headers=IsMapping(), body=None)
 ```
 
 For manual use outside pytest, construct `HttpPlugin` explicitly:
@@ -95,7 +95,7 @@ bigfoot.http.mock_response("GET", "https://api.example.com/search", json={...}, 
 
 ## Asserting HTTP interactions
 
-Use `bigfoot.http.request` as the source in `assert_interaction()`. Assertions must happen after the sandbox exits:
+Use `bigfoot.http.assert_request()` to assert interactions after the sandbox exits:
 
 ```python
 import bigfoot, httpx
@@ -106,21 +106,32 @@ def test_users():
     with bigfoot:
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
-                               headers=IsMapping(), body=None, status=200)
+    bigfoot.http.assert_request("GET", "https://api.example.com/users",
+                                headers=IsMapping(), body=None)
 ```
 
-`assert_interaction()` requires ALL five assertable fields for HTTP interactions. Omitting any of `method`, `url`, `headers`, `body`, or `status` raises `MissingAssertionFieldsError`. Use `IsMapping()` from `dirty-equals` for headers when you want to assert type without exact matching, or `ANY` from `unittest.mock`.
+`assert_request()` requires all assertable request fields. Omitting any of `method`, `url`, `headers`, or `body` raises `MissingAssertionFieldsError`. Use `IsMapping()` from `dirty-equals` for headers when you want to assert type without exact matching, or `ANY` from `unittest.mock`.
 
-Fields available in `assert_interaction()` keyword arguments:
+`assert_request()` is a convenience wrapper around the lower-level `verifier.assert_interaction()` call:
 
-| Field | Description |
+```python
+# Convenience (recommended):
+bigfoot.http.assert_request("GET", "https://api.example.com/users",
+                            headers=IsMapping(), body=None)
+
+# Equivalent low-level call:
+bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
+                           request_headers=IsMapping(), request_body=None)
+```
+
+Parameters for `assert_request()`:
+
+| Parameter | Description |
 |---|---|
 | `method` | HTTP method, uppercase |
 | `url` | Full URL as received |
 | `headers` | Request headers dict |
 | `body` | Request body decoded as UTF-8 |
-| `status` | Response status code |
 
 ## Using with httpx sync
 
@@ -135,8 +146,8 @@ def test_httpx_sync():
         assert response.status_code == 200
         assert response.json() == {"value": 42}
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/data",
-                               headers=IsMapping(), body=None, status=200)
+    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+                                headers=IsMapping(), body=None)
 ```
 
 ## Using with httpx async
@@ -152,8 +163,8 @@ async def test_httpx_async():
             response = await client.post("https://api.example.com/items", json={"name": "widget"})
         assert response.status_code == 201
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="POST", url="https://api.example.com/items",
-                               headers=IsMapping(), body=None, status=201)
+    bigfoot.http.assert_request("POST", "https://api.example.com/items",
+                                headers=IsMapping(), body=None)
 ```
 
 ## Using with requests
@@ -168,8 +179,8 @@ def test_requests():
         response = requests.delete("https://api.example.com/items/99")
         assert response.status_code == 204
 
-    bigfoot.assert_interaction(bigfoot.http.request, method="DELETE", url="https://api.example.com/items/99",
-                               headers=IsMapping(), body=None, status=204)
+    bigfoot.http.assert_request("DELETE", "https://api.example.com/items/99",
+                                headers=IsMapping(), body=None)
 ```
 
 ## UnmockedInteractionError for HTTP
@@ -213,12 +224,10 @@ def test_mixed():
         mocked = httpx.get("https://api.example.com/cached")   # returns mock response
         real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
 
-    bigfoot.assert_interaction(bigfoot.http.request,
-                               method="GET", url="https://api.example.com/cached",
-                               headers=IsMapping(), body=None, status=200)
-    bigfoot.assert_interaction(bigfoot.http.request,
-                               method="GET", url="https://api.example.com/live",
-                               headers=IsMapping(), body=None, status=200)
+    bigfoot.http.assert_request("GET", "https://api.example.com/cached",
+                                headers=IsMapping(), body=None)
+    bigfoot.http.assert_request("GET", "https://api.example.com/live",
+                                headers=IsMapping(), body=None)
 ```
 
 Mock responses are checked before pass-through rules. If a mock matches, the pass-through rule is not evaluated for that request. If no mock matches and a pass-through rule matches, the real call is made. If neither matches, `UnmockedInteractionError` is raised.

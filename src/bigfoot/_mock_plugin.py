@@ -121,6 +121,23 @@ class MethodProxy:
         )
         return self
 
+    def assert_call(
+        self,
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
+    ) -> None:
+        """Assert the next call to this mock method with the given arguments.
+
+        Convenience wrapper around verifier.assert_interaction().
+        """
+        from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(
+            self,
+            args=args,
+            kwargs=kwargs if kwargs is not None else {},
+        )
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         """Called when the mock is invoked. Routes through bigfoot interceptor."""
         from bigfoot._context import _get_verifier_or_raise
@@ -321,8 +338,7 @@ class MockPlugin(BasePlugin):
         args = interaction.details.get("args", ())
         kwargs = interaction.details.get("kwargs", {})
         return (
-            f"verifier.assert_interaction(\n"
-            f'    verifier.mock("{mock_name}").{method_name},\n'
+            f'verifier.mock("{mock_name}").{method_name}.assert_call(\n'
             f"    args={args!r},\n"
             f"    kwargs={kwargs!r},\n"
             f")"

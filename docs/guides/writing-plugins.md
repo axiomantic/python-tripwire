@@ -70,7 +70,24 @@ Return copy-pasteable code for mocking a call that fired before reaching the tim
 def format_assert_hint(self, interaction: Interaction) -> str: ...
 ```
 
-Return copy-pasteable code that would assert this specific interaction. Used in `UnassertedInteractionsError` hints.
+Return copy-pasteable code that would assert this specific interaction. This hint appears in `UnassertedInteractionsError` when a test forgets to assert a recorded interaction. The goal is a snippet the developer can copy directly into their test.
+
+**If your plugin provides convenience assertion methods** (e.g., `assert_request`, `assert_command`, `assert_log`), the hint should show the convenience method, not raw `verifier.assert_interaction()`. Every built-in bigfoot plugin follows this pattern. Convenience wrappers are easier to read, match the API the developer actually uses, and use the plugin's own parameter names rather than the internal `details` keys.
+
+For example, `HttpPlugin.format_assert_hint()` returns:
+
+```python
+http.assert_request(
+    "POST",
+    "https://api.example.com/items",
+    headers={'content-type': 'application/json'},
+    body='{"name": "widget"}',
+)
+```
+
+Not the lower-level `verifier.assert_interaction(http.request, method="POST", ...)` form.
+
+**If your plugin does not provide convenience methods**, show `verifier.assert_interaction()` with the correct sentinel and field names so the developer can still copy and paste.
 
 ### assertable_fields()
 
@@ -83,6 +100,31 @@ Return the set of `interaction.details` keys that callers MUST include in `asser
 Implement to return only keys that carry meaningful signal. Do not include keys that are redundant with `source_id` (such as `mock_name` or `method_name` when the source already identifies the method). The goal is to prevent silent partial assertions, not to force callers to repeat information already encoded in the source.
 
 For example, `MockPlugin` returns `frozenset({"args", "kwargs"})` because callers should not be able to assert a mock interaction without confirming what it was called with.
+
+## Convenience assertion methods
+
+Every plugin should provide typed assertion helper methods that wrap `verifier.assert_interaction()`. These methods are the primary assertion API for test authors: they use domain-specific parameter names, provide IDE autocompletion, and appear in `format_assert_hint()` error messages.
+
+**Pattern:** Each convenience method calls `verifier.assert_interaction()` internally with the correct sentinel and field mapping:
+
+```python
+def assert_query(self, query: str) -> None:
+    """Assert the next database query interaction.
+
+    Convenience wrapper around verifier.assert_interaction().
+    """
+    from bigfoot._context import _get_test_verifier_or_raise
+    _get_test_verifier_or_raise().assert_interaction(self._sentinel, query=query)
+```
+
+**Guidelines:**
+
+- Name methods `assert_<action>` (e.g., `assert_connect`, `assert_send`, `assert_command`)
+- Accept the same fields returned by `assertable_fields()`, using domain-specific names
+- Import `_get_test_verifier_or_raise` from `bigfoot._context` to get the current verifier
+- Update `format_assert_hint()` to show the convenience method, not `verifier.assert_interaction()`
+
+All 14 built-in plugins follow this pattern. The raw `verifier.assert_interaction()` call still works and is documented as the low-level equivalent, but convenience methods are the recommended API.
 
 ### get_unused_mocks()
 
@@ -207,9 +249,17 @@ class DatabasePlugin(BasePlugin):
             f'    db.mock_query("{query}", result=[...])'
         )
 
+    def assert_query(self, query: str) -> None:
+        """Assert the next database query interaction.
+
+        Convenience wrapper around verifier.assert_interaction().
+        """
+        from bigfoot._context import _get_test_verifier_or_raise
+        _get_test_verifier_or_raise().assert_interaction(self._sentinel, query=query)
+
     def format_assert_hint(self, interaction: Interaction) -> str:
         query = interaction.details.get("query", "?")
-        return f'verifier.assert_interaction(db_sentinel, query="{query}")'
+        return f'db.assert_query(query={query!r})'
 
     def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
         return frozenset({"query"})
@@ -241,8 +291,12 @@ def test_db_query():
         rows = my_connection.execute("SELECT * FROM users")
         assert rows == [{"id": 1}]
 
-    # query= is the sole assertable field for DatabasePlugin
-    bigfoot.assert_interaction(db_sentinel, query="SELECT * FROM users")
+    # Convenience wrapper -- recommended:
+    db.assert_query(query="SELECT * FROM users")
+
+    # Equivalent low-level call:
+    # bigfoot.assert_interaction(db_sentinel, query="SELECT * FROM users")
+
     # verify_all() called automatically at teardown
 ```
 
@@ -259,7 +313,12 @@ with verifier.sandbox():
     rows = my_connection.execute("SELECT * FROM users")
     assert rows == [{"id": 1}]
 
-verifier.assert_interaction(db_sentinel, query="SELECT * FROM users")
+# Convenience wrapper -- recommended:
+db.assert_query(query="SELECT * FROM users")
+
+# Equivalent low-level call:
+# verifier.assert_interaction(db_sentinel, query="SELECT * FROM users")
+
 verifier.verify_all()
 ```
 

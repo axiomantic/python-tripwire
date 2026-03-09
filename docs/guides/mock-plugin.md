@@ -117,8 +117,8 @@ with bigfoot:
     result1 = payment.charge(100)   # uses queue entry {"id": "mock-123"}
     result2 = payment.charge(200)   # queue empty: delegates to real_service.charge(200)
 
-bigfoot.assert_interaction(payment.charge, args=(100,), kwargs={})
-bigfoot.assert_interaction(payment.charge, args=(200,), kwargs={})
+payment.charge.assert_call(args=(100,), kwargs={})
+payment.charge.assert_call(args=(200,), kwargs={})
 ```
 
 The keyword form:
@@ -139,7 +139,7 @@ The timeline records the interaction in all cases. Assertions with `args=` and `
 
 ## Assertions
 
-Assertions happen after the sandbox exits. Use `bigfoot.assert_interaction()` with the `MethodProxy` as the source:
+Assertions happen after the sandbox exits. Use `.assert_call()` on the `MethodProxy`:
 
 ```python
 import bigfoot
@@ -151,10 +151,20 @@ def test_email():
     with bigfoot:
         email.send(to="user@example.com", subject="Welcome")
 
-    bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
+    email.send.assert_call(args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
 ```
 
-`assert_interaction()` requires ALL assertable fields. For `MockPlugin` interactions, `args` and `kwargs` are always required. Omitting either raises `MissingAssertionFieldsError`. Use dirty-equals values (e.g., `Anything()`) when you want to assert a field without exact matching.
+`assert_call()` requires both `args` and `kwargs`. Omitting either raises `MissingAssertionFieldsError`. Use dirty-equals values (e.g., `Anything()`) when you want to assert a field without exact matching.
+
+`assert_call()` is a convenience wrapper around the lower-level `assert_interaction()` call:
+
+```python
+# Convenience (recommended):
+email.send.assert_call(args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
+
+# Equivalent low-level call:
+bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
+```
 
 ## In-any-order assertions
 
@@ -172,8 +182,8 @@ def test_notifications():
         email.send(to="bob@example.com")
 
     with bigfoot.in_any_order():
-        bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "bob@example.com"})
-        bigfoot.assert_interaction(email.send, args=(), kwargs={"to": "alice@example.com"})
+        email.send.assert_call(args=(), kwargs={"to": "bob@example.com"})
+        email.send.assert_call(args=(), kwargs={"to": "alice@example.com"})
 ```
 
 `in_any_order()` is a context manager that relaxes ordering globally across all plugins. It is not possible to relax ordering for only one plugin type within a single block.
@@ -242,8 +252,8 @@ Each mock call is recorded with these fields in `interaction.details`:
 | `args` | `repr()` of the positional arguments tuple |
 | `kwargs` | `repr()` of the keyword arguments dict |
 
-Pass any of these as keyword arguments to `assert_interaction()` to filter on specific values. `args` and `kwargs` are assertable fields and must always be included:
+The `args` and `kwargs` fields are assertable and must always be included in `assert_call()`:
 
 ```python
-bigfoot.assert_interaction(email.send, args=(), kwargs={"subject": "Welcome"}, mock_name="EmailService", method_name="send")
+email.send.assert_call(args=(), kwargs={"subject": "Welcome"})
 ```

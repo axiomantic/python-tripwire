@@ -42,15 +42,11 @@ E   bigfoot._errors.UnassertedInteractionsError: 1 interaction(s) were not asser
 E
 E     [sequence=0] [HttpPlugin] POST https://api.stripe.com/v1/charges (status=200)
 E       To assert this interaction:
-E         verifier.assert_interaction(
-E       http.request,
-E       method="POST",
-E       url="https://api.stripe.com/v1/charges",
-E       request_headers={'host': 'api.stripe.com', ...},
-E       request_body='{"amount":5000}',
-E       status=200,
-E       response_headers={'content-type': 'application/json'},
-E       response_body='{"id": "ch_123"}',
+E         http.assert_request(
+E       "POST",
+E       "https://api.stripe.com/v1/charges",
+E       headers={'host': 'api.stripe.com', ...},
+E       body='{"amount":5000}',
 E   )
 ```
 

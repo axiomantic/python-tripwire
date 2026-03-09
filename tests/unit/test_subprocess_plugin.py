@@ -11,6 +11,7 @@ import bigfoot
 from bigfoot._context import _current_test_verifier
 from bigfoot._errors import (
     ConflictError,
+    InteractionMismatchError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,
@@ -655,3 +656,175 @@ def test_called_required_which_does_not_raise(clean_install_count) -> None:
 
     # verify_all() must not raise: the mock was called and asserted
     v.verify_all()
+
+
+# ---------------------------------------------------------------------------
+# assert_run convenience method
+# ---------------------------------------------------------------------------
+
+
+def test_assert_run_all_fields() -> None:
+    """assert_run passes when all 4 fields match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_run(["git", "status"], returncode=0, stdout="clean", stderr="")
+
+    with v.sandbox():
+        subprocess.run(["git", "status"])
+
+    p.assert_run(
+        command=["git", "status"],
+        returncode=0,
+        stdout="clean",
+        stderr="",
+    )
+    v.verify_all()  # Should not raise
+
+
+def test_assert_run_wrong_command_raises() -> None:
+    """assert_run raises InteractionMismatchError when command does not match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_run(["git", "status"], returncode=0, stdout="clean", stderr="")
+
+    with v.sandbox():
+        subprocess.run(["git", "status"])
+
+    with pytest.raises(InteractionMismatchError):
+        p.assert_run(
+            command=["git", "log"],
+            returncode=0,
+            stdout="clean",
+            stderr="",
+        )
+
+
+def test_assert_run_wrong_returncode_raises() -> None:
+    """assert_run raises InteractionMismatchError when returncode does not match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_run(["make"], returncode=0, stdout="ok", stderr="")
+
+    with v.sandbox():
+        subprocess.run(["make"])
+
+    with pytest.raises(InteractionMismatchError):
+        p.assert_run(
+            command=["make"],
+            returncode=1,
+            stdout="ok",
+            stderr="",
+        )
+
+
+def test_assert_run_wrong_stdout_raises() -> None:
+    """assert_run raises InteractionMismatchError when stdout does not match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_run(["echo"], returncode=0, stdout="hello", stderr="")
+
+    with v.sandbox():
+        subprocess.run(["echo"])
+
+    with pytest.raises(InteractionMismatchError):
+        p.assert_run(
+            command=["echo"],
+            returncode=0,
+            stdout="wrong",
+            stderr="",
+        )
+
+
+# ---------------------------------------------------------------------------
+# assert_which convenience method
+# ---------------------------------------------------------------------------
+
+
+def test_assert_which_all_fields() -> None:
+    """assert_which passes when both fields match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_which("gcc", returns="/usr/bin/gcc")
+
+    with v.sandbox():
+        shutil.which("gcc")
+
+    p.assert_which(name="gcc", returns="/usr/bin/gcc")
+    v.verify_all()  # Should not raise
+
+
+def test_assert_which_returns_none() -> None:
+    """assert_which passes when returns=None matches."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_which("missing", returns=None)
+
+    with v.sandbox():
+        shutil.which("missing")
+
+    p.assert_which(name="missing", returns=None)
+    v.verify_all()  # Should not raise
+
+
+def test_assert_which_wrong_name_raises() -> None:
+    """assert_which raises InteractionMismatchError when name does not match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_which("gcc", returns="/usr/bin/gcc")
+
+    with v.sandbox():
+        shutil.which("gcc")
+
+    with pytest.raises(InteractionMismatchError):
+        p.assert_which(name="clang", returns="/usr/bin/gcc")
+
+
+def test_assert_which_wrong_returns_raises() -> None:
+    """assert_which raises InteractionMismatchError when returns does not match."""
+    v, p = _make_verifier_with_plugin()
+    p.mock_which("gcc", returns="/usr/bin/gcc")
+
+    with v.sandbox():
+        shutil.which("gcc")
+
+    with pytest.raises(InteractionMismatchError):
+        p.assert_which(name="gcc", returns="/usr/local/bin/gcc")
+
+
+# ---------------------------------------------------------------------------
+# format_assert_hint shows convenience methods
+# ---------------------------------------------------------------------------
+
+
+def test_format_assert_hint_run() -> None:
+    """format_assert_hint for run interactions shows assert_run wrapper."""
+    v, p = _make_verifier_with_plugin()
+    interaction = Interaction(
+        source_id="subprocess:run",
+        sequence=0,
+        details={
+            "command": ["git", "status"],
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert "bigfoot.subprocess_mock.assert_run(" in result
+    assert "command=['git', 'status']" in result
+    assert "returncode=0" in result
+    assert "stdout=''" in result
+    assert "stderr=''" in result
+    # Must NOT contain old assert_interaction pattern
+    assert "assert_interaction" not in result
+
+
+def test_format_assert_hint_which() -> None:
+    """format_assert_hint for which interactions shows assert_which wrapper."""
+    v, p = _make_verifier_with_plugin()
+    interaction = Interaction(
+        source_id="subprocess:which",
+        sequence=0,
+        details={"name": "gcc", "returns": "/usr/bin/gcc"},
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert "bigfoot.subprocess_mock.assert_which(" in result
+    assert "name='gcc'" in result
+    assert "returns='/usr/bin/gcc'" in result
+    # Must NOT contain old assert_interaction pattern
+    assert "assert_interaction" not in result

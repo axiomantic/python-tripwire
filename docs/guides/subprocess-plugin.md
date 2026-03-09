@@ -15,7 +15,7 @@ def test_build():
     with bigfoot:
         run_build()
 
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["make", "all"])
+    bigfoot.subprocess_mock.assert_run(command=["make", "all"], returncode=0, stdout="", stderr="")
 ```
 
 For manual use outside pytest, construct `SubprocessPlugin` explicitly:
@@ -64,11 +64,22 @@ Calling `subprocess.run` with an unregistered command or in the wrong order rais
 
 ## Asserting `subprocess.run` interactions
 
-Use `bigfoot.subprocess_mock.run` as the source in `assert_interaction()`. The `command` field is the sole assertable field:
+Use `bigfoot.subprocess_mock.assert_run()` to assert subprocess interactions:
 
 ```python
-bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "fetch"])
-bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "merge", "origin/main"])
+bigfoot.subprocess_mock.assert_run(command=["git", "fetch"], returncode=0, stdout="", stderr="")
+bigfoot.subprocess_mock.assert_run(command=["git", "merge", "origin/main"], returncode=0, stdout="", stderr="")
+```
+
+`assert_run()` is a convenience wrapper around the lower-level `assert_interaction()` call:
+
+```python
+# Convenience (recommended):
+bigfoot.subprocess_mock.assert_run(command=["git", "fetch"], returncode=0, stdout="", stderr="")
+
+# Equivalent low-level call:
+bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["git", "fetch"],
+                           returncode=0, stdout="", stderr="")
 ```
 
 ## Registering `shutil.which` mocks
@@ -96,10 +107,20 @@ This differs from `subprocess.run`, which enforces a strict queue. The rationale
 
 ## Asserting `shutil.which` interactions
 
-Use `bigfoot.subprocess_mock.which` as the source in `assert_interaction()`. The `name` field is the sole assertable field:
+Use `bigfoot.subprocess_mock.assert_which()` to assert `shutil.which` interactions:
 
 ```python
-bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git")
+bigfoot.subprocess_mock.assert_which(name="git", returns="/usr/bin/git")
+```
+
+`assert_which()` is a convenience wrapper around the lower-level `assert_interaction()` call:
+
+```python
+# Convenience (recommended):
+bigfoot.subprocess_mock.assert_which(name="git", returns="/usr/bin/git")
+
+# Equivalent low-level call:
+bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git", returns="/usr/bin/git")
 ```
 
 Only registered names record interactions. Calls to unregistered names are not recorded and cannot be asserted.
@@ -149,8 +170,10 @@ def test_deploy():
     with bigfoot:
         deploy()
 
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="git")
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["/usr/bin/git", "pull", "--ff-only"])
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["/usr/bin/git", "tag", "v1.0"])
+    bigfoot.subprocess_mock.assert_which(name="git", returns="/usr/bin/git")
+    bigfoot.subprocess_mock.assert_run(command=["/usr/bin/git", "pull", "--ff-only"],
+                                       returncode=0, stdout="Already up to date.\n", stderr="")
+    bigfoot.subprocess_mock.assert_run(command=["/usr/bin/git", "tag", "v1.0"],
+                                       returncode=0, stdout="", stderr="")
     # verify_all() runs automatically at test teardown
 ```

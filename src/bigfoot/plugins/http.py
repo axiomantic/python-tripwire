@@ -1160,19 +1160,29 @@ class HttpPlugin(BasePlugin):
         url = interaction.details.get("url", "?")
         request_headers = interaction.details.get("request_headers", {})
         request_body = interaction.details.get("request_body", "")
-        status = interaction.details.get("status", 200)
-        response_headers = interaction.details.get("response_headers", {})
-        response_body = interaction.details.get("response_body", "")
+        if self._require_response:
+            status = interaction.details.get("status", 200)
+            response_headers = interaction.details.get("response_headers", {})
+            response_body = interaction.details.get("response_body", "")
+            return (
+                f"http.assert_request(\n"
+                f'    "{method}",\n'
+                f'    "{url}",\n'
+                f"    headers={request_headers!r},\n"
+                f"    body={request_body!r},\n"
+                f"    require_response=True,\n"
+                f").assert_response(\n"
+                f"    status={status},\n"
+                f"    headers={response_headers!r},\n"
+                f"    body={response_body!r},\n"
+                f")"
+            )
         return (
-            f"verifier.assert_interaction(\n"
-            f"    http.request,\n"
-            f'    method="{method}",\n'
-            f'    url="{url}",\n'
-            f"    request_headers={request_headers!r},\n"
-            f"    request_body={request_body!r},\n"
-            f"    status={status},\n"
-            f"    response_headers={response_headers!r},\n"
-            f"    response_body={response_body!r},\n"
+            f"http.assert_request(\n"
+            f'    "{method}",\n'
+            f'    "{url}",\n'
+            f"    headers={request_headers!r},\n"
+            f"    body={request_body!r},\n"
             f")"
         )
 

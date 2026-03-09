@@ -222,6 +222,38 @@ class SubprocessPlugin(BasePlugin):
         )
 
     # ------------------------------------------------------------------
+    # Assertion helpers
+    # ------------------------------------------------------------------
+
+    def assert_run(
+        self,
+        command: list[str],
+        returncode: int,
+        stdout: str,
+        stderr: str,
+    ) -> None:
+        """Assert the next subprocess.run interaction with all 4 fields."""
+        self.verifier.assert_interaction(
+            self._run_sentinel,
+            command=command,
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
+        )
+
+    def assert_which(
+        self,
+        name: str,
+        returns: str | None,
+    ) -> None:
+        """Assert the next shutil.which interaction with all 2 fields."""
+        self.verifier.assert_interaction(
+            self._which_sentinel,
+            name=name,
+            returns=returns,
+        )
+
+    # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
@@ -478,8 +510,7 @@ class SubprocessPlugin(BasePlugin):
             stdout = interaction.details.get("stdout", "")
             stderr = interaction.details.get("stderr", "")
             return (
-                f"    {sm}.assert_interaction(\n"
-                f"        {sm}.run,\n"
+                f"    {sm}.assert_run(\n"
                 f"        command={cmd!r},\n"
                 f"        returncode={rc!r},\n"
                 f"        stdout={stdout!r},\n"
@@ -490,11 +521,7 @@ class SubprocessPlugin(BasePlugin):
             name = interaction.details.get("name", "?")
             returns = interaction.details.get("returns")
             return (
-                f"    {sm}.assert_interaction(\n"
-                f"        {sm}.which,\n"
-                f"        name={name!r},\n"
-                f"        returns={returns!r},\n"
-                f"    )"
+                f"    {sm}.assert_which(name={name!r}, returns={returns!r})"
             )
         return f"    # unknown source_id={interaction.source_id!r}"
 

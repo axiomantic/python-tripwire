@@ -991,12 +991,102 @@ def test_format_assert_hint_returns_string() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "verifier.assert_interaction(\n"
-        '    verifier.mock("Svc").method,\n'
+        'verifier.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         ")"
     )
+
+
+# ---------------------------------------------------------------------------
+# MethodProxy.assert_call convenience method
+# ---------------------------------------------------------------------------
+
+
+def test_method_proxy_assert_call_convenience_method() -> None:
+    """MethodProxy.assert_call() is a convenience wrapper for assert_interaction."""
+    # ESCAPE:
+    # CLAIM: assert_call() delegates to verifier.assert_interaction() with correct source and fields.
+    # PATH: MethodProxy.assert_call -> _get_test_verifier_or_raise().assert_interaction(self, args=..., kwargs=...).
+    # CHECK: No assertion error when args/kwargs match the recorded interaction.
+    # MUTATION: Passing wrong source or swapping args/kwargs would cause InteractionMismatchError.
+    # ESCAPE: If assert_call silently did nothing, this test would still pass; covered by next test.
+    # IMPACT: Users have no convenience wrapper and must use raw verifier.assert_interaction().
+    from bigfoot._context import _current_test_verifier
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Stripe")
+    proxy.create_charge.returns("ch_123")
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            result = proxy.create_charge(5000, "usd", source="tok_123")
+
+        assert result == "ch_123"
+
+        proxy.create_charge.assert_call(
+            args=(5000, "usd"),
+            kwargs={"source": "tok_123"},
+        )
+    finally:
+        _current_test_verifier.reset(token)
+
+
+def test_method_proxy_assert_call_raises_on_mismatch() -> None:
+    """MethodProxy.assert_call() raises InteractionMismatchError on wrong args."""
+    # ESCAPE:
+    # CLAIM: assert_call() actually validates args/kwargs, not just marking interactions as asserted.
+    # PATH: assert_call -> assert_interaction -> matches() -> field comparison -> InteractionMismatchError.
+    # CHECK: pytest.raises(InteractionMismatchError) confirms assert_call is not a no-op.
+    # MUTATION: A no-op assert_call would not raise, failing this test.
+    # IMPACT: assert_call would silently pass even with wrong assertions, defeating certainty.
+    from bigfoot._context import _current_test_verifier
+    from bigfoot._errors import InteractionMismatchError
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Stripe")
+    proxy.create_charge.returns("ch_123")
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            proxy.create_charge(5000, "usd")
+
+        with pytest.raises(InteractionMismatchError):
+            proxy.create_charge.assert_call(
+                args=(9999, "eur"),
+                kwargs={},
+            )
+    finally:
+        _current_test_verifier.reset(token)
+
+
+def test_method_proxy_assert_call_defaults_kwargs_to_empty_dict() -> None:
+    """MethodProxy.assert_call() defaults kwargs to {} when not provided."""
+    # ESCAPE:
+    # CLAIM: Omitting kwargs argument defaults to empty dict, matching calls with no kwargs.
+    # PATH: assert_call(kwargs=None default) -> kwargs if kwargs is not None else {} -> {}.
+    # CHECK: No error when calling assert_call with only args= for a call that had no kwargs.
+    # MUTATION: If default were None instead of {}, MissingAssertionFieldsError or mismatch.
+    # IMPACT: Users would always have to pass kwargs={} explicitly, reducing convenience.
+    from bigfoot._context import _current_test_verifier
+
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Svc")
+    proxy.ping.returns("pong")
+
+    token = _current_test_verifier.set(v)
+    try:
+        with v.sandbox():
+            proxy.ping()
+
+        proxy.ping.assert_call()
+    finally:
+        _current_test_verifier.reset(token)
 
 
 # ---------------------------------------------------------------------------
@@ -1381,8 +1471,7 @@ def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "verifier.assert_interaction(\n"
-        '    verifier.mock("Logger").log,\n'
+        'verifier.mock("Logger").log.assert_call(\n'
         "    args=('event',),\n"
         "    kwargs={'level': 'info'},\n"
         ")"
