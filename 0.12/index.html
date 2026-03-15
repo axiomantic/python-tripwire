@@ -1643,29 +1643,38 @@
 
 
 <h1 id="bigfoot">bigfoot<a class="headerlink" href="#bigfoot" title="Permanent link">&para;</a></h1>
-<p><strong>bigfoot</strong> intercepts every external call your code makes and forces your tests to account for all of them. It enforces three guarantees that most mocking libraries leave silent:</p>
+<p><strong>bigfoot</strong> intercepts every external call your code makes and forces your tests to account for all of them. It ships with plugins for HTTP, subprocess, database, socket, Redis, SMTP, WebSocket, logging, and more. It enforces three guarantees that most mocking libraries leave silent:</p>
 <ol>
-<li><strong>Every call must be pre-authorized.</strong> If code makes a call with no registered mock, bigfoot raises <code>UnmockedInteractionError</code> immediately at call time.</li>
-<li><strong>Every recorded interaction must be explicitly asserted.</strong> At teardown, any interaction not passed to an assertion method causes <code>UnassertedInteractionsError</code>.</li>
-<li><strong>Every registered mock must actually be triggered.</strong> At teardown, any mock registered with <code>required=True</code> (the default) but never called causes <code>UnusedMocksError</code>.</li>
+<li><strong>Every call must be pre-authorized.</strong> Code makes a call with no registered mock? <code>UnmockedInteractionError</code>, immediately.</li>
+<li><strong>Every recorded interaction must be explicitly asserted.</strong> Forget to assert an interaction? <code>UnassertedInteractionsError</code> at teardown.</li>
+<li><strong>Every registered mock must actually be triggered.</strong> Register a mock that never fires? <code>UnusedMocksError</code> at teardown.</li>
 </ol>
-<p>Standard mocking libraries let tests pass silently when a mock is registered for an endpoint that the code never calls, when a side-effecting call is intercepted but the test never checks that it happened, or when a mock is configured with wrong arguments and the code hits a different mock. bigfoot makes each of these conditions a hard test failure.</p>
+<p>A plugin system makes it straightforward to intercept any service and enforce all three guarantees.</p>
 <h2 id="quick-example">Quick example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_welcome_email</span><span class="p">():</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">email</span> <span class="o">=</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">returns</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">with</span> <span class="n">bigfoot</span><span class="p">:</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="k">assert</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">True</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">dirty_equals</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsInstance</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_charge</span><span class="p">(</span><span class="n">amount</span><span class="p">):</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Production code -- calls Stripe via httpx internally.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">response</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;https://api.stripe.com/v1/charges&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                          <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;amount&quot;</span><span class="p">:</span> <span class="n">amount</span><span class="p">})</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">assert_call</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="p">(),</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="s2">&quot;subject&quot;</span><span class="p">:</span> <span class="s2">&quot;Welcome&quot;</span><span class="p">})</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_payment_flow</span><span class="p">():</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">mock_response</span><span class="p">(</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.stripe.com/v1/charges&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                               <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="s2">&quot;ch_123&quot;</span><span class="p">},</span> <span class="n">status</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">with</span> <span class="n">bigfoot</span><span class="p">:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">create_charge</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.stripe.com/v1/charges&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">headers</span><span class="o">=</span><span class="n">IsInstance</span><span class="p">(</span><span class="nb">dict</span><span class="p">),</span> <span class="n">body</span><span class="o">=</span><span class="s1">&#39;{&quot;amount&quot;: 5000}&#39;</span><span class="p">,</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="k">assert</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;ch_123&quot;</span>
 </code></pre></div>
-<p>If <code>email.send</code> is never called, bigfoot raises <code>UnusedMocksError</code> at teardown.
-If <code>assert_call</code> is never called, bigfoot raises <code>UnassertedInteractionsError</code> at teardown.
-If the code calls <code>email.send</code> with no mock configured, bigfoot raises <code>UnmockedInteractionError</code> immediately.</p>
+<p>The test calls <code>create_charge()</code>, which internally uses httpx. bigfoot intercepts the HTTP call transparently. If you forget the <code>assert_request()</code> call, bigfoot raises <code>UnassertedInteractionsError</code> at teardown. If the mock is never triggered, <code>UnusedMocksError</code>. If code makes an unmocked HTTP call, <code>UnmockedInteractionError</code> immediately.</p>
 <h2 id="navigation">Navigation<a class="headerlink" href="#navigation" title="Permanent link">&para;</a></h2>
 <div class="grid cards">
 <ul>
