@@ -12,21 +12,26 @@ Standard mocking libraries let tests pass silently when a mock is registered for
 
 ```python
 import bigfoot
+import httpx
 
-def test_welcome_email():
-    email = bigfoot.mock("EmailService")
-    email.send.returns(True)
+def test_payment_charge():
+    bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
+                               json={"id": "ch_123"}, status=200)
 
     with bigfoot:
-        result = email.send(to="user@example.com", subject="Welcome")
-        assert result is True
+        # Production code makes real httpx calls -- bigfoot intercepts them
+        response = httpx.post("https://api.stripe.com/v1/charges",
+                              json={"amount": 5000})
+        assert response.json()["id"] == "ch_123"
 
-    email.send.assert_call(args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
+    bigfoot.http.assert_request("POST", "https://api.stripe.com/v1/charges",
+                                headers={"host": "api.stripe.com", "content-type": "application/json"},
+                                body='{"amount": 5000}')
 ```
 
-If `email.send` is never called, bigfoot raises `UnusedMocksError` at teardown.
-If `assert_call` is never called, bigfoot raises `UnassertedInteractionsError` at teardown.
-If the code calls `email.send` with no mock configured, bigfoot raises `UnmockedInteractionError` immediately.
+If you forget the `assert_request()` call, bigfoot raises `UnassertedInteractionsError` at teardown.
+If the mock is never triggered, bigfoot raises `UnusedMocksError` at teardown.
+If code makes an HTTP call with no registered mock, bigfoot raises `UnmockedInteractionError` immediately.
 
 ## Navigation
 
