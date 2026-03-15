@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -2127,10 +2127,10 @@
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  Called with: args=(), kwargs={&#39;to&#39;: &#39;user@example.com&#39;}
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>  To mock this interaction, add before your sandbox:
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    bigfoot.mock(&quot;EmailService&quot;).send.returns(&lt;value&gt;)
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    verifier.mock(&quot;EmailService&quot;).send.returns(&lt;value&gt;)
 <a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>
 <a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>  Or to mark it optional:
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    bigfoot.mock(&quot;EmailService&quot;).send.required(False).returns(&lt;value&gt;)
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    verifier.mock(&quot;EmailService&quot;).send.required(False).returns(&lt;value&gt;)
 </code></pre></div>
 <h3 id="interactionmismatcherror">InteractionMismatchError<a class="headerlink" href="#interactionmismatcherror" title="Permanent link">&para;</a></h3>
 <p>When <code>assert_interaction()</code> is called and the expected source or fields do not match the next recorded interaction, bigfoot raises <code>InteractionMismatchError</code>. The error includes the full remaining timeline and a hint:</p>
@@ -2157,7 +2157,7 @@
 <a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>        email.send.returns(True)
 <a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    Options:
 <a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>      - Remove this mock if it&#39;s not needed
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>      - Mark it optional: bigfoot.mock(&quot;EmailService&quot;).send.required(False).returns(...)
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>      - Mark it optional: verifier.mock(&quot;EmailService&quot;).send.required(False).returns(...)
 </code></pre></div>
 <h2 id="interaction-details">Interaction details<a class="headerlink" href="#interaction-details" title="Permanent link">&para;</a></h2>
 <p>Each mock call is recorded with these fields in <code>interaction.details</code>:</p>
@@ -2179,11 +2179,11 @@
 </tr>
 <tr>
 <td><code>args</code></td>
-<td><code>repr()</code> of the positional arguments tuple</td>
+<td>The positional arguments tuple</td>
 </tr>
 <tr>
 <td><code>kwargs</code></td>
-<td><code>repr()</code> of the keyword arguments dict</td>
+<td>The keyword arguments dict</td>
 </tr>
 </tbody>
 </table>

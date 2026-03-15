@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -324,17 +324,6 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this matters
-      
-    </span>
-  </a>
-  
-</li>
       
         <li class="md-nav__item">
   <a href="#quick-example" class="md-nav__link">
@@ -1612,17 +1601,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#why-this-matters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this matters
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#quick-example" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1665,36 +1643,28 @@
 
 
 <h1 id="bigfoot">bigfoot<a class="headerlink" href="#bigfoot" title="Permanent link">&para;</a></h1>
-<p><strong>bigfoot</strong> is a pluggable interaction auditor for Python tests. It enforces three guarantees that most mocking libraries leave silent:</p>
-<ul>
-<li><strong>Bouncer</strong>: every external interaction must be pre-authorized. If code makes a call with no registered mock, bigfoot raises <code>UnmockedInteractionError</code> immediately at call time.</li>
-<li><strong>Auditor</strong>: every recorded interaction must be explicitly asserted. At teardown, any interaction that was never passed to <code>assert_interaction()</code> causes <code>UnassertedInteractionsError</code>.</li>
-<li><strong>Accountant</strong>: every registered mock must actually be triggered. At teardown, any mock that was registered with <code>required=True</code> (the default) but never called causes <code>UnusedMocksError</code>.</li>
-</ul>
-<h2 id="why-this-matters">Why this matters<a class="headerlink" href="#why-this-matters" title="Permanent link">&para;</a></h2>
-<p>Standard mocking libraries let tests pass silently when:</p>
-<ul>
-<li>A mock is registered for an endpoint that the code never calls (the logic path changed, but the test still passes)</li>
-<li>A side-effecting call is intercepted but the test never checks that it happened</li>
-<li>A mock is configured with wrong arguments and the code actually hit a different mock</li>
-</ul>
-<p>bigfoot makes each of these conditions a hard test failure. Tests that pass with bigfoot are tests that actually exercised the behavior they claim to cover.</p>
+<p><strong>bigfoot</strong> intercepts every external call your code makes and forces your tests to account for all of them. It enforces three guarantees that most mocking libraries leave silent:</p>
+<ol>
+<li><strong>Every call must be pre-authorized.</strong> If code makes a call with no registered mock, bigfoot raises <code>UnmockedInteractionError</code> immediately at call time.</li>
+<li><strong>Every recorded interaction must be explicitly asserted.</strong> At teardown, any interaction not passed to an assertion method causes <code>UnassertedInteractionsError</code>.</li>
+<li><strong>Every registered mock must actually be triggered.</strong> At teardown, any mock registered with <code>required=True</code> (the default) but never called causes <code>UnusedMocksError</code>.</li>
+</ol>
+<p>Standard mocking libraries let tests pass silently when a mock is registered for an endpoint that the code never calls, when a side-effecting call is intercepted but the test never checks that it happened, or when a mock is configured with wrong arguments and the code hits a different mock. bigfoot makes each of these conditions a hard test failure.</p>
 <h2 id="quick-example">Quick example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">verifier</span> <span class="o">=</span> <span class="n">StrictVerifier</span><span class="p">()</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">email</span> <span class="o">=</span> <span class="n">verifier</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">returns</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_welcome_email</span><span class="p">():</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">email</span> <span class="o">=</span> <span class="n">bigfoot</span><span class="o">.</span><span class="n">mock</span><span class="p">(</span><span class="s2">&quot;EmailService&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">returns</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">with</span> <span class="n">verifier</span><span class="o">.</span><span class="n">sandbox</span><span class="p">():</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">assert</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">True</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">with</span> <span class="n">bigfoot</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        <span class="n">result</span> <span class="o">=</span> <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">to</span><span class="o">=</span><span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="n">subject</span><span class="o">=</span><span class="s2">&quot;Welcome&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        <span class="k">assert</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">True</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">verifier</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="s2">&quot;{&#39;to&#39;: &#39;user@example.com&#39;, &#39;subject&#39;: &#39;Welcome&#39;}&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">verifier</span><span class="o">.</span><span class="n">verify_all</span><span class="p">()</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">email</span><span class="o">.</span><span class="n">send</span><span class="o">.</span><span class="n">assert_call</span><span class="p">(</span><span class="n">args</span><span class="o">=</span><span class="p">(),</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="s2">&quot;user@example.com&quot;</span><span class="p">,</span> <span class="s2">&quot;subject&quot;</span><span class="p">:</span> <span class="s2">&quot;Welcome&quot;</span><span class="p">})</span>
 </code></pre></div>
-<p>If <code>email.send</code> is never called, <code>verify_all()</code> raises <code>UnusedMocksError</code>.
-If <code>assert_interaction</code> is never called, <code>verify_all()</code> raises <code>UnassertedInteractionsError</code>.
+<p>If <code>email.send</code> is never called, bigfoot raises <code>UnusedMocksError</code> at teardown.
+If <code>assert_call</code> is never called, bigfoot raises <code>UnassertedInteractionsError</code> at teardown.
 If the code calls <code>email.send</code> with no mock configured, bigfoot raises <code>UnmockedInteractionError</code> immediately.</p>
 <h2 id="navigation">Navigation<a class="headerlink" href="#navigation" title="Permanent link">&para;</a></h2>
 <div class="grid cards">

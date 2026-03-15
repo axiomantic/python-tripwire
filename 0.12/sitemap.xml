@@ -2,154 +2,154 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/async-subprocess-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/async/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/asyncpg-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/configuration/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/database-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/http-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/installation/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/logging-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/mock-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/popen-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/psycopg2-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/pytest-integration/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/quickstart/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/redis-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/smtp-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/socket-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/stateful-plugins/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/subprocess-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/websocket-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/guides/writing-plugins/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/async-subprocess-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/asyncpg-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/configuration/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/database-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/errors/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/http-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/logging-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/mock-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/popen-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/psycopg2-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/redis-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/smtp-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/socket-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/subprocess-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/verifier/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
     <url>
          <loc>https://axiomantic.github.io/bigfoot/0.12/reference/websocket-plugin/</loc>
-         <lastmod>2026-03-09</lastmod>
+         <lastmod>2026-03-15</lastmod>
     </url>
 </urlset>
