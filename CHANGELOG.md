@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2026-03-15
+
+### Fixed
+
+- `HttpPlugin.format_assert_hint()` now shows `http.assert_request(...)` convenience wrapper instead of raw `verifier.assert_interaction()`. Shows chained `.assert_response(...)` only when `require_response=True`.
+- `MockPlugin`: added `assert_call()` convenience method on `MethodProxy`. `format_assert_hint()` now shows `verifier.mock("name").method.assert_call(...)`.
+- `SubprocessPlugin`: added `assert_run()` and `assert_which()` convenience methods. `format_assert_hint()` now shows these instead of `assert_interaction()`.
+
+### Improved
+
+- Documentation landing page: replaced Bouncer/Auditor/Accountant metaphors with direct technical language.
+- All plugin guides now recommend convenience assertion wrappers as the primary API, with `assert_interaction()` shown as the low-level equivalent.
+- Writing-plugins guide: expanded `format_assert_hint` docs, added "Convenience assertion methods" section with pattern and guidelines, fixed example plugin (missing sentinel init), corrected abstract method count (9, not 10), removed incorrect auto-assert claim about StateMachinePlugin.
+- HTTP plugin guide: fixed `body=None` to `body=""` in all `assert_request()` examples (matching actual signature).
+- Mock plugin guide: fixed error hint examples to match actual output (`verifier.mock(...)` not `bigfoot.mock(...)`), corrected `args`/`kwargs` field descriptions.
+
+## [0.12.0] - 2026-03-15
+
+### Added
+
+- `MethodProxy.assert_call()` convenience wrapper for MockPlugin assertions.
+- `SubprocessPlugin.assert_run()` and `SubprocessPlugin.assert_which()` convenience wrappers.
+
+### Changed
+
+- `HttpPlugin.format_assert_hint()` shows convenience wrappers in error messages.
+- `MockPlugin.format_assert_hint()` shows convenience wrappers in error messages.
+- `SubprocessPlugin.format_assert_hint()` shows convenience wrappers in error messages.
+
 ## [0.11.1] - 2026-03-08
 
 ### Changed
