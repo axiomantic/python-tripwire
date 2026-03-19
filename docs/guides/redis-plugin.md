@@ -124,28 +124,16 @@ def test_redis_error():
 
 ## Full example
 
+**Production code** (`examples/redis_cache/app.py`):
+
 ```python
-import redis
-import bigfoot
+--8<-- "examples/redis_cache/app.py"
+```
 
-def increment_counter(r, name):
-    current = r.execute_command("GET", name)
-    new_val = int(current or 0) + 1
-    r.execute_command("SET", name, str(new_val))
-    return new_val
+**Test** (`examples/redis_cache/test_app.py`):
 
-def test_increment_counter():
-    bigfoot.redis_mock.mock_command("GET", returns="5")
-    bigfoot.redis_mock.mock_command("SET", returns=True)
-
-    with bigfoot:
-        r = redis.Redis()
-        result = increment_counter(r, "visits")
-
-    assert result == 6
-
-    bigfoot.redis_mock.assert_command("GET", args=("visits",), kwargs={})
-    bigfoot.redis_mock.assert_command("SET", args=("visits", "6"), kwargs={})
+```python
+--8<-- "examples/redis_cache/test_app.py"
 ```
 
 ## Optional mocks

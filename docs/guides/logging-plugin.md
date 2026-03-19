@@ -138,25 +138,14 @@ Nested bigfoot sandboxes use reference counting and do not conflict with each ot
 
 ## Full example
 
+**Production code** (`examples/logging_example/app.py`):
+
 ```python
-import bigfoot
-import logging
+--8<-- "examples/logging_example/app.py"
+```
 
-def process_order(order_id: int) -> str:
-    logger = logging.getLogger("orders")
-    logger.info("Processing order %d", order_id)
-    logger.debug("Validating payment for order %d", order_id)
-    logger.info("Order %d completed", order_id)
-    return "success"
+**Test** (`examples/logging_example/test_app.py`):
 
-def test_process_order():
-    with bigfoot:
-        result = process_order(42)
-
-    assert result == "success"
-
-    bigfoot.log_mock.assert_info("Processing order 42", "orders")
-    bigfoot.log_mock.assert_debug("Validating payment for order 42", "orders")
-    bigfoot.log_mock.assert_info("Order 42 completed", "orders")
-    # verify_all() runs automatically at test teardown
+```python
+--8<-- "examples/logging_example/test_app.py"
 ```

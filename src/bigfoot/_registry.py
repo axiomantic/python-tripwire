@@ -17,6 +17,7 @@ class PluginEntry:
     import_path: str  # e.g., "bigfoot.plugins.http"
     class_name: str  # e.g., "HttpPlugin"
     availability_check: str  # module path or flag path to check availability
+    default_enabled: bool = True  # False for opt-in plugins (e.g., file I/O, ctypes/cffi)
 
 
 def _check_dep_available(module_name: str) -> bool:
@@ -39,33 +40,26 @@ def _check_plugin_flag(import_path: str, flag_name: str) -> bool:
 def _is_available(entry: PluginEntry) -> bool:
     """Determine if a plugin's optional dependencies are satisfied.
 
-    Reuses the existing _*_AVAILABLE flags from plugin modules where
-    possible, avoiding redundant import attempts.
+    Convention-based availability check using the availability_check field:
+    - "always": No optional deps; always available
+    - "<module_name>": Single module; try to import it
+    - "<mod1>+<mod2>": Multiple modules; all must be importable
+    - "flag:<import_path>:<flag_name>": Read a boolean flag from a plugin module
     """
-    # Plugins with no optional deps are always available
-    if entry.availability_check == "always":
+    check = entry.availability_check
+
+    if check == "always":
         return True
 
-    # Plugins whose modules set _*_AVAILABLE flags at import time.
-    # These modules are already imported by bigfoot/__init__.py at
-    # package init, so this is a cheap attribute read, not a new import.
-    _flag_map: dict[str, tuple[str, str]] = {
-        "websockets": ("bigfoot.plugins.websocket_plugin", "_WEBSOCKETS_AVAILABLE"),
-        "websocket-client": ("bigfoot.plugins.websocket_plugin", "_WEBSOCKET_CLIENT_AVAILABLE"),
-        "redis": ("bigfoot.plugins.redis_plugin", "_REDIS_AVAILABLE"),
-        "psycopg2": ("bigfoot.plugins.psycopg2_plugin", "_PSYCOPG2_AVAILABLE"),
-        "asyncpg": ("bigfoot.plugins.asyncpg_plugin", "_ASYNCPG_AVAILABLE"),
-    }
-    if entry.availability_check in _flag_map:
-        mod_path, flag = _flag_map[entry.availability_check]
-        return _check_plugin_flag(mod_path, flag)
+    if check.startswith("flag:"):
+        _, import_path, flag_name = check.split(":", 2)
+        return _check_plugin_flag(import_path, flag_name)
 
-    # HttpPlugin: its module raises ImportError at import time if httpx/requests
-    # are missing. Check the actual dependencies directly.
-    if entry.availability_check == "httpx+requests":
-        return _check_dep_available("httpx") and _check_dep_available("requests")
+    if "+" in check:
+        return all(_check_dep_available(m) for m in check.split("+"))
 
-    return False
+    # Default: single module check
+    return _check_dep_available(check)
 
 
 # Registry of all interceptor plugins (excludes MockPlugin).
@@ -86,7 +80,7 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "sync_websocket",
         "bigfoot.plugins.websocket_plugin",
         "SyncWebSocketPlugin",
-        "websocket-client",
+        "flag:bigfoot.plugins.websocket_plugin:_WEBSOCKET_CLIENT_AVAILABLE",
     ),
     PluginEntry("redis", "bigfoot.plugins.redis_plugin", "RedisPlugin", "redis"),
     PluginEntry("psycopg2", "bigfoot.plugins.psycopg2_plugin", "Psycopg2Plugin", "psycopg2"),
@@ -97,6 +91,31 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "bigfoot.plugins.async_subprocess_plugin",
         "AsyncSubprocessPlugin",
         "always",
+    ),
+    PluginEntry("dns", "bigfoot.plugins.dns_plugin", "DnsPlugin", "always"),
+    PluginEntry("memcache", "bigfoot.plugins.memcache_plugin", "MemcachePlugin", "pymemcache"),
+    PluginEntry("celery", "bigfoot.plugins.celery_plugin", "CeleryPlugin", "celery"),
+    PluginEntry("boto3", "bigfoot.plugins.boto3_plugin", "Boto3Plugin", "boto3"),
+    PluginEntry(
+        "elasticsearch",
+        "bigfoot.plugins.elasticsearch_plugin",
+        "ElasticsearchPlugin",
+        "elasticsearch",
+    ),
+    PluginEntry("jwt", "bigfoot.plugins.jwt_plugin", "JwtPlugin", "jwt"),
+    PluginEntry("crypto", "bigfoot.plugins.crypto_plugin", "CryptoPlugin", "cryptography"),
+    PluginEntry("mongo", "bigfoot.plugins.mongo_plugin", "MongoPlugin", "pymongo"),
+    PluginEntry(
+        "file_io", "bigfoot.plugins.file_io_plugin", "FileIoPlugin",
+        "always", default_enabled=False,
+    ),
+    PluginEntry("pika", "bigfoot.plugins.pika_plugin", "PikaPlugin", "pika"),
+    PluginEntry("ssh", "bigfoot.plugins.ssh_plugin", "SshPlugin", "paramiko"),
+    PluginEntry("grpc", "bigfoot.plugins.grpc_plugin", "GrpcPlugin", "grpc"),
+    PluginEntry("mcp", "bigfoot.plugins.mcp_plugin", "McpPlugin", "mcp"),
+    PluginEntry(
+        "native", "bigfoot.plugins.native_plugin", "NativePlugin",
+        "always", default_enabled=False,
     ),
 )
 
@@ -154,7 +173,17 @@ def resolve_enabled_plugins(
                 f"Unknown plugin name(s) in enabled_plugins: {sorted(unknown)}. "
                 f"Valid names: {sorted(VALID_PLUGIN_NAMES)}"
             )
-        return [e for e in PLUGIN_REGISTRY if e.name in enabled and _is_available(e)]
+        result = []
+        for e in PLUGIN_REGISTRY:
+            if e.name in enabled:
+                if not _is_available(e):
+                    raise BigfootConfigError(
+                        f"Plugin '{e.name}' is in enabled_plugins but its "
+                        f"dependency '{e.availability_check}' is not installed. "
+                        f"Install with: pip install bigfoot[{e.name}]"
+                    )
+                result.append(e)
+        return result
 
     if disabled is not None:
         unknown = set(disabled) - VALID_PLUGIN_NAMES
@@ -163,7 +192,10 @@ def resolve_enabled_plugins(
                 f"Unknown plugin name(s) in disabled_plugins: {sorted(unknown)}. "
                 f"Valid names: {sorted(VALID_PLUGIN_NAMES)}"
             )
-        return [e for e in PLUGIN_REGISTRY if e.name not in disabled and _is_available(e)]
+        return [
+            e for e in PLUGIN_REGISTRY
+            if e.name not in disabled and e.default_enabled and _is_available(e)
+        ]
 
-    # Default: all available plugins
-    return [e for e in PLUGIN_REGISTRY if _is_available(e)]
+    # Default: all available plugins that are default-enabled
+    return [e for e in PLUGIN_REGISTRY if e.default_enabled and _is_available(e)]

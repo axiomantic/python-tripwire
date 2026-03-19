@@ -245,38 +245,14 @@ Both plugins use `new_session()` and `.expect()` with the same parameters:
 
 ## Full example
 
+**Production code** (`examples/websocket_example/app.py`):
+
 ```python
-import bigfoot
+--8<-- "examples/websocket_example/app.py"
+```
 
-def chat_client(uri, messages):
-    import websocket
-    ws = websocket.create_connection(uri)
-    responses = []
-    for msg in messages:
-        ws.send(msg)
-        responses.append(ws.recv())
-    ws.close()
-    return responses
+**Test** (`examples/websocket_example/test_app.py`):
 
-def test_chat_client():
-    (bigfoot.sync_websocket_mock
-        .new_session()
-        .expect("connect", returns=None)
-        .expect("send",    returns=None)
-        .expect("recv",    returns="echo: hello")
-        .expect("send",    returns=None)
-        .expect("recv",    returns="echo: world")
-        .expect("close",   returns=None))
-
-    with bigfoot:
-        responses = chat_client("ws://chat.example.com/ws", ["hello", "world"])
-
-    assert responses == ["echo: hello", "echo: world"]
-
-    bigfoot.sync_websocket_mock.assert_connect(uri="ws://chat.example.com/ws")
-    bigfoot.sync_websocket_mock.assert_send(message="hello")
-    bigfoot.sync_websocket_mock.assert_recv(message="echo: hello")
-    bigfoot.sync_websocket_mock.assert_send(message="world")
-    bigfoot.sync_websocket_mock.assert_recv(message="echo: world")
-    bigfoot.sync_websocket_mock.assert_close()
+```python
+--8<-- "examples/websocket_example/test_app.py"
 ```

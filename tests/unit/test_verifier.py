@@ -615,3 +615,102 @@ def test_verifier_spy_delegates_to_real_object() -> None:
     unasserted = v._timeline.all_unasserted()
     assert len(unasserted) == 1
     assert unasserted[0].source_id == "mock:Calculator.add"
+
+
+# ---------------------------------------------------------------------------
+# Entry point plugin discovery
+# ---------------------------------------------------------------------------
+
+
+class TestEntryPointPluginDiscovery:
+    """_load_entrypoint_plugins discovers 3rd-party plugins via entry points."""
+
+    def test_entrypoint_plugin_is_instantiated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A plugin registered via bigfoot.plugins entry point is auto-instantiated."""
+        from unittest.mock import MagicMock
+
+        from bigfoot._base_plugin import BasePlugin
+
+        class FakeEntryPointPlugin(BasePlugin):
+            activated = False
+
+            def activate(self) -> None:
+                FakeEntryPointPlugin.activated = True
+
+            def deactivate(self) -> None:
+                pass
+
+            def matches(self, interaction, expected):
+                return True
+
+            def format_interaction(self, interaction):
+                return ""
+
+            def format_mock_hint(self, interaction):
+                return ""
+
+            def format_unmocked_hint(self, source_id, args, kwargs):
+                return ""
+
+            def format_assert_hint(self, interaction):
+                return ""
+
+            def assertable_fields(self, interaction):
+                return frozenset()
+
+            def get_unused_mocks(self):
+                return []
+
+            def format_unused_mock_hint(self, mock_config):
+                return ""
+
+        fake_ep = MagicMock()
+        fake_ep.name = "fake_plugin"
+        fake_ep.load.return_value = FakeEntryPointPlugin
+
+        monkeypatch.setattr(
+            "bigfoot._verifier.entry_points",
+            lambda group: [fake_ep] if group == "bigfoot.plugins" else [],
+        )
+
+        v = StrictVerifier()
+        plugin_types = [type(p).__name__ for p in v._plugins]
+        assert "FakeEntryPointPlugin" in plugin_types
+
+    def test_entrypoint_plugin_failure_is_silent(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """If a 3rd-party entry point plugin fails to load, it is silently skipped."""
+        from unittest.mock import MagicMock
+
+        fake_ep = MagicMock()
+        fake_ep.name = "broken_plugin"
+        fake_ep.load.side_effect = ImportError("broken")
+
+        monkeypatch.setattr(
+            "bigfoot._verifier.entry_points",
+            lambda group: [fake_ep] if group == "bigfoot.plugins" else [],
+        )
+
+        # Should not raise
+        v = StrictVerifier()
+        assert v is not None
+
+    def test_duplicate_entrypoint_plugin_is_skipped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An entry point plugin of a type already registered is silently skipped."""
+        from unittest.mock import MagicMock
+
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+
+        fake_ep = MagicMock()
+        fake_ep.name = "subprocess_again"
+        fake_ep.load.return_value = SubprocessPlugin
+
+        monkeypatch.setattr(
+            "bigfoot._verifier.entry_points",
+            lambda group: [fake_ep] if group == "bigfoot.plugins" else [],
+        )
+
+        v = StrictVerifier()
+        subprocess_count = sum(
+            1 for p in v._plugins if type(p).__name__ == "SubprocessPlugin"
+        )
+        assert subprocess_count == 1

@@ -1,6 +1,8 @@
 # src/bigfoot/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
 
+import warnings
+from importlib.metadata import entry_points
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -44,6 +46,10 @@ class StrictVerifier:
         Checks config for enabled_plugins/disabled_plugins.
         Silently skips plugins whose optional deps are not installed.
 
+        After built-in plugins, discovers 3rd-party plugins registered via
+        the ``bigfoot.plugins`` entry point group. Entry point plugins are
+        instantiated unconditionally (if installed, they should work).
+
         Constructor bugs are intentionally NOT caught: if a plugin's __init__
         raises a non-ImportError exception, it propagates. This is correct
         because a broken plugin constructor is a bug that should be fixed, not
@@ -57,7 +63,37 @@ class StrictVerifier:
                 plugin_cls = get_plugin_class(entry)
                 plugin_cls(self)  # BasePlugin.__init__ calls _register_plugin
             except ImportError:
-                pass  # optional dep not available at class-import time
+                explicitly_enabled = set(self._bigfoot_config.get("enabled_plugins", []))
+                if entry.name in explicitly_enabled:
+                    from bigfoot._errors import BigfootConfigError
+                    raise BigfootConfigError(
+                        f"Plugin '{entry.name}' is in enabled_plugins but failed "
+                        f"to import. Ensure its dependencies are installed: "
+                        f"pip install bigfoot[{entry.name}]"
+                    )
+                # Silent skip only for default-enabled (not explicitly listed) plugins
+
+        self._load_entrypoint_plugins()
+
+    def _load_entrypoint_plugins(self) -> None:
+        """Discover and instantiate 3rd-party plugins from entry points.
+
+        Looks for plugins registered under the ``bigfoot.plugins`` entry point
+        group. Each entry point should resolve to a BasePlugin subclass.
+        Duplicate types (already registered by built-in registry) are silently
+        skipped by _register_plugin.
+        """
+        for ep in entry_points(group="bigfoot.plugins"):
+            try:
+                plugin_cls = ep.load()
+                plugin_cls(self)
+            except ImportError:
+                pass  # Optional dependency not installed; expected.
+            except Exception as exc:
+                warnings.warn(
+                    f"bigfoot: entry point plugin {ep.name!r} failed to load: {exc}",
+                    stacklevel=1,
+                )
 
     def _register_plugin(self, plugin: "BasePlugin") -> None:
         for existing in self._plugins:

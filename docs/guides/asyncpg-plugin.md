@@ -175,29 +175,14 @@ bigfoot.asyncpg_mock.assert_close()
 
 ## Full example
 
+**Production code** (`examples/asyncpg_example/app.py`):
+
 ```python
-import asyncpg
-import bigfoot
+--8<-- "examples/asyncpg_example/app.py"
+```
 
-async def get_user_count():
-    conn = await asyncpg.connect(host="localhost", database="app", user="app")
-    count = await conn.fetchval("SELECT count(*) FROM users")
-    await conn.close()
-    return count
+**Test** (`examples/asyncpg_example/test_app.py`):
 
-async def test_get_user_count():
-    (bigfoot.asyncpg_mock
-        .new_session()
-        .expect("connect",  returns=None)
-        .expect("fetchval", returns=42)
-        .expect("close",    returns=None))
-
-    with bigfoot:
-        result = await get_user_count()
-
-    assert result == 42
-
-    bigfoot.asyncpg_mock.assert_connect(host="localhost", database="app", user="app")
-    bigfoot.asyncpg_mock.assert_fetchval(query="SELECT count(*) FROM users", args=[])
-    bigfoot.asyncpg_mock.assert_close()
+```python
+--8<-- "examples/asyncpg_example/test_app.py"
 ```

@@ -1,6 +1,6 @@
 # bigfoot
 
-**bigfoot** intercepts every external call your code makes and forces your tests to account for all of them. It ships with plugins for HTTP, subprocess, database, socket, Redis, SMTP, WebSocket, logging, and more. It enforces three guarantees that most mocking libraries leave silent:
+**bigfoot** intercepts every external call your code makes and forces your tests to account for all of them. It ships with 27 plugins for HTTP, subprocess, database, cache, cloud, messaging, crypto, file I/O, and more. It enforces three guarantees that most mocking libraries leave silent:
 
 1. **Every call must be pre-authorized.** Code makes a call with no registered mock? `UnmockedInteractionError`, immediately.
 2. **Every recorded interaction must be explicitly asserted.** Forget to assert an interaction? `UnassertedInteractionsError` at teardown.

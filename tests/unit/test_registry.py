@@ -1,5 +1,7 @@
 """Unit tests for bigfoot._registry: plugin registry and config resolution."""
 
+from unittest.mock import patch
+
 import pytest
 
 from bigfoot._errors import BigfootConfigError
@@ -18,8 +20,8 @@ from bigfoot._registry import (
 
 
 def test_plugin_registry_contains_all_plugins() -> None:
-    """PLUGIN_REGISTRY must contain exactly 13 entries (all interceptor plugins)."""
-    assert len(PLUGIN_REGISTRY) == 13
+    """PLUGIN_REGISTRY must contain exactly 27 entries (all interceptor plugins)."""
+    assert len(PLUGIN_REGISTRY) == 27
 
 
 def test_valid_plugin_names_matches_registry() -> None:
@@ -38,6 +40,20 @@ def test_valid_plugin_names_matches_registry() -> None:
         "asyncpg",
         "logging",
         "async_subprocess",
+        "dns",
+        "memcache",
+        "celery",
+        "boto3",
+        "elasticsearch",
+        "jwt",
+        "crypto",
+        "mongo",
+        "file_io",
+        "pika",
+        "ssh",
+        "grpc",
+        "native",
+        "mcp",
     }
     assert VALID_PLUGIN_NAMES == expected
 
@@ -99,6 +115,35 @@ def test_is_available_unknown_check_returns_false() -> None:
     """Unknown availability_check values return False."""
     entry = PluginEntry("fake", "bigfoot.plugins.fake", "FakePlugin", "nonexistent_dep")
     assert _is_available(entry) is False
+
+
+class TestIsAvailableConventions:
+    """_is_available handles all four convention formats."""
+
+    def test_always_available(self) -> None:
+        entry = PluginEntry("test", "x.y", "X", "always")
+        assert _is_available(entry) is True
+
+    def test_single_module_available(self) -> None:
+        entry = PluginEntry("test", "x.y", "X", "json")  # stdlib, always importable
+        assert _is_available(entry) is True
+
+    def test_single_module_unavailable(self) -> None:
+        entry = PluginEntry("test", "x.y", "X", "nonexistent_module_xyz_abc")
+        assert _is_available(entry) is False
+
+    def test_multi_module_all_available(self) -> None:
+        entry = PluginEntry("test", "x.y", "X", "json+os")
+        assert _is_available(entry) is True
+
+    def test_multi_module_one_missing(self) -> None:
+        entry = PluginEntry("test", "x.y", "X", "json+nonexistent_module_xyz_abc")
+        assert _is_available(entry) is False
+
+    def test_flag_based_check(self) -> None:
+        entry = PluginEntry("test", "x.y", "X", "flag:bigfoot.plugins.redis_plugin:_REDIS_AVAILABLE")
+        result = _is_available(entry)
+        assert isinstance(result, bool)
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +239,27 @@ def test_resolve_enabled_plugins_skips_unavailable() -> None:
     result = resolve_enabled_plugins({"enabled_plugins": ["subprocess"]})
     names = {e.name for e in result}
     assert names == {"subprocess"}
+
+
+class TestDefaultEnabled:
+    """PluginEntry.default_enabled controls default inclusion."""
+
+    def test_default_enabled_false_excluded_from_default(self) -> None:
+        entry = PluginEntry("test_opt", "x.y", "X", "always", default_enabled=False)
+        always_entry = PluginEntry("test_always", "x.y", "Y", "always", default_enabled=True)
+        with patch("bigfoot._registry.PLUGIN_REGISTRY", (entry, always_entry)):
+            with patch("bigfoot._registry.VALID_PLUGIN_NAMES", frozenset({"test_opt", "test_always"})):
+                result = resolve_enabled_plugins({})
+                names = [e.name for e in result]
+                assert "test_opt" not in names
+                assert "test_always" in names
+
+    def test_default_enabled_false_included_when_explicit(self) -> None:
+        entry = PluginEntry("test_opt", "x.y", "X", "always", default_enabled=False)
+        with patch("bigfoot._registry.PLUGIN_REGISTRY", (entry,)):
+            with patch("bigfoot._registry.VALID_PLUGIN_NAMES", frozenset({"test_opt"})):
+                result = resolve_enabled_plugins({"enabled_plugins": ["test_opt"]})
+                assert any(e.name == "test_opt" for e in result)
 
 
 def test_resolve_enabled_plugins_error_lists_valid_names() -> None:

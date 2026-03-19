@@ -108,58 +108,18 @@ Asserts the next wait interaction. No fields are required.
 bigfoot.popen_mock.assert_wait()
 ```
 
-## Full example: communicate()
+## Full example
+
+**Production code** (`examples/popen_example/app.py`):
 
 ```python
-import subprocess
-import bigfoot
-
-def run_linter(path):
-    proc = subprocess.Popen(
-        ["ruff", "check", path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    stdout, stderr = proc.communicate()
-    return proc.returncode, stdout.decode()
-
-def test_linter_clean():
-    (bigfoot.popen_mock
-        .new_session()
-        .expect("spawn",       returns=None)
-        .expect("communicate", returns=(b"All checks passed.\n", b"", 0)))
-
-    with bigfoot:
-        rc, output = run_linter("src/")
-
-    assert rc == 0
-    assert output == "All checks passed.\n"
-
-    bigfoot.popen_mock.assert_spawn(command=["ruff", "check", "src/"], stdin=None)
-    bigfoot.popen_mock.assert_communicate(input=None)
+--8<-- "examples/popen_example/app.py"
 ```
 
-## Full example: wait()
+**Test** (`examples/popen_example/test_app.py`):
 
 ```python
-import subprocess
-import bigfoot
-
-def test_wait_for_process():
-    (bigfoot.popen_mock
-        .new_session()
-        .expect("spawn", returns=None)
-        .expect("wait",  returns=0))
-
-    with bigfoot:
-        proc = subprocess.Popen(["sleep", "1"])
-        rc = proc.wait()
-
-    assert rc == 0
-    assert proc.returncode == 0
-
-    bigfoot.popen_mock.assert_spawn(command=["sleep", "1"], stdin=None)
-    bigfoot.popen_mock.assert_wait()
+--8<-- "examples/popen_example/test_app.py"
 ```
 
 ## Non-zero exit code

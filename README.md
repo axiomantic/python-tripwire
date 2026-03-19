@@ -75,15 +75,19 @@ No fixture injection required. Install bigfoot, `import bigfoot`, and go.
 
 ## Plugins
 
-bigfoot ships with 14 plugins covering the most common external dependencies:
+bigfoot ships with 27 plugins covering the most common external dependencies:
 
 | Category | Plugins | Intercepts |
 |----------|---------|------------|
 | **General** | [MockPlugin](https://axiomantic.github.io/bigfoot/guides/mock-plugin/), [LoggingPlugin](https://axiomantic.github.io/bigfoot/guides/logging-plugin/) | Named mock proxies, `logging` module |
 | **HTTP** | [HttpPlugin](https://axiomantic.github.io/bigfoot/guides/http-plugin/) | `httpx`, `requests`, `urllib`, `aiohttp` |
 | **Subprocess** | [SubprocessPlugin](https://axiomantic.github.io/bigfoot/guides/subprocess-plugin/), [PopenPlugin](https://axiomantic.github.io/bigfoot/guides/popen-plugin/), [AsyncSubprocessPlugin](https://axiomantic.github.io/bigfoot/guides/async-subprocess-plugin/) | `subprocess.run`, `shutil.which`, `Popen`, `asyncio.create_subprocess_*` |
-| **Database** | [DatabasePlugin](https://axiomantic.github.io/bigfoot/guides/database-plugin/), [Psycopg2Plugin](https://axiomantic.github.io/bigfoot/guides/psycopg2-plugin/), [AsyncpgPlugin](https://axiomantic.github.io/bigfoot/guides/asyncpg-plugin/) | `sqlite3`, `psycopg2`, `asyncpg` |
-| **Network** | [SmtpPlugin](https://axiomantic.github.io/bigfoot/guides/smtp-plugin/), [SocketPlugin](https://axiomantic.github.io/bigfoot/guides/socket-plugin/), [RedisPlugin](https://axiomantic.github.io/bigfoot/guides/redis-plugin/), [WebSocket](https://axiomantic.github.io/bigfoot/guides/websocket-plugin/) | `smtplib`, `socket`, `redis`, `websockets`, `websocket-client` |
+| **Database** | [DatabasePlugin](https://axiomantic.github.io/bigfoot/guides/database-plugin/), [Psycopg2Plugin](https://axiomantic.github.io/bigfoot/guides/psycopg2-plugin/), [AsyncpgPlugin](https://axiomantic.github.io/bigfoot/guides/asyncpg-plugin/), [MongoPlugin](https://axiomantic.github.io/bigfoot/guides/mongo-plugin/), [ElasticsearchPlugin](https://axiomantic.github.io/bigfoot/guides/elasticsearch-plugin/) | `sqlite3`, `psycopg2`, `asyncpg`, `pymongo`, `elasticsearch` |
+| **Cache** | [RedisPlugin](https://axiomantic.github.io/bigfoot/guides/redis-plugin/), [MemcachePlugin](https://axiomantic.github.io/bigfoot/guides/memcache-plugin/) | `redis`, `pymemcache` |
+| **Network** | [SmtpPlugin](https://axiomantic.github.io/bigfoot/guides/smtp-plugin/), [SocketPlugin](https://axiomantic.github.io/bigfoot/guides/socket-plugin/), [WebSocket](https://axiomantic.github.io/bigfoot/guides/websocket-plugin/), [DnsPlugin](https://axiomantic.github.io/bigfoot/guides/dns-plugin/), [SshPlugin](https://axiomantic.github.io/bigfoot/guides/ssh-plugin/), [GrpcPlugin](https://axiomantic.github.io/bigfoot/guides/grpc-plugin/) | `smtplib`, `socket`, `websockets`, `websocket-client`, DNS resolution, `paramiko`, `grpcio` |
+| **Cloud & Messaging** | [Boto3Plugin](https://axiomantic.github.io/bigfoot/guides/boto3-plugin/), [CeleryPlugin](https://axiomantic.github.io/bigfoot/guides/celery-plugin/), [PikaPlugin](https://axiomantic.github.io/bigfoot/guides/pika-plugin/) | `boto3` (AWS), `celery` tasks, `pika` (RabbitMQ) |
+| **Crypto & Auth** | [JwtPlugin](https://axiomantic.github.io/bigfoot/guides/jwt-plugin/), [CryptoPlugin](https://axiomantic.github.io/bigfoot/guides/crypto-plugin/) | `PyJWT`, `cryptography` |
+| **System** | [FileIoPlugin](https://axiomantic.github.io/bigfoot/guides/file-io-plugin/), [NativePlugin](https://axiomantic.github.io/bigfoot/guides/native-plugin/) | `open`, `pathlib`, `os`; `ctypes`, `cffi` |
 
 <details>
 <summary>Plugin examples</summary>
@@ -105,6 +109,33 @@ bigfoot.db_mock.new_session() \
 **Redis**
 ```python
 bigfoot.redis_mock.mock_command("GET", returns=b"cached_value")
+```
+
+**MongoDB**
+```python
+bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
+```
+
+**AWS (boto3)**
+```python
+bigfoot.boto3_mock.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
+```
+
+**RabbitMQ (pika)**
+```python
+bigfoot.pika_mock.new_session() \
+    .expect("connect", returns=None) \
+    .expect("channel", returns=None) \
+    .expect("publish", returns=None) \
+    .expect("close", returns=None)
+```
+
+**SSH (paramiko)**
+```python
+bigfoot.ssh_mock.new_session() \
+    .expect("connect", returns=None) \
+    .expect("exec_command", returns=(b"", b"output\n", b"")) \
+    .expect("close", returns=None)
 ```
 
 **SMTP**
@@ -163,11 +194,22 @@ Per-call arguments override project-level settings. See the [configuration guide
 pip install bigfoot                       # Core plugins (no optional deps)
 pip install bigfoot[http]                 # + httpx, requests, urllib
 pip install bigfoot[aiohttp]              # + aiohttp
+pip install bigfoot[redis]                # + Redis
+pip install bigfoot[pymemcache]           # + Memcached
+pip install bigfoot[pymongo]              # + MongoDB
+pip install bigfoot[elasticsearch]        # + Elasticsearch/OpenSearch
 pip install bigfoot[psycopg2]             # + PostgreSQL (psycopg2)
 pip install bigfoot[asyncpg]              # + PostgreSQL (asyncpg)
+pip install bigfoot[boto3]                # + AWS SDK
+pip install bigfoot[pika]                 # + RabbitMQ
+pip install bigfoot[celery]               # + Celery tasks
+pip install bigfoot[grpc]                 # + gRPC
+pip install bigfoot[paramiko]             # + SSH
+pip install bigfoot[jwt]                  # + PyJWT
+pip install bigfoot[crypto]               # + cryptography
+pip install bigfoot[cffi]                 # + cffi (C FFI)
 pip install bigfoot[websockets]           # + async WebSocket
 pip install bigfoot[websocket-client]     # + sync WebSocket
-pip install bigfoot[redis]                # + Redis
 pip install bigfoot[matchers]             # + dirty-equals matchers
 ```
 

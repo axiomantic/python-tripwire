@@ -60,8 +60,47 @@ psycopg2 = [
 asyncpg = [
     "asyncpg>=0.29.0",
 ]
+boto3 = [
+    "boto3>=1.28.0",
+]
+pika = [
+    "pika>=1.3.0",
+]
+celery = [
+    "celery>=5.3.0",
+]
+grpc = [
+    "grpcio>=1.60.0",
+]
+pymemcache = [
+    "pymemcache>=4.0.0",
+]
+pymongo = [
+    "pymongo>=4.6.0",
+]
+cffi = [
+    "cffi>=1.16.0",
+]
+jwt = [
+    "PyJWT>=2.8.0",
+]
+crypto = [
+    "cryptography>=41.0.0",
+]
+elasticsearch = [
+    "elasticsearch>=8.12.0",
+]
+dnspython = [
+    "dnspython>=2.6.0",
+]
+paramiko = [
+    "paramiko>=3.4.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
 all = [
-    "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg]",
+    "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko,mcp]",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -70,7 +109,7 @@ docs = [
     "mike>=2.1",
 ]
 dev = [
-    "bigfoot[http,matchers,docs,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg]",
+    "bigfoot[all,docs]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
@@ -85,7 +124,7 @@ bigfoot = "bigfoot.pytest_plugin"
 packages = ["src/bigfoot"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "examples"]
 asyncio_mode = "auto"
 markers = [
     "slow: tests that take >5 seconds",
@@ -111,6 +150,25 @@ exclude_lines = [
 python_version = "3.11"
 strict = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "celery",
+    "celery.*",
+    "botocore",
+    "botocore.*",
+    "paramiko",
+    "paramiko.*",
+    "pika",
+    "pika.*",
+    "cffi",
+    "cffi.*",
+    "grpc",
+    "grpc.*",
+    "pymemcache",
+    "pymemcache.*",
+]
+ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py311"

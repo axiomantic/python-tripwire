@@ -65,6 +65,8 @@ markdown_extensions:
       alternate_style: true
   - toc:
       permalink: true
+  - pymdownx.snippets:
+      base_path: ["."]
   - attr_list
   - md_in_html
 
@@ -86,12 +88,28 @@ nav:
     - SmtpPlugin: guides/smtp-plugin.md
     - SocketPlugin: guides/socket-plugin.md
     - RedisPlugin: guides/redis-plugin.md
+    - MemcachePlugin: guides/memcache-plugin.md
+    - MongoPlugin: guides/mongo-plugin.md
+    - ElasticsearchPlugin: guides/elasticsearch-plugin.md
+    - Boto3Plugin: guides/boto3-plugin.md
+    - CeleryPlugin: guides/celery-plugin.md
+    - PikaPlugin: guides/pika-plugin.md
+    - SshPlugin: guides/ssh-plugin.md
+    - GrpcPlugin: guides/grpc-plugin.md
+    - DnsPlugin: guides/dns-plugin.md
+    - JwtPlugin: guides/jwt-plugin.md
+    - CryptoPlugin: guides/crypto-plugin.md
+    - FileIoPlugin: guides/file-io-plugin.md
+    - NativePlugin: guides/native-plugin.md
     - WebSocket Plugins: guides/websocket-plugin.md
     - Stateful Plugins: guides/stateful-plugins.md
     - Configuration: guides/configuration.md
     - Async Usage: guides/async.md
     - pytest Integration: guides/pytest-integration.md
+    - McpPlugin: guides/mcp-plugin.md
     - Writing Plugins: guides/writing-plugins.md
+    - How It Works: guides/how-it-works.md
+    - Plugin Layers: guides/plugin-layers.md
   - API Reference:
     - Overview: reference/index.md
     - StrictVerifier: reference/verifier.md
@@ -107,7 +125,21 @@ nav:
     - SmtpPlugin: reference/smtp-plugin.md
     - SocketPlugin: reference/socket-plugin.md
     - RedisPlugin: reference/redis-plugin.md
+    - MemcachePlugin: reference/memcache-plugin.md
+    - MongoPlugin: reference/mongo-plugin.md
+    - ElasticsearchPlugin: reference/elasticsearch-plugin.md
+    - Boto3Plugin: reference/boto3-plugin.md
+    - CeleryPlugin: reference/celery-plugin.md
+    - PikaPlugin: reference/pika-plugin.md
+    - SshPlugin: reference/ssh-plugin.md
+    - GrpcPlugin: reference/grpc-plugin.md
+    - DnsPlugin: reference/dns-plugin.md
+    - JwtPlugin: reference/jwt-plugin.md
+    - CryptoPlugin: reference/crypto-plugin.md
+    - FileIoPlugin: reference/file-io-plugin.md
+    - NativePlugin: reference/native-plugin.md
     - WebSocket Plugins: reference/websocket-plugin.md
+    - McpPlugin: reference/mcp-plugin.md
     - Configuration: reference/configuration.md
     - Errors: reference/errors.md
 

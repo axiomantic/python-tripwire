@@ -115,78 +115,18 @@ Asserts the next wait interaction. No fields are required.
 bigfoot.async_subprocess_mock.assert_wait()
 ```
 
-## Full example: exec with communicate()
+## Full example
+
+**Production code** (`examples/async_subprocess_example/app.py`):
 
 ```python
-import asyncio
-import bigfoot
-
-async def run_linter(path):
-    proc = await asyncio.create_subprocess_exec(
-        "ruff", "check", path,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    return proc.returncode, stdout.decode()
-
-async def test_linter_clean():
-    (bigfoot.async_subprocess_mock
-        .new_session()
-        .expect("spawn",       returns=None)
-        .expect("communicate", returns=(b"All checks passed.\n", b"", 0)))
-
-    with bigfoot:
-        rc, output = await run_linter("src/")
-
-    assert rc == 0
-    assert output == "All checks passed.\n"
-
-    bigfoot.async_subprocess_mock.assert_spawn(
-        command=["ruff", "check", "src/"], stdin=None
-    )
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+--8<-- "examples/async_subprocess_example/app.py"
 ```
 
-## Full example: shell with communicate()
+**Test** (`examples/async_subprocess_example/test_app.py`):
 
 ```python
-async def test_shell_pipeline():
-    (bigfoot.async_subprocess_mock
-        .new_session()
-        .expect("spawn",       returns=None)
-        .expect("communicate", returns=(b"HELLO\n", b"", 0)))
-
-    with bigfoot:
-        proc = await asyncio.create_subprocess_shell("echo hello | tr a-z A-Z")
-        stdout, stderr = await proc.communicate()
-
-    assert stdout == b"HELLO\n"
-
-    bigfoot.async_subprocess_mock.assert_spawn(
-        command="echo hello | tr a-z A-Z", stdin=None
-    )
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
-```
-
-## Full example: wait()
-
-```python
-async def test_wait_for_process():
-    (bigfoot.async_subprocess_mock
-        .new_session()
-        .expect("spawn", returns=None)
-        .expect("wait",  returns=0))
-
-    with bigfoot:
-        proc = await asyncio.create_subprocess_exec("sleep", "1")
-        rc = await proc.wait()
-
-    assert rc == 0
-    assert proc.returncode == 0
-
-    bigfoot.async_subprocess_mock.assert_spawn(command=["sleep", "1"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_wait()
+--8<-- "examples/async_subprocess_example/test_app.py"
 ```
 
 ## ConflictError
