@@ -199,11 +199,11 @@ from bigfoot._context import _current_test_verifier
 from bigfoot._errors import InteractionMismatchError, UnmockedInteractionError
 from bigfoot._verifier import StrictVerifier
 
-# Use pytest.importorskip for optional deps, direct import for stdlib
-[lib] = pytest.importorskip("[import_name]")  # optional deps
-# or: import [lib]  # stdlib
+# Import the library directly -- all optional deps are in bigfoot[dev].
+# Never use pytest.importorskip (green mirage).
+import [lib]
 
-from bigfoot.plugins.[name]_plugin import (  # noqa: E402
+from bigfoot.plugins.[name]_plugin import (
     _[LIB]_AVAILABLE,
     [Name]MockConfig,
     [Name]Plugin,

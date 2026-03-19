@@ -1,6 +1,7 @@
 # src/bigfoot/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
 
+import warnings
 from importlib.metadata import entry_points
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
@@ -86,10 +87,13 @@ class StrictVerifier:
             try:
                 plugin_cls = ep.load()
                 plugin_cls(self)
-            except Exception:
-                # 3rd-party plugin failed to load; skip silently.
-                # Users can debug by importing the plugin directly.
-                pass
+            except ImportError:
+                pass  # Optional dependency not installed; expected.
+            except Exception as exc:
+                warnings.warn(
+                    f"bigfoot: entry point plugin {ep.name!r} failed to load: {exc}",
+                    stacklevel=1,
+                )
 
     def _register_plugin(self, plugin: "BasePlugin") -> None:
         for existing in self._plugins:
