@@ -20,8 +20,8 @@ from bigfoot._registry import (
 
 
 def test_plugin_registry_contains_all_plugins() -> None:
-    """PLUGIN_REGISTRY must contain exactly 25 entries (all interceptor plugins)."""
-    assert len(PLUGIN_REGISTRY) == 25
+    """PLUGIN_REGISTRY must contain exactly 26 entries (all interceptor plugins)."""
+    assert len(PLUGIN_REGISTRY) == 26
 
 
 def test_valid_plugin_names_matches_registry() -> None:
@@ -52,6 +52,7 @@ def test_valid_plugin_names_matches_registry() -> None:
         "pika",
         "ssh",
         "grpc",
+        "native",
     }
     assert VALID_PLUGIN_NAMES == expected
 

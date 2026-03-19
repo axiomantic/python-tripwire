@@ -66,6 +66,7 @@ from bigfoot.plugins.dns_plugin import DnsPlugin as _DnsPlugin  # noqa: F401
 from bigfoot.plugins.memcache_plugin import MemcachePlugin as _MemcachePlugin  # noqa: F401
 from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 from bigfoot.plugins.file_io_plugin import FileIoPlugin as _FileIoPlugin  # noqa: F401
+from bigfoot.plugins.native_plugin import NativePlugin as _NativePlugin  # noqa: F401
 
 try:
     from bigfoot.plugins.mongo_plugin import MongoPlugin as _MongoPlugin  # noqa: F401
@@ -122,6 +123,7 @@ DnsPlugin = _DnsPlugin
 MemcachePlugin = _MemcachePlugin
 RedisPlugin = _RedisPlugin
 FileIoPlugin = _FileIoPlugin
+NativePlugin = _NativePlugin
 
 try:
     PikaPlugin = _PikaPlugin
@@ -255,6 +257,8 @@ __all__ = [
     "ssh_mock",
     "GrpcPlugin",
     "grpc_mock",
+    "NativePlugin",
+    "native_mock",
 ]
 
 
@@ -560,6 +564,27 @@ class _FileIoProxy:
 
 
 file_io_mock = _FileIoProxy()
+
+
+# ---------------------------------------------------------------------------
+# Native proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _NativeProxy:
+    """Proxy to the NativePlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. NativePlugin is always
+    available (ctypes is stdlib), but is NOT default enabled.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _NativePlugin)
+        return getattr(plugin, name)
+
+
+native_mock = _NativeProxy()
 
 
 # ---------------------------------------------------------------------------
