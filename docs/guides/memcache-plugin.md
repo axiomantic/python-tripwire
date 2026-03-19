@@ -182,45 +182,16 @@ def test_memcache_connection_error():
 
 ## Full example
 
+**Production code** (`examples/memcache_session/app.py`):
+
 ```python
-from pymemcache.client.base import Client
-import bigfoot
+--8<-- "examples/memcache_session/app.py"
+```
 
-def get_user_profile(client, user_id):
-    """Fetch user profile from memcache, return None on miss."""
-    cached = client.get(f"profile:{user_id}")
-    if cached is not None:
-        return cached.decode("utf-8")
-    return None
+**Test** (`examples/memcache_session/test_app.py`):
 
-def cache_user_profile(client, user_id, profile_json, ttl=300):
-    """Store user profile in memcache with TTL."""
-    client.set(f"profile:{user_id}", profile_json.encode("utf-8"), expire=ttl)
-
-def test_cache_hit():
-    bigfoot.memcache_mock.mock_command("GET", returns=b'{"name": "Alice"}')
-
-    with bigfoot:
-        client = Client(("localhost", 11211))
-        result = get_user_profile(client, "42")
-
-    assert result == '{"name": "Alice"}'
-
-    bigfoot.memcache_mock.assert_get(command="GET", key="profile:42")
-
-def test_cache_write():
-    bigfoot.memcache_mock.mock_command("SET", returns=True)
-
-    with bigfoot:
-        client = Client(("localhost", 11211))
-        cache_user_profile(client, "42", '{"name": "Alice"}', ttl=600)
-
-    bigfoot.memcache_mock.assert_set(
-        command="SET",
-        key="profile:42",
-        value=b'{"name": "Alice"}',
-        expire=600,
-    )
+```python
+--8<-- "examples/memcache_session/test_app.py"
 ```
 
 ## Optional mocks

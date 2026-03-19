@@ -175,38 +175,16 @@ bigfoot.ssh_mock.assert_close()
 
 ## Full example
 
+**Production code** (`examples/ssh_remote/app.py`):
+
 ```python
-import paramiko
-import bigfoot
+--8<-- "examples/ssh_remote/app.py"
+```
 
-def deploy_config(host, username, local_path, remote_path):
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(host, username=username)
-    sftp = client.open_sftp()
-    sftp.put(local_path, remote_path)
-    client.exec_command(f"systemctl reload myapp")
-    client.close()
+**Test** (`examples/ssh_remote/test_app.py`):
 
-def test_deploy_config():
-    (bigfoot.ssh_mock
-        .new_session()
-        .expect("connect",      returns=None)
-        .expect("open_sftp",    returns=None)
-        .expect("sftp_put",     returns=None)
-        .expect("exec_command", returns=(None, b"", b""))
-        .expect("close",        returns=None))
-
-    with bigfoot:
-        deploy_config("prod-1.example.com", "deploy", "/tmp/app.conf", "/etc/myapp/app.conf")
-
-    bigfoot.ssh_mock.assert_connect(
-        hostname="prod-1.example.com", port=22, username="deploy", auth_method="password",
-    )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_put(localpath="/tmp/app.conf", remotepath="/etc/myapp/app.conf")
-    bigfoot.ssh_mock.assert_exec_command(command="systemctl reload myapp")
-    bigfoot.ssh_mock.assert_close()
+```python
+--8<-- "examples/ssh_remote/test_app.py"
 ```
 
 ## Key-based authentication

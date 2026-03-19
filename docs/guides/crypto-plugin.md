@@ -185,51 +185,16 @@ def test_invalid_token():
 
 ## Full example
 
+**Production code** (`examples/crypto_sign/app.py`):
+
 ```python
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives.asymmetric import rsa
-import bigfoot
+--8<-- "examples/crypto_sign/app.py"
+```
 
-def encrypt_pii_field(fernet, value):
-    """Encrypt a PII field before storing in the database."""
-    return fernet.encrypt(value.encode("utf-8"))
+**Test** (`examples/crypto_sign/test_app.py`):
 
-def decrypt_pii_field(fernet, ciphertext):
-    """Decrypt a PII field retrieved from the database."""
-    return fernet.decrypt(ciphertext).decode("utf-8")
-
-def test_encrypt_pii():
-    bigfoot.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted_ssn")
-
-    with bigfoot:
-        f = Fernet(b"test-key-base64-encoded-padding=")
-        ciphertext = encrypt_pii_field(f, "123-45-6789")
-
-    assert ciphertext == b"gAAAAABencrypted_ssn"
-
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=11)
-
-def test_decrypt_pii():
-    bigfoot.crypto_mock.mock_decrypt(returns=b"123-45-6789")
-
-    with bigfoot:
-        f = Fernet(b"test-key-base64-encoded-padding=")
-        plaintext = decrypt_pii_field(f, b"gAAAAABencrypted_ssn")
-
-    assert plaintext == "123-45-6789"
-
-    bigfoot.crypto_mock.assert_decrypt(token=b"gAAAAABencrypted_ssn", ttl=None)
-
-def test_generate_rsa_key():
-    mock_key = object()  # stand-in for an RSA private key
-    bigfoot.crypto_mock.mock_generate_key(returns=mock_key)
-
-    with bigfoot:
-        key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
-
-    assert key is mock_key
-
-    bigfoot.crypto_mock.assert_generate_key(algorithm="RSA", key_size=4096)
+```python
+--8<-- "examples/crypto_sign/test_app.py"
 ```
 
 ## Optional mocks

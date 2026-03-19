@@ -251,46 +251,16 @@ def test_stream_partial_failure():
 
 ## Full example
 
+**Production code** (`examples/grpc_service/app.py`):
+
 ```python
-import grpc
-import bigfoot
+--8<-- "examples/grpc_service/app.py"
+```
 
-def fetch_user_orders(user_id):
-    channel = grpc.insecure_channel("api.example.com:50051")
-    user_stub = channel.unary_unary("/commerce.UserService/GetUser")
-    order_stub = channel.unary_stream("/commerce.OrderService/ListOrders")
+**Test** (`examples/grpc_service/test_app.py`):
 
-    user = user_stub({"id": user_id})
-    orders = list(order_stub({"user_id": user_id}))
-    channel.close()
-    return user, orders
-
-def test_fetch_user_orders():
-    bigfoot.grpc_mock.mock_unary_unary(
-        "/commerce.UserService/GetUser",
-        returns={"id": 7, "name": "Alice", "email": "alice@example.com"},
-    )
-    bigfoot.grpc_mock.mock_unary_stream(
-        "/commerce.OrderService/ListOrders",
-        returns=[
-            {"order_id": "A1", "total": 29.99},
-            {"order_id": "A2", "total": 149.00},
-        ],
-    )
-
-    with bigfoot:
-        user, orders = fetch_user_orders(7)
-
-    assert user["name"] == "Alice"
-    assert len(orders) == 2
-    assert orders[0]["order_id"] == "A1"
-
-    bigfoot.grpc_mock.assert_unary_unary(
-        "/commerce.UserService/GetUser", request={"id": 7},
-    )
-    bigfoot.grpc_mock.assert_unary_stream(
-        "/commerce.OrderService/ListOrders", request={"user_id": 7},
-    )
+```python
+--8<-- "examples/grpc_service/test_app.py"
 ```
 
 ## Secure channels

@@ -169,46 +169,16 @@ def test_expired_token():
 
 ## Full example
 
+**Production code** (`examples/jwt_auth/app.py`):
+
 ```python
-import jwt
-import bigfoot
-from dirty_equals import IsInt
+--8<-- "examples/jwt_auth/app.py"
+```
 
-def issue_access_token(user_id, role, secret_key):
-    """Issue a signed JWT access token."""
-    payload = {
-        "sub": user_id,
-        "role": role,
-        "iat": 1700000000,
-    }
-    return jwt.encode(payload, secret_key, algorithm="HS256")
+**Test** (`examples/jwt_auth/test_app.py`):
 
-def verify_access_token(token, secret_key):
-    """Verify and decode a JWT access token."""
-    return jwt.decode(token, secret_key, algorithms=["HS256"])
-
-def test_issue_and_verify_token():
-    bigfoot.jwt_mock.mock_encode(returns="signed.access.token")
-    bigfoot.jwt_mock.mock_decode(returns={"sub": "user_42", "role": "editor", "iat": 1700000000})
-
-    with bigfoot:
-        token = issue_access_token("user_42", "editor", "my-secret")
-        claims = verify_access_token(token, "my-secret")
-
-    assert token == "signed.access.token"
-    assert claims["sub"] == "user_42"
-    assert claims["role"] == "editor"
-
-    bigfoot.jwt_mock.assert_encode(
-        payload={"sub": "user_42", "role": "editor", "iat": IsInt},
-        algorithm="HS256",
-        extra_kwargs={},
-    )
-    bigfoot.jwt_mock.assert_decode(
-        token="signed.access.token",
-        algorithms=["HS256"],
-        options=None,
-    )
+```python
+--8<-- "examples/jwt_auth/test_app.py"
 ```
 
 ## Optional mocks

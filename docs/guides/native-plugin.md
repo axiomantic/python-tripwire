@@ -136,27 +136,16 @@ def test_library_load_error():
 
 ## Full example
 
+**Production code** (`examples/native_lib/app.py`):
+
 ```python
-import ctypes
-import bigfoot
+--8<-- "examples/native_lib/app.py"
+```
 
-def compute_distance(x1, y1, x2, y2):
-    libm = ctypes.CDLL("libm")
-    dx = x2 - x1
-    dy = y2 - y1
-    return libm.sqrt(ctypes.c_double(dx * dx + dy * dy))
+**Test** (`examples/native_lib/test_app.py`):
 
-def test_compute_distance():
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=5.0)
-
-    with bigfoot:
-        result = compute_distance(0.0, 0.0, 3.0, 4.0)
-
-    assert result == 5.0
-
-    bigfoot.native_mock.assert_call(
-        library="libm", function="sqrt", args=(25.0,),
-    )
+```python
+--8<-- "examples/native_lib/test_app.py"
 ```
 
 ## cffi support

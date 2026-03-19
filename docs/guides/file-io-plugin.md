@@ -205,33 +205,16 @@ def test_file_not_found():
 
 ## Full example
 
+**Production code** (`examples/file_processor/app.py`):
+
 ```python
-import os
-import shutil
-from pathlib import Path
-import bigfoot
+--8<-- "examples/file_processor/app.py"
+```
 
-def archive_and_clean(source_dir, archive_dir, manifest_path):
-    os.makedirs(archive_dir, exist_ok=True)
-    shutil.copytree(source_dir, os.path.join(archive_dir, "latest"))
-    Path(manifest_path).write_text(f"archived: {source_dir}")
-    shutil.rmtree(source_dir)
+**Test** (`examples/file_processor/test_app.py`):
 
-def test_archive_and_clean():
-    bigfoot.file_io_mock.mock_operation("makedirs", "/backups/2024", returns=None)
-    bigfoot.file_io_mock.mock_operation("copytree", "/var/data/reports", returns=None)
-    bigfoot.file_io_mock.mock_operation("write_text", "/var/log/manifest.txt", returns=None)
-    bigfoot.file_io_mock.mock_operation("rmtree", "/var/data/reports", returns=None)
-
-    with bigfoot:
-        archive_and_clean("/var/data/reports", "/backups/2024", "/var/log/manifest.txt")
-
-    bigfoot.file_io_mock.assert_makedirs(path="/backups/2024", exist_ok=True)
-    bigfoot.file_io_mock.assert_copytree(src="/var/data/reports", dst="/backups/2024/latest")
-    bigfoot.file_io_mock.assert_write_text(
-        path="/var/log/manifest.txt", data="archived: /var/data/reports",
-    )
-    bigfoot.file_io_mock.assert_rmtree(path="/var/data/reports")
+```python
+--8<-- "examples/file_processor/test_app.py"
 ```
 
 ## `open()` return values

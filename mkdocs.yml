@@ -65,6 +65,8 @@ markdown_extensions:
       alternate_style: true
   - toc:
       permalink: true
+  - pymdownx.snippets:
+      base_path: ["."]
   - attr_list
   - md_in_html
 

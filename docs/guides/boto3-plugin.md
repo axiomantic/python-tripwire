@@ -154,37 +154,16 @@ def test_s3_not_found():
 
 ## Full example
 
+**Production code** (`examples/boto3_service/app.py`):
+
 ```python
-import boto3
-import bigfoot
+--8<-- "examples/boto3_service/app.py"
+```
 
-def upload_and_notify(bucket, key, body, queue_url):
-    s3 = boto3.client("s3")
-    sqs = boto3.client("sqs")
-    s3.put_object(Bucket=bucket, Key=key, Body=body)
-    sqs.send_message(QueueUrl=queue_url, MessageBody=f"Uploaded {key}")
+**Test** (`examples/boto3_service/test_app.py`):
 
-def test_upload_and_notify():
-    bigfoot.boto3_mock.mock_call("s3", "PutObject", returns={})
-    bigfoot.boto3_mock.mock_call("sqs", "SendMessage", returns={"MessageId": "msg-001"})
-
-    with bigfoot:
-        upload_and_notify(
-            "data-bucket", "reports/q1.csv", b"revenue,100",
-            "https://sqs.us-east-1.amazonaws.com/123/notifications",
-        )
-
-    bigfoot.boto3_mock.assert_boto3_call(
-        service="s3", operation="PutObject",
-        params={"Bucket": "data-bucket", "Key": "reports/q1.csv", "Body": b"revenue,100"},
-    )
-    bigfoot.boto3_mock.assert_boto3_call(
-        service="sqs", operation="SendMessage",
-        params={
-            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/notifications",
-            "MessageBody": "Uploaded reports/q1.csv",
-        },
-    )
+```python
+--8<-- "examples/boto3_service/test_app.py"
 ```
 
 ## Optional mocks

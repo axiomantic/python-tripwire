@@ -235,42 +235,16 @@ def test_duplicate_key():
 
 ## Full example
 
+**Production code** (`examples/mongo_store/app.py`):
+
 ```python
-import pymongo
-import bigfoot
+--8<-- "examples/mongo_store/app.py"
+```
 
-def create_order(db, customer_id, items):
-    """Insert an order document and update the customer's order count."""
-    order = {"customer_id": customer_id, "items": items, "status": "pending"}
-    result = db.orders.insert_one(order)
-    db.customers.update_one(
-        {"_id": customer_id},
-        {"$inc": {"order_count": 1}},
-    )
-    return str(result.inserted_id)
+**Test** (`examples/mongo_store/test_app.py`):
 
-def test_create_order():
-    mock_result = type("InsertOneResult", (), {"inserted_id": "order_789"})()
-    bigfoot.mongo_mock.mock_operation("insert_one", returns=mock_result)
-    bigfoot.mongo_mock.mock_operation("update_one", returns=type("UpdateResult", (), {"modified_count": 1})())
-
-    with bigfoot:
-        client = pymongo.MongoClient("mongodb://localhost:27017")
-        order_id = create_order(client.shopdb, "cust_123", [{"sku": "WIDGET", "qty": 3}])
-
-    assert order_id == "order_789"
-
-    bigfoot.mongo_mock.assert_insert_one(
-        database="shopdb",
-        collection="orders",
-        document={"customer_id": "cust_123", "items": [{"sku": "WIDGET", "qty": 3}], "status": "pending"},
-    )
-    bigfoot.mongo_mock.assert_update_one(
-        database="shopdb",
-        collection="customers",
-        filter={"_id": "cust_123"},
-        update={"$inc": {"order_count": 1}},
-    )
+```python
+--8<-- "examples/mongo_store/test_app.py"
 ```
 
 ## Optional mocks

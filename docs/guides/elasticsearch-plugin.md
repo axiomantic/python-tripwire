@@ -211,60 +211,16 @@ def test_document_not_found():
 
 ## Full example
 
+**Production code** (`examples/elasticsearch_search/app.py`):
+
 ```python
-from elasticsearch import Elasticsearch
-import bigfoot
+--8<-- "examples/elasticsearch_search/app.py"
+```
 
-def search_error_logs(es, index_name, hours=24, max_results=100):
-    """Search for recent error-level log entries."""
-    result = es.search(
-        index=index_name,
-        query={
-            "bool": {
-                "must": [
-                    {"match": {"level": "error"}},
-                    {"range": {"timestamp": {"gte": f"now-{hours}h"}}},
-                ],
-            }
-        },
-        size=max_results,
-    )
-    return [hit["_source"] for hit in result["hits"]["hits"]]
+**Test** (`examples/elasticsearch_search/test_app.py`):
 
-def test_search_error_logs():
-    bigfoot.elasticsearch_mock.mock_operation(
-        "search",
-        returns={
-            "hits": {
-                "total": {"value": 2},
-                "hits": [
-                    {"_id": "1", "_source": {"level": "error", "message": "timeout"}},
-                    {"_id": "2", "_source": {"level": "error", "message": "connection refused"}},
-                ],
-            }
-        },
-    )
-
-    with bigfoot:
-        es = Elasticsearch("http://localhost:9200")
-        logs = search_error_logs(es, "app-logs", hours=12, max_results=50)
-
-    assert len(logs) == 2
-    assert logs[0]["message"] == "timeout"
-    assert logs[1]["message"] == "connection refused"
-
-    bigfoot.elasticsearch_mock.assert_search(
-        index="app-logs",
-        query={
-            "bool": {
-                "must": [
-                    {"match": {"level": "error"}},
-                    {"range": {"timestamp": {"gte": "now-12h"}}},
-                ],
-            }
-        },
-        size=50,
-    )
+```python
+--8<-- "examples/elasticsearch_search/test_app.py"
 ```
 
 ## Optional mocks

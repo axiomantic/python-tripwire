@@ -121,7 +121,7 @@ bigfoot = "bigfoot.pytest_plugin"
 packages = ["src/bigfoot"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "examples"]
 asyncio_mode = "auto"
 markers = [
     "slow: tests that take >5 seconds",

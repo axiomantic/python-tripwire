@@ -177,38 +177,16 @@ def test_dns_resolution_failure():
 
 ## Full example
 
+**Production code** (`examples/dns_lookup/app.py`):
+
 ```python
-import socket
-import bigfoot
+--8<-- "examples/dns_lookup/app.py"
+```
 
-def resolve_service_endpoint(service_name, port=443):
-    """Resolve a service hostname and return (ip, port) tuple."""
-    results = socket.getaddrinfo(service_name, port, socket.AF_INET, socket.SOCK_STREAM)
-    if not results:
-        raise RuntimeError(f"Could not resolve {service_name}")
-    family, socktype, proto, canonname, sockaddr = results[0]
-    return sockaddr
+**Test** (`examples/dns_lookup/test_app.py`):
 
-def test_resolve_service_endpoint():
-    bigfoot.dns_mock.mock_getaddrinfo(
-        "payments.internal",
-        returns=[
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.2.15", 443)),
-        ],
-    )
-
-    with bigfoot:
-        addr = resolve_service_endpoint("payments.internal")
-
-    assert addr == ("10.0.2.15", 443)
-
-    bigfoot.dns_mock.assert_getaddrinfo(
-        host="payments.internal",
-        port=443,
-        family=socket.AF_INET,
-        type=socket.SOCK_STREAM,
-        proto=0,
-    )
+```python
+--8<-- "examples/dns_lookup/test_app.py"
 ```
 
 ## Optional mocks

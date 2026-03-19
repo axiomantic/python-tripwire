@@ -18,7 +18,7 @@ def test_get_user_cache_hit():
         result = get_user(1)
 
     assert result == {"id": 1, "name": "Alice"}
-    bigfoot.redis_mock.assert_command("GET", args=("user:1",))
+    bigfoot.redis_mock.assert_command("GET", args=("user:1",), kwargs={"keys": ["user:1"]})
 
 
 def test_get_user_cache_miss():
@@ -28,4 +28,4 @@ def test_get_user_cache_miss():
         result = get_user(42)
 
     assert result is None
-    bigfoot.redis_mock.assert_command("GET", args=("user:42",))
+    bigfoot.redis_mock.assert_command("GET", args=("user:42",), kwargs={"keys": ["user:42"]})

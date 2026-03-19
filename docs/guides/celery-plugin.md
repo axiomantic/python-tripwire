@@ -174,41 +174,16 @@ def test_celery_dispatch_error():
 
 ## Full example
 
+**Production code** (`examples/celery_tasks/app.py`):
+
 ```python
-import bigfoot
+--8<-- "examples/celery_tasks/app.py"
+```
 
-def enqueue_order_pipeline(order_id, user_email):
-    from myapp.tasks import validate_order, charge_payment, send_confirmation
-    validate_order.delay(order_id)
-    charge_payment.apply_async(args=(order_id,), kwargs={"currency": "USD"}, countdown=5)
-    send_confirmation.delay(user_email, order_id)
+**Test** (`examples/celery_tasks/test_app.py`):
 
-def test_enqueue_order_pipeline():
-    bigfoot.celery_mock.mock_delay("myapp.tasks.validate_order", returns=None)
-    bigfoot.celery_mock.mock_apply_async("myapp.tasks.charge_payment", returns=None)
-    bigfoot.celery_mock.mock_delay("myapp.tasks.send_confirmation", returns=None)
-
-    with bigfoot:
-        enqueue_order_pipeline("order-42", "buyer@example.com")
-
-    bigfoot.celery_mock.assert_delay(
-        task_name="myapp.tasks.validate_order",
-        args=("order-42",),
-        kwargs={},
-        options={},
-    )
-    bigfoot.celery_mock.assert_apply_async(
-        task_name="myapp.tasks.charge_payment",
-        args=("order-42",),
-        kwargs={"currency": "USD"},
-        options={"countdown": 5},
-    )
-    bigfoot.celery_mock.assert_delay(
-        task_name="myapp.tasks.send_confirmation",
-        args=("buyer@example.com", "order-42"),
-        kwargs={},
-        options={},
-    )
+```python
+--8<-- "examples/celery_tasks/test_app.py"
 ```
 
 ## Optional mocks
