@@ -1,0 +1,253 @@
+# PikaPlugin Guide
+
+`PikaPlugin` replaces `pika.BlockingConnection` with a fake class that routes all RabbitMQ operations through a session script. It intercepts connection creation, channel opening, message publishing, consuming, acknowledgement, and connection closure.
+
+## Installation
+
+```bash
+pip install bigfoot[pika]
+```
+
+This installs `pika`.
+
+## Setup
+
+In pytest, access `PikaPlugin` through the `bigfoot.pika_mock` proxy. It auto-creates the plugin for the current test on first use:
+
+```python
+import bigfoot
+
+def test_publish_message():
+    (bigfoot.pika_mock
+        .new_session()
+        .expect("connect",  returns=None)
+        .expect("channel",  returns=None)
+        .expect("publish",  returns=None)
+        .expect("close",    returns=None))
+
+    with bigfoot:
+        import pika
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host="rabbitmq.example.com")
+        )
+        channel = connection.channel()
+        channel.basic_publish(exchange="", routing_key="tasks", body=b"hello")
+        connection.close()
+
+    bigfoot.pika_mock.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
+    bigfoot.pika_mock.assert_channel()
+    bigfoot.pika_mock.assert_publish(
+        exchange="", routing_key="tasks", body=b"hello", properties=None,
+    )
+    bigfoot.pika_mock.assert_close()
+```
+
+For manual use outside pytest, construct `PikaPlugin` explicitly:
+
+```python
+from bigfoot import StrictVerifier
+from bigfoot.plugins.pika_plugin import PikaPlugin
+
+verifier = StrictVerifier()
+pika_mock = PikaPlugin(verifier)
+```
+
+Each verifier may have at most one `PikaPlugin`. A second `PikaPlugin(verifier)` raises `ValueError`.
+
+## State machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> disconnected
+    disconnected --> connected : connect
+    connected --> channel_open : channel
+    channel_open --> channel_open : publish / consume / ack / nack
+    channel_open --> closed : close
+    connected --> closed : close
+    closed --> [*]
+```
+
+The `connect` step fires automatically during `pika.BlockingConnection(...)` construction. After connecting, you must open a channel before publishing or consuming. The `close` step is valid from both `connected` (skipping channel) and `channel_open`.
+
+## Session scripting
+
+Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
+
+```python
+(bigfoot.pika_mock
+    .new_session()
+    .expect("connect",  returns=None)
+    .expect("channel",  returns=None)
+    .expect("publish",  returns=None)
+    .expect("publish",  returns=None)
+    .expect("close",    returns=None))
+```
+
+### `expect()` parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `method` | `str` | required | Step name (see below) |
+| `returns` | `Any` | required | Value returned by the step |
+| `raises` | `BaseException \| None` | `None` | Exception to raise instead of returning |
+| `required` | `bool` | `True` | Whether an unused step causes `UnusedMocksError` at teardown |
+
+### Steps
+
+| Step | Description |
+|---|---|
+| `connect` | Connection established via `BlockingConnection(...)` |
+| `channel` | Channel opened via `connection.channel()` |
+| `publish` | Message published via `channel.basic_publish(...)` |
+| `consume` | Consumer registered via `channel.basic_consume(...)` |
+| `ack` | Message acknowledged via `channel.basic_ack(...)` |
+| `nack` | Message negatively acknowledged via `channel.basic_nack(...)` |
+| `close` | Connection closed via `connection.close()` |
+
+## Asserting interactions
+
+Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.pika_mock`:
+
+### `assert_connect(*, host, port, virtual_host)`
+
+```python
+bigfoot.pika_mock.assert_connect(host="rabbitmq.example.com", port=5672, virtual_host="/")
+```
+
+### `assert_channel()`
+
+No fields are required.
+
+```python
+bigfoot.pika_mock.assert_channel()
+```
+
+### `assert_publish(*, exchange, routing_key, body, properties)`
+
+```python
+bigfoot.pika_mock.assert_publish(
+    exchange="", routing_key="tasks", body=b"process this", properties=None,
+)
+```
+
+### `assert_consume(*, queue, auto_ack)`
+
+```python
+bigfoot.pika_mock.assert_consume(queue="tasks", auto_ack=False)
+```
+
+### `assert_ack(*, delivery_tag)`
+
+```python
+bigfoot.pika_mock.assert_ack(delivery_tag=1)
+```
+
+### `assert_nack(*, delivery_tag, requeue)`
+
+```python
+bigfoot.pika_mock.assert_nack(delivery_tag=1, requeue=True)
+```
+
+### `assert_close()`
+
+No fields are required.
+
+```python
+bigfoot.pika_mock.assert_close()
+```
+
+## Full example
+
+```python
+import pika
+import bigfoot
+
+def publish_event(host, exchange, routing_key, body):
+    params = pika.ConnectionParameters(host=host)
+    connection = pika.BlockingConnection(params)
+    channel = connection.channel()
+    channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body)
+    connection.close()
+
+def test_publish_event():
+    (bigfoot.pika_mock
+        .new_session()
+        .expect("connect",  returns=None)
+        .expect("channel",  returns=None)
+        .expect("publish",  returns=None)
+        .expect("close",    returns=None))
+
+    with bigfoot:
+        publish_event("mq.internal", "events", "order.created", b'{"order_id": 42}')
+
+    bigfoot.pika_mock.assert_connect(host="mq.internal", port=5672, virtual_host="/")
+    bigfoot.pika_mock.assert_channel()
+    bigfoot.pika_mock.assert_publish(
+        exchange="events",
+        routing_key="order.created",
+        body=b'{"order_id": 42}',
+        properties=None,
+    )
+    bigfoot.pika_mock.assert_close()
+```
+
+## Consume and acknowledge flow
+
+A full consumer pattern with explicit acknowledgement:
+
+```python
+import pika
+import bigfoot
+
+def test_consume_and_ack():
+    (bigfoot.pika_mock
+        .new_session()
+        .expect("connect",  returns=None)
+        .expect("channel",  returns=None)
+        .expect("consume",  returns="consumer-tag-1")
+        .expect("ack",      returns=None)
+        .expect("close",    returns=None))
+
+    with bigfoot:
+        params = pika.ConnectionParameters(host="localhost")
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+        channel.basic_consume(queue="work", auto_ack=False)
+        channel.basic_ack(delivery_tag=1)
+        connection.close()
+
+    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    bigfoot.pika_mock.assert_channel()
+    bigfoot.pika_mock.assert_consume(queue="work", auto_ack=False)
+    bigfoot.pika_mock.assert_ack(delivery_tag=1)
+    bigfoot.pika_mock.assert_close()
+```
+
+## Negative acknowledgement
+
+Use `nack` to reject and optionally requeue a message:
+
+```python
+def test_nack_and_requeue():
+    (bigfoot.pika_mock
+        .new_session()
+        .expect("connect",  returns=None)
+        .expect("channel",  returns=None)
+        .expect("consume",  returns="consumer-tag-1")
+        .expect("nack",     returns=None)
+        .expect("close",    returns=None))
+
+    with bigfoot:
+        params = pika.ConnectionParameters(host="localhost")
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+        channel.basic_consume(queue="work", auto_ack=False)
+        channel.basic_nack(delivery_tag=1, requeue=True)
+        connection.close()
+
+    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    bigfoot.pika_mock.assert_channel()
+    bigfoot.pika_mock.assert_consume(queue="work", auto_ack=False)
+    bigfoot.pika_mock.assert_nack(delivery_tag=1, requeue=True)
+    bigfoot.pika_mock.assert_close()
+```
