@@ -106,7 +106,10 @@ nav:
     - Configuration: guides/configuration.md
     - Async Usage: guides/async.md
     - pytest Integration: guides/pytest-integration.md
+    - McpPlugin: guides/mcp-plugin.md
     - Writing Plugins: guides/writing-plugins.md
+    - How It Works: guides/how-it-works.md
+    - Plugin Layers: guides/plugin-layers.md
   - API Reference:
     - Overview: reference/index.md
     - StrictVerifier: reference/verifier.md
@@ -136,6 +139,7 @@ nav:
     - FileIoPlugin: reference/file-io-plugin.md
     - NativePlugin: reference/native-plugin.md
     - WebSocket Plugins: reference/websocket-plugin.md
+    - McpPlugin: reference/mcp-plugin.md
     - Configuration: reference/configuration.md
     - Errors: reference/errors.md
 
