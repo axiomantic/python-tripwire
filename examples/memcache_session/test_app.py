@@ -1,12 +1,8 @@
 """Test memcache user profile caching using bigfoot memcache_mock."""
 
-import pytest
+import bigfoot
 
-pymemcache = pytest.importorskip("pymemcache")
-
-import bigfoot  # noqa: E402
-
-from .app import cache_user_profile, get_user_profile  # noqa: E402
+from .app import cache_user_profile, get_user_profile
 
 
 def test_cache_hit():

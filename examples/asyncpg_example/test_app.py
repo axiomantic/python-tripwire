@@ -1,12 +1,8 @@
 """Test get_user_count using bigfoot asyncpg_mock."""
 
-import pytest
+import bigfoot
 
-pytest.importorskip("asyncpg")
-
-import bigfoot  # noqa: E402
-
-from .app import get_user_count  # noqa: E402
+from .app import get_user_count
 
 
 async def test_get_user_count():

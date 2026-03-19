@@ -74,13 +74,9 @@ All code examples shown in plugin guide documentation MUST be runnable and teste
 ```python
 """Brief description."""
 
-import pytest
+import bigfoot
 
-dep = pytest.importorskip("optional_dependency")  # skip if not installed
-
-import bigfoot  # noqa: E402
-
-from .app import production_function  # noqa: E402
+from .app import production_function
 
 
 def test_something():
@@ -102,7 +98,7 @@ def test_something():
 - **Never** put inline code examples in guide "Full example" sections. Always use snippet includes from `examples/`.
 - **Every** new plugin guide must have a corresponding `examples/` directory with working tests.
 - If a library generates DEBUG logs (boto3, pymongo, celery, etc.), add an autouse fixture to silence them so they don't interfere with LoggingPlugin.
-- Use `pytest.importorskip()` for optional dependencies, skip it for stdlib-only plugins.
+- **Never** use `pytest.importorskip()` in tests. All optional dependencies are included in `bigfoot[dev]` and are expected to be installed. Skipping on missing imports is a green mirage.
 - The `.claude/skills/adding-plugins/SKILL.md` skill automates the full plugin creation lifecycle including examples and docs.
 
 ## Selective Installation

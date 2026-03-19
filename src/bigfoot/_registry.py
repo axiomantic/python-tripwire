@@ -104,6 +104,7 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
     PluginEntry("pika", "bigfoot.plugins.pika_plugin", "PikaPlugin", "pika"),
     PluginEntry("ssh", "bigfoot.plugins.ssh_plugin", "SshPlugin", "paramiko"),
     PluginEntry("grpc", "bigfoot.plugins.grpc_plugin", "GrpcPlugin", "grpc"),
+    PluginEntry("mcp", "bigfoot.plugins.mcp_plugin", "McpPlugin", "mcp"),
     PluginEntry("native", "bigfoot.plugins.native_plugin", "NativePlugin", "always", default_enabled=False),
 )
 

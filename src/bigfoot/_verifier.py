@@ -1,6 +1,7 @@
 # src/bigfoot/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
 
+from importlib.metadata import entry_points
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -44,6 +45,10 @@ class StrictVerifier:
         Checks config for enabled_plugins/disabled_plugins.
         Silently skips plugins whose optional deps are not installed.
 
+        After built-in plugins, discovers 3rd-party plugins registered via
+        the ``bigfoot.plugins`` entry point group. Entry point plugins are
+        instantiated unconditionally (if installed, they should work).
+
         Constructor bugs are intentionally NOT caught: if a plugin's __init__
         raises a non-ImportError exception, it propagates. This is correct
         because a broken plugin constructor is a bug that should be fixed, not
@@ -66,6 +71,25 @@ class StrictVerifier:
                         f"pip install bigfoot[{entry.name}]"
                     )
                 # Silent skip only for default-enabled (not explicitly listed) plugins
+
+        self._load_entrypoint_plugins()
+
+    def _load_entrypoint_plugins(self) -> None:
+        """Discover and instantiate 3rd-party plugins from entry points.
+
+        Looks for plugins registered under the ``bigfoot.plugins`` entry point
+        group. Each entry point should resolve to a BasePlugin subclass.
+        Duplicate types (already registered by built-in registry) are silently
+        skipped by _register_plugin.
+        """
+        for ep in entry_points(group="bigfoot.plugins"):
+            try:
+                plugin_cls = ep.load()
+                plugin_cls(self)
+            except Exception:
+                # 3rd-party plugin failed to load; skip silently.
+                # Users can debug by importing the plugin directly.
+                pass
 
     def _register_plugin(self, plugin: "BasePlugin") -> None:
         for existing in self._plugins:

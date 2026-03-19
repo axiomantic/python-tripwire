@@ -96,8 +96,11 @@ dnspython = [
 paramiko = [
     "paramiko>=3.4.0",
 ]
+mcp = [
+    "mcp>=1.0.0",
+]
 all = [
-    "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko]",
+    "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko,mcp]",
 ]
 docs = [
     "mkdocs>=1.6",

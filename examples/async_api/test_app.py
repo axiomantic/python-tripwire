@@ -2,12 +2,9 @@
 
 import pytest
 
-aiohttp = pytest.importorskip("aiohttp")
-asyncpg = pytest.importorskip("asyncpg")
+import bigfoot
 
-import bigfoot  # noqa: E402
-
-from .app import sync_user_data  # noqa: E402
+from .app import sync_user_data
 
 
 @pytest.mark.asyncio

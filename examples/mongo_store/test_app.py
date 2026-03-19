@@ -2,13 +2,12 @@
 
 import logging
 
+import pymongo
 import pytest
 
-pymongo = pytest.importorskip("pymongo")
+import bigfoot
 
-import bigfoot  # noqa: E402
-
-from .app import create_order  # noqa: E402
+from .app import create_order
 
 
 @pytest.fixture(autouse=True)

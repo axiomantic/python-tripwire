@@ -91,6 +91,8 @@ def test_all_contains_expected_names() -> None:
         "ssh_mock",
         "GrpcPlugin",
         "grpc_mock",
+        "McpPlugin",
+        "mcp_mock",
         "NativePlugin",
         "native_mock",
     }

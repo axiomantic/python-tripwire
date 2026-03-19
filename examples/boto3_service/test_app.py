@@ -4,11 +4,9 @@ import logging
 
 import pytest
 
-boto3 = pytest.importorskip("boto3")
+import bigfoot
 
-import bigfoot  # noqa: E402
-
-from .app import upload_and_notify  # noqa: E402
+from .app import upload_and_notify
 
 
 @pytest.fixture(autouse=True)

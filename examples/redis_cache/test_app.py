@@ -1,12 +1,8 @@
 """Test Redis cache using bigfoot redis_mock."""
 
-import pytest
+import bigfoot
 
-redis = pytest.importorskip("redis")
-
-import bigfoot  # noqa: E402
-
-from .app import get_user  # noqa: E402
+from .app import get_user
 
 
 def test_get_user_cache_hit():

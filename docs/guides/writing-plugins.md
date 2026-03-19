@@ -522,3 +522,71 @@ Key implementation rules:
 - Call `_lookup_session(conn_obj)` inside each subsequent method interceptor to retrieve the bound session.
 - Call `_release_session(conn_obj)` at the close/quit/disconnect point to free the session slot.
 - Call `_execute_step(handle, method, args, kwargs, source_id)` to validate the state transition, pop the next script step, advance the state, record the interaction, and return the configured value.
+
+---
+
+## Using a coding assistant
+
+If you use Claude Code or another AI coding assistant, bigfoot includes a project skill at `.claude/skills/adding-plugins/SKILL.md` that automates the full plugin creation lifecycle: scaffolding, implementation, tests, documentation, and example creation. Invoke it with "add a plugin for X" or similar phrasing.
+
+---
+
+## 1st party vs 3rd party plugins
+
+bigfoot plugins don't depend on the libraries they intercept at install time. All library dependencies are optional extras (`pip install bigfoot[http]`, `pip install bigfoot[redis]`, etc.), so a 1st party plugin for any library costs nothing to users who don't install that extra. This means the usual "heavy dependencies" argument for splitting into a separate package doesn't apply.
+
+### When to contribute a 1st party plugin
+
+Most plugins should be 1st party (in-tree). Contribute directly to bigfoot when:
+
+- **The library is widely used.** If a meaningful percentage of Python projects use it, bigfoot should support it out of the box. Examples: HTTP clients, database drivers, cloud SDKs, message queues, caching libraries.
+- **Interception is complex.** Plugins that need ContextVar routing, class-level ref counting, reentrancy guards, or factory replacement patterns benefit from living alongside bigfoot's internals where they can evolve together.
+- **Layer coexistence matters.** If the plugin participates in bigfoot's interception matrix (e.g., boto3 sits above HTTP, SSH sits above socket), coordinating `disabled_plugins` behavior is much easier in-tree.
+- **You want the core team to maintain it.** 1st party plugins are tested in CI against every bigfoot release.
+
+### When to create a 3rd party plugin
+
+Create a separate package when:
+
+- **Independent release cycles are needed.** The target library changes its internals frequently and the plugin needs to release on its own schedule, decoupled from bigfoot releases.
+- **The plugin is domain-specific.** It targets an internal company SDK, a proprietary protocol, or a library used by a very small community.
+- **The maintainer is outside the core team** and prefers to own the release process.
+
+### Packaging a 3rd party plugin
+
+A 3rd party plugin is a standard Python package that depends on `bigfoot`. Users install it alongside bigfoot:
+
+```bash
+pip install bigfoot bigfoot-myservice
+```
+
+**Project structure:**
+
+```
+bigfoot-myservice/
+├── pyproject.toml
+├── src/
+│   └── bigfoot_myservice/
+│       ├── __init__.py      # exports proxy, plugin class
+│       └── plugin.py        # MyServicePlugin(BasePlugin)
+└── tests/
+    └── test_plugin.py
+```
+
+**Entry point for auto-discovery:**
+
+Register your plugin using the `bigfoot.plugins` entry point group so bigfoot discovers and activates it automatically when installed:
+
+```toml
+# In your package's pyproject.toml
+[project.entry-points."bigfoot.plugins"]
+myservice = "bigfoot_myservice.plugin:MyServicePlugin"
+```
+
+With this entry point, users don't need to manually register the plugin. Installing the package is enough -- bigfoot's `StrictVerifier` discovers entry-point plugins alongside built-in ones.
+
+**Key points:**
+
+- Subclass `BasePlugin` or `StateMachinePlugin` from `bigfoot`
+- Follow the same conventions as built-in plugins (sentinel proxies, FIFO queues, `assertable_fields` returning `frozenset(interaction.details.keys())`)
+- Test against bigfoot's public API only; don't depend on private internals that may change

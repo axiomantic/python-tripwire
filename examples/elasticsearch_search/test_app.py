@@ -1,12 +1,8 @@
 """Test Elasticsearch error log search using bigfoot elasticsearch_mock."""
 
-import pytest
+import bigfoot
 
-elasticsearch = pytest.importorskip("elasticsearch")
-
-import bigfoot  # noqa: E402
-
-from .app import search_error_logs  # noqa: E402
+from .app import search_error_logs
 
 
 def test_search_error_logs():

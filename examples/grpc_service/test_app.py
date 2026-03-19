@@ -1,12 +1,8 @@
 """Test gRPC service calls using bigfoot grpc_mock."""
 
-import pytest
+import bigfoot
 
-grpc = pytest.importorskip("grpc")
-
-import bigfoot  # noqa: E402
-
-from .app import fetch_user_orders  # noqa: E402
+from .app import fetch_user_orders
 
 
 def test_fetch_user_orders():

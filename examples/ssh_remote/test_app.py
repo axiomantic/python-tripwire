@@ -1,12 +1,8 @@
 """Test SSH deployment using bigfoot ssh_mock."""
 
-import pytest
+import bigfoot
 
-paramiko = pytest.importorskip("paramiko")
-
-import bigfoot  # noqa: E402
-
-from .app import deploy_config  # noqa: E402
+from .app import deploy_config
 
 
 def test_deploy_config():

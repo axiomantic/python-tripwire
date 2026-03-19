@@ -1,14 +1,10 @@
 """Test PII encryption and decryption using bigfoot crypto_mock."""
 
-import pytest
+from cryptography.fernet import Fernet
 
-cryptography = pytest.importorskip("cryptography")
+import bigfoot
 
-from cryptography.fernet import Fernet  # noqa: E402
-
-import bigfoot  # noqa: E402
-
-from .app import decrypt_pii_field, encrypt_pii_field  # noqa: E402
+from .app import decrypt_pii_field, encrypt_pii_field
 
 # Generate a valid Fernet key for the example
 TEST_KEY = Fernet.generate_key()

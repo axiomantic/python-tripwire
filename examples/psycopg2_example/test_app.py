@@ -1,12 +1,8 @@
 """Test save_user using bigfoot psycopg2_mock."""
 
-import pytest
+import bigfoot
 
-pytest.importorskip("psycopg2")
-
-import bigfoot  # noqa: E402
-
-from .app import save_user  # noqa: E402
+from .app import save_user
 
 
 def test_save_user():

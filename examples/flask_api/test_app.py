@@ -1,14 +1,10 @@
 """Test create_charge using bigfoot HTTP mocking and log assertions."""
 
-import pytest
+from dirty_equals import IsInstance
 
-httpx = pytest.importorskip("httpx")
+import bigfoot
 
-from dirty_equals import IsInstance  # noqa: E402
-
-import bigfoot  # noqa: E402
-
-from .app import create_charge  # noqa: E402
+from .app import create_charge
 
 
 def test_create_charge_posts_to_stripe_and_logs():

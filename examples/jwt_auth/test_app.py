@@ -1,12 +1,8 @@
 """Test JWT token issuance and verification using bigfoot jwt_mock."""
 
-import pytest
+import bigfoot
 
-jwt = pytest.importorskip("jwt")
-
-import bigfoot  # noqa: E402
-
-from .app import issue_access_token, verify_access_token  # noqa: E402
+from .app import issue_access_token, verify_access_token
 
 
 def test_issue_and_verify_token():

@@ -1,12 +1,8 @@
 """Test chat_client using bigfoot sync_websocket_mock."""
 
-import pytest
+import bigfoot
 
-pytest.importorskip("websocket")
-
-import bigfoot  # noqa: E402
-
-from .app import chat_client  # noqa: E402
+from .app import chat_client
 
 
 def test_chat_client():

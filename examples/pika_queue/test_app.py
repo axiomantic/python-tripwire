@@ -1,12 +1,8 @@
 """Test RabbitMQ publishing using bigfoot pika_mock."""
 
-import pytest
+import bigfoot
 
-pika = pytest.importorskip("pika")
-
-import bigfoot  # noqa: E402
-
-from .app import publish_event  # noqa: E402
+from .app import publish_event
 
 
 def test_publish_event():

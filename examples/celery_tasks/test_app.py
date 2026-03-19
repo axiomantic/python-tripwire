@@ -4,11 +4,9 @@ import logging
 
 import pytest
 
-celery = pytest.importorskip("celery")
+import bigfoot
 
-import bigfoot  # noqa: E402
-
-from .app import enqueue_order_pipeline  # noqa: E402
+from .app import enqueue_order_pipeline
 
 
 @pytest.fixture(autouse=True)
