@@ -92,6 +92,9 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
         "AsyncSubprocessPlugin",
         "always",
     ),
+    PluginEntry("dns", "bigfoot.plugins.dns_plugin", "DnsPlugin", "always"),
+    PluginEntry("memcache", "bigfoot.plugins.memcache_plugin", "MemcachePlugin", "pymemcache"),
+    PluginEntry("celery", "bigfoot.plugins.celery_plugin", "CeleryPlugin", "celery"),
 )
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)

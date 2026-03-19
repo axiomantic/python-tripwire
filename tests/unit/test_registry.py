@@ -20,8 +20,8 @@ from bigfoot._registry import (
 
 
 def test_plugin_registry_contains_all_plugins() -> None:
-    """PLUGIN_REGISTRY must contain exactly 13 entries (all interceptor plugins)."""
-    assert len(PLUGIN_REGISTRY) == 13
+    """PLUGIN_REGISTRY must contain exactly 16 entries (all interceptor plugins)."""
+    assert len(PLUGIN_REGISTRY) == 16
 
 
 def test_valid_plugin_names_matches_registry() -> None:
@@ -40,6 +40,9 @@ def test_valid_plugin_names_matches_registry() -> None:
         "asyncpg",
         "logging",
         "async_subprocess",
+        "dns",
+        "memcache",
+        "celery",
     }
     assert VALID_PLUGIN_NAMES == expected
 

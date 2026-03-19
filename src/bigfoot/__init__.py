@@ -38,6 +38,9 @@ from bigfoot.plugins.async_subprocess_plugin import (
 from bigfoot.plugins.database_plugin import DatabasePlugin as _DatabasePlugin  # noqa: F401
 from bigfoot.plugins.logging_plugin import LoggingPlugin as _LoggingPlugin  # noqa: F401
 from bigfoot.plugins.popen_plugin import PopenPlugin as _PopenPlugin  # noqa: F401
+from bigfoot.plugins.celery_plugin import CeleryPlugin as _CeleryPlugin  # noqa: F401
+from bigfoot.plugins.dns_plugin import DnsPlugin as _DnsPlugin  # noqa: F401
+from bigfoot.plugins.memcache_plugin import MemcachePlugin as _MemcachePlugin  # noqa: F401
 from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin  # noqa: F401
 from bigfoot.plugins.smtp_plugin import SmtpPlugin as _SmtpPlugin  # noqa: F401
 
@@ -67,6 +70,9 @@ SmtpPlugin = _SmtpPlugin
 SocketPlugin = _SocketPlugin
 AsyncWebSocketPlugin = _AsyncWebSocketPlugin
 SyncWebSocketPlugin = _SyncWebSocketPlugin
+CeleryPlugin = _CeleryPlugin
+DnsPlugin = _DnsPlugin
+MemcachePlugin = _MemcachePlugin
 RedisPlugin = _RedisPlugin
 
 try:
@@ -99,6 +105,9 @@ __all__ = [
     "AsyncWebSocketPlugin",
     "SyncWebSocketPlugin",
     "RedisPlugin",
+    "CeleryPlugin",
+    "DnsPlugin",
+    "MemcachePlugin",
     "Psycopg2Plugin",
     "AsyncpgPlugin",
     # Errors
@@ -133,6 +142,9 @@ __all__ = [
     "async_websocket_mock",
     "sync_websocket_mock",
     "redis_mock",
+    "dns_mock",
+    "memcache_mock",
+    "celery_mock",
     "log_mock",
     "async_subprocess_mock",
     "psycopg2_mock",
@@ -421,6 +433,83 @@ class _RedisProxy:
 
 
 redis_mock = _RedisProxy()
+
+
+# ---------------------------------------------------------------------------
+# DNS proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _DnsProxy:
+    """Proxy to the DnsPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. DNS plugin is always
+    available (stdlib socket), no ImportError check needed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _DnsPlugin)
+        return getattr(plugin, name)
+
+
+dns_mock = _DnsProxy()
+
+
+# ---------------------------------------------------------------------------
+# Memcache proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _MemcacheProxy:
+    """Proxy to the MemcachePlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the pymemcache extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.memcache_plugin import _PYMEMCACHE_AVAILABLE
+
+        if not _PYMEMCACHE_AVAILABLE:
+            raise ImportError(
+                "bigfoot[pymemcache] is required to use bigfoot.memcache_mock. "
+                "Install it with: pip install bigfoot[pymemcache]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _MemcachePlugin)
+        return getattr(plugin, name)
+
+
+memcache_mock = _MemcacheProxy()
+
+
+# ---------------------------------------------------------------------------
+# Celery proxy singleton
+# ---------------------------------------------------------------------------
+
+
+class _CeleryProxy:
+    """Proxy to the CeleryPlugin registered on the current test verifier.
+
+    Auto-creates the plugin on first access per test. Raises ImportError if
+    the celery extra is not installed.
+    """
+
+    def __getattr__(self, name: str) -> object:
+        from bigfoot.plugins.celery_plugin import _CELERY_AVAILABLE
+
+        if not _CELERY_AVAILABLE:
+            raise ImportError(
+                "bigfoot[celery] is required to use bigfoot.celery_mock. "
+                "Install it with: pip install bigfoot[celery]"
+            )
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _CeleryPlugin)
+        return getattr(plugin, name)
+
+
+celery_mock = _CeleryProxy()
 
 
 # ---------------------------------------------------------------------------
