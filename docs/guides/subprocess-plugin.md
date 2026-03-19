@@ -153,27 +153,14 @@ Nested bigfoot sandboxes use reference counting and do not conflict with each ot
 
 ## Full example
 
+**Production code** (`examples/cli_tool/app.py`):
+
 ```python
-import bigfoot
+--8<-- "examples/cli_tool/app.py"
+```
 
-def deploy():
-    import shutil, subprocess
-    git = shutil.which("git")
-    subprocess.run([git, "pull", "--ff-only"], check=True)
-    subprocess.run([git, "tag", "v1.0"], check=True)
+**Test** (`examples/cli_tool/test_app.py`):
 
-def test_deploy():
-    bigfoot.subprocess_mock.mock_which("git", returns="/usr/bin/git")
-    bigfoot.subprocess_mock.mock_run(["/usr/bin/git", "pull", "--ff-only"], returncode=0, stdout="Already up to date.\n")
-    bigfoot.subprocess_mock.mock_run(["/usr/bin/git", "tag", "v1.0"], returncode=0)
-
-    with bigfoot:
-        deploy()
-
-    bigfoot.subprocess_mock.assert_which(name="git", returns="/usr/bin/git")
-    bigfoot.subprocess_mock.assert_run(command=["/usr/bin/git", "pull", "--ff-only"],
-                                       returncode=0, stdout="Already up to date.\n", stderr="")
-    bigfoot.subprocess_mock.assert_run(command=["/usr/bin/git", "tag", "v1.0"],
-                                       returncode=0, stdout="", stderr="")
-    # verify_all() runs automatically at test teardown
+```python
+--8<-- "examples/cli_tool/test_app.py"
 ```

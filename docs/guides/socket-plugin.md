@@ -161,35 +161,16 @@ def test_two_connections():
 
 ## Full example
 
+**Production code** (`examples/socket_example/app.py`):
+
 ```python
-import socket
-import bigfoot
+--8<-- "examples/socket_example/app.py"
+```
 
-def fetch_status(host, port):
-    sock = socket.socket()
-    sock.connect((host, port))
-    sock.sendall(b"STATUS\r\n")
-    response = sock.recv(4096)
-    sock.close()
-    return response.decode()
+**Test** (`examples/socket_example/test_app.py`):
 
-def test_fetch_status():
-    (bigfoot.socket_mock
-        .new_session()
-        .expect("connect",  returns=None)
-        .expect("sendall",  returns=None)
-        .expect("recv",     returns=b"OK 200\r\n")
-        .expect("close",    returns=None))
-
-    with bigfoot:
-        result = fetch_status("monitoring.internal", 5000)
-
-    assert result == "OK 200\r\n"
-
-    bigfoot.socket_mock.assert_connect(host="monitoring.internal", port=5000)
-    bigfoot.socket_mock.assert_sendall(data=b"STATUS\r\n")
-    bigfoot.socket_mock.assert_recv(size=4096, data=b"OK 200\r\n")
-    bigfoot.socket_mock.assert_close()
+```python
+--8<-- "examples/socket_example/test_app.py"
 ```
 
 ## InvalidStateError

@@ -193,33 +193,14 @@ bigfoot.psycopg2_mock.assert_close()
 
 ## Full example
 
+**Production code** (`examples/psycopg2_example/app.py`):
+
 ```python
-import psycopg2
-import bigfoot
+--8<-- "examples/psycopg2_example/app.py"
+```
 
-def save_user(name, email):
-    conn = psycopg2.connect(host="localhost", dbname="app", user="app")
-    cur = conn.cursor()
-    cur.execute("INSERT INTO users (name, email) VALUES (%s, %s)", (name, email))
-    conn.commit()
-    conn.close()
+**Test** (`examples/psycopg2_example/test_app.py`):
 
-def test_save_user():
-    (bigfoot.psycopg2_mock
-        .new_session()
-        .expect("connect",  returns=None)
-        .expect("execute",  returns=[])
-        .expect("commit",   returns=None)
-        .expect("close",    returns=None))
-
-    with bigfoot:
-        save_user("Alice", "alice@example.com")
-
-    bigfoot.psycopg2_mock.assert_connect(host="localhost", dbname="app", user="app")
-    bigfoot.psycopg2_mock.assert_execute(
-        sql="INSERT INTO users (name, email) VALUES (%s, %s)",
-        parameters=("Alice", "alice@example.com"),
-    )
-    bigfoot.psycopg2_mock.assert_commit()
-    bigfoot.psycopg2_mock.assert_close()
+```python
+--8<-- "examples/psycopg2_example/test_app.py"
 ```

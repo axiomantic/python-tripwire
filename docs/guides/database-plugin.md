@@ -203,32 +203,14 @@ Calling `commit()` from `connected` (before any `execute()`) raises `InvalidStat
 
 ## Full example
 
+**Production code** (`examples/database_example/app.py`):
+
 ```python
-import sqlite3
-import bigfoot
+--8<-- "examples/database_example/app.py"
+```
 
-def save_user(name, email):
-    conn = sqlite3.connect("app.db")
-    conn.execute("INSERT INTO users (name, email) VALUES (?, ?)", (name, email))
-    conn.commit()
-    conn.close()
+**Test** (`examples/database_example/test_app.py`):
 
-def test_save_user():
-    (bigfoot.db_mock
-        .new_session()
-        .expect("connect",  returns=None)
-        .expect("execute",  returns=[])
-        .expect("commit",   returns=None)
-        .expect("close",    returns=None))
-
-    with bigfoot:
-        save_user("Alice", "alice@example.com")
-
-    bigfoot.db_mock.assert_connect(database="app.db")
-    bigfoot.db_mock.assert_execute(
-        sql="INSERT INTO users (name, email) VALUES (?, ?)",
-        parameters=("Alice", "alice@example.com"),
-    )
-    bigfoot.db_mock.assert_commit()
-    bigfoot.db_mock.assert_close()
+```python
+--8<-- "examples/database_example/test_app.py"
 ```
