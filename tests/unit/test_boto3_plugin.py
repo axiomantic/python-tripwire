@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import boto3
+import botocore
 import pytest
 
 from bigfoot._context import _current_test_verifier
@@ -12,11 +14,7 @@ from bigfoot._errors import (
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
-
-boto3 = pytest.importorskip("boto3")
-botocore = pytest.importorskip("botocore")
-
-from bigfoot.plugins.boto3_plugin import (  # noqa: E402
+from bigfoot.plugins.boto3_plugin import (
     _BOTO3_AVAILABLE,
     Boto3MockConfig,
     Boto3Plugin,
@@ -28,8 +26,16 @@ from bigfoot.plugins.boto3_plugin import (  # noqa: E402
 
 
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, Boto3Plugin]:
-    """Return (verifier, plugin) with Boto3Plugin registered but NOT activated."""
+    """Return (verifier, plugin) with Boto3Plugin registered but NOT activated.
+
+    Removes DnsPlugin to prevent it from intercepting boto3's internal
+    DNS lookups (e.g. credential provider hitting 169.254.169.254).
+    """
     v = StrictVerifier()
+    # Remove DNS plugin to avoid intercepting boto3 internals.
+    from bigfoot.plugins.dns_plugin import DnsPlugin
+
+    v._plugins = [p for p in v._plugins if not isinstance(p, DnsPlugin)]
     for p in v._plugins:
         if isinstance(p, Boto3Plugin):
             return v, p

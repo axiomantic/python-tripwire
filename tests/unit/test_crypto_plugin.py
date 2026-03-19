@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import cryptography  # noqa: F401
 import pytest
 
 from bigfoot._context import _current_test_verifier
@@ -12,10 +13,7 @@ from bigfoot._errors import (
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
-
-cryptography = pytest.importorskip("cryptography")
-
-from bigfoot.plugins.crypto_plugin import (  # noqa: E402
+from bigfoot.plugins.crypto_plugin import (
     _CRYPTOGRAPHY_AVAILABLE,
     CryptoMockConfig,
     CryptoPlugin,

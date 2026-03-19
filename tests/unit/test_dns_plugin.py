@@ -597,7 +597,7 @@ class TestDnsResolve:
 
     @pytest.fixture(autouse=True)
     def _require_dnspython(self) -> None:
-        pytest.importorskip("dns.resolver")
+        import dns.resolver  # noqa: F401
 
     def test_mock_resolve_returns_value(self) -> None:
         """mock_resolve returns the configured result."""

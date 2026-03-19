@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import celery
 import pytest
 
 from bigfoot._context import _current_test_verifier
@@ -12,10 +13,7 @@ from bigfoot._errors import (
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
-
-celery = pytest.importorskip("celery")
-
-from bigfoot.plugins.celery_plugin import (  # noqa: E402
+from bigfoot.plugins.celery_plugin import (
     _CELERY_AVAILABLE,
     CeleryMockConfig,
     CeleryPlugin,

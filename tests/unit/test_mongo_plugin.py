@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pymongo
 import pytest
 
 from bigfoot._context import _current_test_verifier
@@ -13,10 +14,7 @@ from bigfoot._errors import (
     UnmockedInteractionError,
 )
 from bigfoot._verifier import StrictVerifier
-
-pymongo = pytest.importorskip("pymongo")
-
-from bigfoot.plugins.mongo_plugin import (  # noqa: E402
+from bigfoot.plugins.mongo_plugin import (
     _PYMONGO_AVAILABLE,
     MongoMockConfig,
     MongoPlugin,
@@ -85,7 +83,7 @@ def clean_plugin_counts() -> None:
 # ESCAPE: test_pymongo_available_flag
 #   CLAIM: _PYMONGO_AVAILABLE is True when pymongo is importable.
 #   PATH:  Module-level try/except import guard in mongo_plugin.py.
-#   CHECK: _PYMONGO_AVAILABLE is True (since pytest.importorskip ensured it).
+#   CHECK: _PYMONGO_AVAILABLE is True (since pymongo is installed).
 #   MUTATION: Setting it to False when pymongo IS importable fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact boolean equality.
 def test_pymongo_available_flag() -> None:

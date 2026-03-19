@@ -529,7 +529,8 @@ def test_serialize_arg_plain_python_passthrough() -> None:
 #   MUTATION: Not patching dlopen returns real library object, not CffiProxy.
 #   ESCAPE: Nothing reasonable -- exact type check.
 def test_cffi_abi_mode_dlopen_returns_proxy() -> None:
-    cffi = pytest.importorskip("cffi")
+    import cffi  # noqa: I001
+
     from bigfoot.plugins.native_plugin import CffiProxy
 
     v, p = _make_verifier_with_plugin()

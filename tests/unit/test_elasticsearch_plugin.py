@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import elasticsearch
 import pytest
 
 from bigfoot._context import _current_test_verifier
@@ -12,10 +13,7 @@ from bigfoot._errors import (
 )
 from bigfoot._timeline import Interaction
 from bigfoot._verifier import StrictVerifier
-
-elasticsearch = pytest.importorskip("elasticsearch")
-
-from bigfoot.plugins.elasticsearch_plugin import (  # noqa: E402
+from bigfoot.plugins.elasticsearch_plugin import (
     _ELASTICSEARCH_AVAILABLE,
     ElasticsearchMockConfig,
     ElasticsearchPlugin,

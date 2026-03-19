@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import grpc
 import pytest
 
 from bigfoot._context import _current_test_verifier
@@ -11,10 +12,7 @@ from bigfoot._errors import (
     UnmockedInteractionError,
 )
 from bigfoot._verifier import StrictVerifier
-
-grpc = pytest.importorskip("grpc")
-
-from bigfoot.plugins.grpc_plugin import (  # noqa: E402
+from bigfoot.plugins.grpc_plugin import (
     _GRPC_AVAILABLE,
     GrpcMockConfig,
     GrpcPlugin,
@@ -68,7 +66,7 @@ def clean_plugin_counts() -> None:
 # ESCAPE: test_grpc_available_flag
 #   CLAIM: _GRPC_AVAILABLE is True when grpcio is importable.
 #   PATH:  Module-level try/except import guard in grpc_plugin.py.
-#   CHECK: _GRPC_AVAILABLE is True (since pytest.importorskip ensured it).
+#   CHECK: _GRPC_AVAILABLE is True (since grpcio is installed).
 #   MUTATION: Setting it to False when grpc IS importable fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact boolean equality.
 def test_grpc_available_flag() -> None:
