@@ -52,15 +52,12 @@ class MemcacheMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_memcache_plugin() -> MemcachePlugin:
+def _get_memcache_plugin() -> MemcachePlugin | None:
     verifier = _get_verifier_or_raise("memcache:command")
     for plugin in verifier._plugins:
         if isinstance(plugin, MemcachePlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot MemcachePlugin interceptor is active but no "
-        "MemcachePlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +114,11 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
             if original is not None:
                 return original(client_self, *args, **kwargs)
             raise
+        if plugin is None:
+            original = MemcachePlugin._originals.get(method_name)
+            if original is not None:
+                return original(client_self, *args, **kwargs)
+            return None
         with plugin._registry_lock:
             queue = plugin._queues.get(cmd_upper)
             if not queue:

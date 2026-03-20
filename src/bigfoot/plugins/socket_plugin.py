@@ -37,15 +37,12 @@ _SOCKET_CLOSE_ORIGINAL: Any = socket.socket.close
 # ---------------------------------------------------------------------------
 
 
-def _get_socket_plugin() -> "SocketPlugin":
+def _get_socket_plugin() -> "SocketPlugin | None":
     verifier = _get_verifier_or_raise(_SOURCE_CONNECT)
     for plugin in verifier._plugins:
         if isinstance(plugin, SocketPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot SocketPlugin interceptor is active but no "
-        "SocketPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -153,6 +150,8 @@ class SocketPlugin(StateMachinePlugin):
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
                 return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
+            if plugin is None:
+                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
             handle = plugin._bind_connection(sock_self)
             if isinstance(address, tuple) and len(address) >= 2:
                 host = str(address[0])
@@ -174,6 +173,8 @@ class SocketPlugin(StateMachinePlugin):
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
                 return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+            if plugin is None:
+                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             return int(
                 plugin._execute_step(
@@ -191,6 +192,8 @@ class SocketPlugin(StateMachinePlugin):
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
                 return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+            if plugin is None:
+                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "sendall", (data,), {"flags": flags}, _SOURCE_SENDALL,
@@ -201,6 +204,8 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
+                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
+            if plugin is None:
                 return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             result, interaction = plugin._execute_step(
@@ -216,6 +221,8 @@ class SocketPlugin(StateMachinePlugin):
             try:
                 plugin = _get_socket_plugin()
             except _GuardPassThrough:
+                return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
+            if plugin is None:
                 return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(

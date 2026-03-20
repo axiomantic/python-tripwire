@@ -62,15 +62,12 @@ class Boto3MockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_boto3_plugin() -> Boto3Plugin:
+def _get_boto3_plugin() -> Boto3Plugin | None:
     verifier = _get_verifier_or_raise("boto3:_make_api_call")
     for plugin in verifier._plugins:
         if isinstance(plugin, Boto3Plugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot Boto3Plugin interceptor is active but no "
-        "Boto3Plugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +109,8 @@ def _patched_make_api_call(
     try:
         plugin = _get_boto3_plugin()
     except _GuardPassThrough:
+        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
+    if plugin is None:
         return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
     service_name = client_self.meta.service_model.service_name  # type: ignore[attr-defined]
     queue_key = f"{service_name}:{operation_name}"

@@ -59,15 +59,12 @@ class RedisMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_redis_plugin() -> RedisPlugin:
+def _get_redis_plugin() -> RedisPlugin | None:
     verifier = _get_verifier_or_raise("redis:execute_command")
     for plugin in verifier._plugins:
         if isinstance(plugin, RedisPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot RedisPlugin interceptor is active but no "
-        "RedisPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +88,8 @@ def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwa
     try:
         plugin = _get_redis_plugin()
     except _GuardPassThrough:
+        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
+    if plugin is None:
         return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
     cmd_upper = command.upper()
     with plugin._registry_lock:

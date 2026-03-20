@@ -60,15 +60,12 @@ class DnsMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_dns_plugin() -> DnsPlugin:
+def _get_dns_plugin() -> DnsPlugin | None:
     verifier = _get_verifier_or_raise("dns:lookup")
     for plugin in verifier._plugins:
         if isinstance(plugin, DnsPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot DnsPlugin interceptor is active but no "
-        "DnsPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +96,8 @@ def _patched_getaddrinfo(
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
+        return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
+    if plugin is None:
         return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
     queue_key = f"getaddrinfo:{host}"
     with plugin._registry_lock:
@@ -138,6 +137,8 @@ def _patched_gethostbyname(hostname: str) -> Any:  # noqa: ANN401
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
         return DnsPlugin._original_gethostbyname(hostname)
+    if plugin is None:
+        return DnsPlugin._original_gethostbyname(hostname)
     queue_key = f"gethostbyname:{hostname}"
     with plugin._registry_lock:
         queue = plugin._queues.get(queue_key)
@@ -176,6 +177,8 @@ def _patched_resolver_resolve(
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
+        return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
+    if plugin is None:
         return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
     actual_qname = str(qname)
     actual_rdtype = str(rdtype)
@@ -217,6 +220,8 @@ def _patched_module_resolve(
     try:
         plugin = _get_dns_plugin()
     except _GuardPassThrough:
+        return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
+    if plugin is None:
         return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
     actual_qname = str(qname)
     actual_rdtype = str(rdtype)

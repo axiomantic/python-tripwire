@@ -76,15 +76,12 @@ class ElasticsearchMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_elasticsearch_plugin() -> ElasticsearchPlugin:
+def _get_elasticsearch_plugin() -> ElasticsearchPlugin | None:
     verifier = _get_verifier_or_raise("elasticsearch:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, ElasticsearchPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot ElasticsearchPlugin interceptor is active but no "
-        "ElasticsearchPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +113,11 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
             if original is not None:
                 return original(es_self, *args, **kwargs)
             raise
+        if plugin is None:
+            original = ElasticsearchPlugin._originals.get(operation)
+            if original is not None:
+                return original(es_self, *args, **kwargs)
+            return None
         source_id = f"elasticsearch:{operation}"
 
         with plugin._registry_lock:

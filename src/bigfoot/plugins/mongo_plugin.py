@@ -59,15 +59,12 @@ class MongoMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_mongo_plugin() -> MongoPlugin:
+def _get_mongo_plugin() -> MongoPlugin | None:
     verifier = _get_verifier_or_raise("mongo:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, MongoPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot MongoPlugin interceptor is active but no "
-        "MongoPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +166,11 @@ def _make_patched_method(operation: str) -> Any:  # noqa: ANN401
             if original is not None and operation in original:
                 return original[operation](collection_self, *args, **kwargs)
             raise
+        if plugin is None:
+            original = MongoPlugin._original_methods
+            if original is not None and operation in original:
+                return original[operation](collection_self, *args, **kwargs)
+            return None
         source_id = f"mongo:{operation}"
 
         with plugin._registry_lock:
