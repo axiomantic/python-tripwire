@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import contextvars
 
     from bigfoot._base_plugin import BasePlugin
-    from bigfoot._mock_plugin import MockProxy
+    from bigfoot._mock_plugin import ImportSiteMock, MockPlugin, MockProxy
 
 
 class _HasSourceId(Protocol):
@@ -104,33 +104,32 @@ class StrictVerifier:
                 return
         self._plugins.append(plugin)
 
-    def mock(self, name: str, wraps: object = None) -> "MockProxy":
-        """Create or retrieve a named MockProxy. Lazily creates MockPlugin.
+    def mock(self, path: str) -> "ImportSiteMock":
+        """Create an import-site mock. Path format: 'module:attr'.
 
-        If wraps is provided, method calls on the proxy with an empty queue
-        are delegated to the wrapped object instead of raising
-        UnmockedInteractionError. The interaction is still recorded.
+        Lazily creates MockPlugin if not already registered.
         """
-        from bigfoot._mock_plugin import MockPlugin
+        from bigfoot._mock_plugin import MockPlugin  # noqa: PLC0415
 
-        # Find existing MockPlugin or create one
-        mock_plugin: MockPlugin | None = None
+        mock_plugin = self._get_or_create_mock_plugin()
+        return mock_plugin.create_import_site_mock(path, spy=False)
+
+    def spy(self, path: str) -> "ImportSiteMock":
+        """Create an import-site spy. Path format: 'module:attr'.
+
+        Lazily creates MockPlugin if not already registered.
+        """
+        mock_plugin = self._get_or_create_mock_plugin()
+        return mock_plugin.create_import_site_mock(path, spy=True)
+
+    def _get_or_create_mock_plugin(self) -> "MockPlugin":
+        """Return the existing MockPlugin or create one."""
+        from bigfoot._mock_plugin import MockPlugin  # noqa: PLC0415
+
         for plugin in self._plugins:
             if isinstance(plugin, MockPlugin):
-                mock_plugin = plugin
-                break
-        if mock_plugin is None:
-            mock_plugin = MockPlugin(self)
-
-        return mock_plugin.get_or_create_proxy(name, wraps=wraps)
-
-    def spy(self, name: str, real: object) -> "MockProxy":
-        """Syntactic sugar for mock(name, wraps=real).
-
-        Creates a MockProxy that always delegates to real, recording every
-        call on the timeline without requiring mock configurations.
-        """
-        return self.mock(name, wraps=real)
+                return plugin
+        return MockPlugin(self)
 
     def _assert_no_active_sandbox(self) -> None:
         """Raise AssertionInsideSandboxError if this verifier's sandbox is currently active."""

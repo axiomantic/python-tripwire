@@ -191,7 +191,7 @@ except NameError:  # pragma: no cover
     pass
 
 if TYPE_CHECKING:
-    from bigfoot._mock_plugin import MethodProxy, MockProxy
+    from bigfoot._mock_plugin import ImportSiteMock, MethodProxy, MockProxy, ObjectMock
     from bigfoot.plugins.http import HttpRequestSentinel
     from bigfoot.plugins.subprocess import SubprocessRunSentinel, SubprocessWhichSentinel
 
@@ -309,22 +309,44 @@ def _get_or_create_plugin(verifier: StrictVerifier, plugin_type: type[_T]) -> _T
 # ---------------------------------------------------------------------------
 
 
-def mock(name: str, wraps: object = None) -> MockProxy:
-    """Create or retrieve a named mock on the current test verifier.
+class _MockFactory:
+    """Callable object: bigfoot.mock("mod:attr") and bigfoot.mock.object(target, "attr")."""
 
-    If wraps is provided, method calls with an empty queue are delegated to
-    the wrapped object instead of raising UnmockedInteractionError.
-    """
-    return _get_test_verifier_or_raise().mock(name, wraps=wraps)
+    def __call__(self, path: str) -> "ImportSiteMock":
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _MP)
+        return plugin.create_import_site_mock(path, spy=False)
+
+    def object(self, target: object, attr: str) -> "ObjectMock":
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _MP)
+        return plugin.create_object_mock(target, attr, spy=False)
 
 
-def spy(name: str, real: object) -> MockProxy:
-    """Create a spy on the current test verifier (syntactic sugar for mock(name, wraps=real)).
+class _SpyFactory:
+    """Callable object: bigfoot.spy("mod:attr") and bigfoot.spy.object(target, "attr")."""
 
-    The proxy delegates all calls to real, recording every interaction on the
-    timeline without requiring explicit mock configurations.
-    """
-    return _get_test_verifier_or_raise().spy(name, real)
+    def __call__(self, path: str) -> "ImportSiteMock":
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _MP)
+        return plugin.create_import_site_mock(path, spy=True)
+
+    def object(self, target: object, attr: str) -> "ObjectMock":
+        from bigfoot._mock_plugin import MockPlugin as _MP  # noqa: PLC0415
+
+        verifier = _get_test_verifier_or_raise()
+        plugin = _get_or_create_plugin(verifier, _MP)
+        return plugin.create_object_mock(target, attr, spy=True)
+
+
+mock = _MockFactory()
+spy = _SpyFactory()
 
 
 def sandbox() -> SandboxContext:
