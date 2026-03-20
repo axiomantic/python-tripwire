@@ -242,7 +242,7 @@ async def _patched_handle_request(
     try:
         plugin = _get_mcp_plugin()
     except _GuardPassThrough:
-        return await McpPlugin._original_handle_request(
+        return await McpPlugin._original_handle_request(  # type: ignore[no-any-return]
             self, message, req, session, lifespan_context, raise_exceptions,
         )
 

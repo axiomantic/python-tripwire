@@ -1140,7 +1140,7 @@ class HttpPlugin(BasePlugin):
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
                 try:
-                    return urllib.request.urlopen(req)
+                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
                 finally:
                     HttpPlugin._reinstall_urllib_opener()
             plugin = _find_http_plugin(verifier)
