@@ -301,7 +301,7 @@ class HttpPlugin(BasePlugin):
 
     def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
         super().__init__(verifier)
-        self._mock_queue: list[HttpMockConfig] = []
+        self._mock_queue: list[HttpMockEntry] = []
         self._sentinel = HttpRequestSentinel(self)
         self._pass_through_rules: list[tuple[str, str]] = []
         self._asserting_request_only: bool = False
@@ -725,14 +725,14 @@ class HttpPlugin(BasePlugin):
     # Mock config lookup
     # ------------------------------------------------------------------
 
-    def _find_matching_config(self, method: str, url: str) -> HttpMockConfig | None:
+    def _find_matching_config(self, method: str, url: str) -> HttpMockEntry | None:
         for i, config in enumerate(self._mock_queue):
             if config.method == method.upper() and self._url_matches(config, url):
                 self._mock_queue.pop(i)
                 return config
         return None
 
-    def _url_matches(self, config: HttpMockConfig, actual_url: str) -> bool:
+    def _url_matches(self, config: HttpMockEntry, actual_url: str) -> bool:
         config_parsed = urlparse(config.url)
         actual_parsed = urlparse(actual_url)
 

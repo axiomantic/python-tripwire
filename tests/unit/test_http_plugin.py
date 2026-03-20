@@ -1938,3 +1938,22 @@ def test_http_error_config_exists_and_has_expected_fields() -> None:
     assert config.required is True
     assert isinstance(config.registration_traceback, str)
     assert len(config.registration_traceback) > 0
+
+
+def test_find_matching_config_returns_http_error_config() -> None:
+    """_find_matching_config returns HttpErrorConfig when an error mock matches."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    v, p = _make_verifier_with_plugin()
+    exc = ConnectionError("refused")
+    error_config = HttpErrorConfig(
+        method="GET",
+        url="https://api.example.com/data",
+        params=None,
+        raises=exc,
+    )
+    p._mock_queue.append(error_config)
+
+    result = p._find_matching_config("GET", "https://api.example.com/data")
+    assert isinstance(result, HttpErrorConfig)
+    assert result.raises is exc
