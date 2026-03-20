@@ -45,3 +45,78 @@ class TestGuardPassThrough:
                 raise _GuardPassThrough()
             except Exception:
                 pass  # Should NOT catch _GuardPassThrough
+
+
+from bigfoot._errors import GuardedCallError
+
+
+class TestGuardedCallError:
+    """Test GuardedCallError exception class."""
+
+    def test_inherits_from_bigfoot_error(self) -> None:
+        from bigfoot._errors import BigfootError
+
+        assert issubclass(GuardedCallError, BigfootError)
+
+    def test_stores_source_id_and_plugin_name(self) -> None:
+        err = GuardedCallError(source_id="dns:getaddrinfo:example.com", plugin_name="dns")
+        assert err.source_id == "dns:getaddrinfo:example.com"
+        assert err.plugin_name == "dns"
+
+    def test_message_format(self) -> None:
+        err = GuardedCallError(source_id="http:request", plugin_name="http")
+        expected = "\n".join([
+            "GuardedCallError: 'http:request' blocked by bigfoot guard mode.",
+            "",
+            "  FOR TEST AUTHORS:",
+            "    Option 1: Use a sandbox to mock this call:",
+            "      with bigfoot_verifier.sandbox():",
+            "          # ... your code ...",
+            "    Option 2: Explicitly allow this call (no assertion tracking):",
+            '      with bigfoot.allow("http"):',
+            "          # ... your code ...",
+            "    Option 3: Allow via pytest mark (entire test):",
+            '      @pytest.mark.allow("http")',
+            "      def test_something():",
+            "          ...",
+            "",
+            "  FOR PLUGIN AUTHORS:",
+            "    If this plugin does not perform real I/O, set:",
+            "      supports_guard: ClassVar[bool] = False",
+            "",
+            "  FOR CONTRIBUTORS:",
+            "    To add guard support to a new I/O plugin:",
+            "    1. Keep supports_guard = True (the default)",
+            "    2. Add try/except _GuardPassThrough to each interceptor",
+            "    3. On _GuardPassThrough, call the original function",
+        ])
+        assert str(err) == expected
+
+    def test_message_with_different_plugin(self) -> None:
+        err = GuardedCallError(source_id="dns:getaddrinfo:example.com", plugin_name="dns")
+        msg = str(err)
+        assert msg == "\n".join([
+            "GuardedCallError: 'dns:getaddrinfo:example.com' blocked by bigfoot guard mode.",
+            "",
+            "  FOR TEST AUTHORS:",
+            "    Option 1: Use a sandbox to mock this call:",
+            "      with bigfoot_verifier.sandbox():",
+            "          # ... your code ...",
+            "    Option 2: Explicitly allow this call (no assertion tracking):",
+            '      with bigfoot.allow("dns"):',
+            "          # ... your code ...",
+            "    Option 3: Allow via pytest mark (entire test):",
+            '      @pytest.mark.allow("dns")',
+            "      def test_something():",
+            "          ...",
+            "",
+            "  FOR PLUGIN AUTHORS:",
+            "    If this plugin does not perform real I/O, set:",
+            "      supports_guard: ClassVar[bool] = False",
+            "",
+            "  FOR CONTRIBUTORS:",
+            "    To add guard support to a new I/O plugin:",
+            "    1. Keep supports_guard = True (the default)",
+            "    2. Add try/except _GuardPassThrough to each interceptor",
+            "    3. On _GuardPassThrough, call the original function",
+        ])
