@@ -244,7 +244,7 @@ class TestPublicExports:
 
 
 from bigfoot._context import _get_verifier_or_raise
-from bigfoot._errors import SandboxNotActiveError
+from bigfoot._errors import GuardedCallError, SandboxNotActiveError
 
 
 class TestGetVerifierOrRaiseGuardBranching:
@@ -296,3 +296,433 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "dns"
         finally:
             _guard_active.reset(token)
+
+
+class TestGuardPassThroughInDirectPlugins:
+    """Test that _GuardPassThrough is caught correctly in direct-helper plugins.
+
+    These tests verify the interceptor pattern by activating guard mode,
+    installing plugin patches, and confirming _GuardPassThrough results
+    in calling the original function (not raising).
+
+    DNS is used as the representative case since it has no external deps.
+    """
+
+    def test_dns_getaddrinfo_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks dns:getaddrinfo when dns not in allowlist."""
+        import socket
+
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    socket.getaddrinfo("example.com", 80)
+                assert exc_info.value.plugin_name == "dns"
+                assert exc_info.value.source_id == "dns:lookup"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            dns.deactivate()
+
+    def test_dns_getaddrinfo_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows dns:getaddrinfo when dns is in allowlist (calls original)."""
+        import socket
+
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"dns"}))
+            try:
+                # Should call the real getaddrinfo (not raise)
+                result = socket.getaddrinfo("localhost", 80)
+                assert isinstance(result, list)
+                assert len(result) > 0
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            dns.deactivate()
+
+    def test_dns_gethostbyname_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks dns:gethostbyname when dns not in allowlist."""
+        import socket
+
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    socket.gethostbyname("example.com")
+                assert exc_info.value.plugin_name == "dns"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            dns.deactivate()
+
+    def test_dns_gethostbyname_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows dns:gethostbyname when dns is in allowlist (calls original)."""
+        import socket
+
+        from bigfoot.plugins.dns_plugin import DnsPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        dns = DnsPlugin(v)
+        dns.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"dns"}))
+            try:
+                result = socket.gethostbyname("localhost")
+                assert isinstance(result, str)
+                assert result == "127.0.0.1"
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            dns.deactivate()
+
+
+class TestGuardPassThroughInStateMachinePlugins:
+    """Test _GuardPassThrough in StateMachine plugin interceptors.
+
+    Socket is the representative case (no external deps, easy to test).
+    Database (sqlite3) is also tested since it is always available.
+    """
+
+    def test_socket_connect_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks socket:connect when socket not in allowlist."""
+        import socket as socket_mod
+
+        from bigfoot.plugins.socket_plugin import SocketPlugin, _SOCKET_CLOSE_ORIGINAL
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    with pytest.raises(GuardedCallError) as exc_info:
+                        sock.connect(("127.0.0.1", 1))
+                    assert exc_info.value.plugin_name == "socket"
+                    assert exc_info.value.source_id == "socket:connect"
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_socket_connect_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows socket:connect when socket is in allowlist (calls real connect)."""
+        import socket as socket_mod
+
+        from bigfoot.plugins.socket_plugin import SocketPlugin, _SOCKET_CLOSE_ORIGINAL
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"socket"}))
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    # connect to a port that should refuse -- the point is that it
+                    # reaches the REAL connect (ConnectionRefusedError or similar)
+                    # rather than raising _GuardPassThrough or GuardedCallError
+                    with pytest.raises((ConnectionRefusedError, OSError)):
+                        sock.connect(("127.0.0.1", 1))
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_socket_send_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks socket:send when socket not in allowlist."""
+        import socket as socket_mod
+
+        from bigfoot.plugins.socket_plugin import SocketPlugin, _SOCKET_CLOSE_ORIGINAL
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    with pytest.raises(GuardedCallError) as exc_info:
+                        sock.send(b"hello")
+                    assert exc_info.value.plugin_name == "socket"
+                    # Note: _get_socket_plugin() hardcodes _SOURCE_CONNECT for source_id
+                    assert exc_info.value.source_id == "socket:connect"
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_socket_close_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows socket:close when socket is in allowlist (calls real close)."""
+        import socket as socket_mod
+
+        from bigfoot.plugins.socket_plugin import SocketPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"socket"}))
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                # close should call the real close without error
+                sock.close()
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_database_connect_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks db:connect when db not in allowlist."""
+        import sqlite3
+
+        from bigfoot.plugins.database_plugin import DatabasePlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        dp = DatabasePlugin(v)
+        dp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    sqlite3.connect(":memory:")
+                assert exc_info.value.plugin_name == "db"
+                assert exc_info.value.source_id == "db:connect"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            dp.deactivate()
+
+    def test_database_connect_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows db:connect when db is in allowlist (calls real connect)."""
+        import sqlite3
+
+        from bigfoot.plugins.database_plugin import DatabasePlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        dp = DatabasePlugin(v)
+        dp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"db"}))
+            try:
+                # Should call the real sqlite3.connect and return a real connection
+                conn = sqlite3.connect(":memory:")
+                assert conn is not None
+                # Verify it is a real sqlite3.Connection, not a _FakeConnection
+                assert type(conn).__name__ == "Connection"
+                cursor = conn.execute("SELECT 1")
+                row = cursor.fetchone()
+                assert row == (1,)
+                conn.close()
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            dp.deactivate()
+
+    def test_smtp_init_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks smtp:connect when smtp not in allowlist."""
+        import smtplib
+
+        from bigfoot.plugins.smtp_plugin import SmtpPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SmtpPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    smtplib.SMTP("localhost", 25)
+                assert exc_info.value.plugin_name == "smtp"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_popen_init_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks subprocess:popen:spawn when subprocess not in allowlist."""
+        import subprocess
+
+        from bigfoot.plugins.popen_plugin import PopenPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        pp = PopenPlugin(v)
+        pp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    subprocess.Popen(["echo", "hello"])
+                assert exc_info.value.plugin_name == "subprocess"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            pp.deactivate()
+
+
+class TestGuardPassThroughInRemainingPlugins:
+    """Test _GuardPassThrough in remaining plugin interceptors (Task 9).
+
+    Subprocess is used as the representative case since it has no external
+    deps beyond the stdlib and exercises both the block and allow paths.
+    HTTP block test verifies the httpx sync interceptor path.
+    """
+
+    def test_subprocess_run_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks subprocess.run when subprocess not in allowlist."""
+        import subprocess as subprocess_mod
+
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SubprocessPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    subprocess_mod.run(["echo", "hello"], capture_output=True)
+                assert exc_info.value.plugin_name == "subprocess"
+                assert exc_info.value.source_id == "subprocess:run"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_subprocess_run_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows subprocess.run when subprocess is in allowlist."""
+        import subprocess as subprocess_mod
+
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SubprocessPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"subprocess"}))
+            try:
+                result = subprocess_mod.run(
+                    ["echo", "hello"], capture_output=True, text=True,
+                )
+                assert result.returncode == 0
+                assert result.stdout == "hello\n"
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_subprocess_which_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks shutil.which when subprocess not in allowlist."""
+        import shutil as shutil_mod
+
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SubprocessPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    shutil_mod.which("echo")
+                assert exc_info.value.plugin_name == "subprocess"
+                assert exc_info.value.source_id == "subprocess:which"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_subprocess_which_guard_allows_when_in_allowlist(self) -> None:
+        """Guard allows shutil.which when subprocess is in allowlist."""
+        import shutil as shutil_mod
+
+        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        sp = SubprocessPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            allow_token = _guard_allowlist.set(frozenset({"subprocess"}))
+            try:
+                result = shutil_mod.which("echo")
+                assert isinstance(result, str)
+                assert "echo" in result
+            finally:
+                _guard_allowlist.reset(allow_token)
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_http_sync_guard_blocks_when_not_allowed(self) -> None:
+        """Guard blocks httpx sync transport when http not in allowlist."""
+        import httpx
+
+        from bigfoot.plugins.http import HttpPlugin
+        from bigfoot._verifier import StrictVerifier
+
+        v = StrictVerifier()
+        hp = HttpPlugin(v)
+        hp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                with pytest.raises(GuardedCallError) as exc_info:
+                    httpx.get("https://example.com")
+                assert exc_info.value.plugin_name == "http"
+                assert exc_info.value.source_id == "http:request"
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            hp.deactivate()

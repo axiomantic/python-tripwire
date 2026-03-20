@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -110,7 +110,13 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
     cmd_upper = method_name.upper()
 
     def _patched(client_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        plugin = _get_memcache_plugin()
+        try:
+            plugin = _get_memcache_plugin()
+        except _GuardPassThrough:
+            original = MemcachePlugin._originals.get(method_name)
+            if original is not None:
+                return original(client_self, *args, **kwargs)
+            raise
         with plugin._registry_lock:
             queue = plugin._queues.get(cmd_upper)
             if not queue:

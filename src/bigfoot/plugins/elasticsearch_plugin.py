@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -109,7 +109,13 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
     detail_keys = _OPERATION_DETAILS.get(operation, ())
 
     def interceptor(es_self: object, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        plugin = _get_elasticsearch_plugin()
+        try:
+            plugin = _get_elasticsearch_plugin()
+        except _GuardPassThrough:
+            original = ElasticsearchPlugin._originals.get(operation)
+            if original is not None:
+                return original(es_self, *args, **kwargs)
+            raise
         source_id = f"elasticsearch:{operation}"
 
         with plugin._registry_lock:

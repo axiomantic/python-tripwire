@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -162,7 +162,13 @@ def _make_patched_method(operation: str) -> Any:  # noqa: ANN401
     """Create a patched method for a specific MongoDB collection operation."""
 
     def _patched(collection_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        plugin = _get_mongo_plugin()
+        try:
+            plugin = _get_mongo_plugin()
+        except _GuardPassThrough:
+            original = MongoPlugin._original_methods
+            if original is not None and operation in original:
+                return original[operation](collection_self, *args, **kwargs)
+            raise
         source_id = f"mongo:{operation}"
 
         with plugin._registry_lock:

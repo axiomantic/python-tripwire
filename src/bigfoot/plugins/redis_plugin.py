@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -88,7 +88,10 @@ class _RedisSentinel:
 
 
 def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-    plugin = _get_redis_plugin()
+    try:
+        plugin = _get_redis_plugin()
+    except _GuardPassThrough:
+        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
     cmd_upper = command.upper()
     with plugin._registry_lock:
         queue = plugin._queues.get(cmd_upper)
