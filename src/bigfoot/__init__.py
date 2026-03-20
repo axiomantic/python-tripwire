@@ -25,7 +25,7 @@ from bigfoot._errors import (
     UnusedMocksError,
     VerificationError,
 )
-from bigfoot._guard import allow
+from bigfoot._guard import allow, deny
 from bigfoot._mock_plugin import MockPlugin
 from bigfoot._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 
@@ -222,6 +222,7 @@ __all__ = [
     "CryptoPlugin",
     # Guard mode
     "allow",
+    "deny",
     "GuardedCallError",
     # Errors
     "BigfootConfigError",

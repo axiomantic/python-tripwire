@@ -238,6 +238,55 @@ class TestAllow:
         assert _guard_allowlist.get() == frozenset()
 
 
+class TestDeny:
+    """Test deny() context manager."""
+
+    def test_deny_narrows_allowlist(self) -> None:
+        from bigfoot._guard import deny
+
+        with allow("dns", "socket"):
+            assert _guard_allowlist.get() == frozenset({"dns", "socket"})
+            with deny("socket"):
+                assert _guard_allowlist.get() == frozenset({"dns"})
+            assert _guard_allowlist.get() == frozenset({"dns", "socket"})
+
+    def test_deny_without_allow_is_noop(self) -> None:
+        from bigfoot._guard import deny
+
+        assert _guard_allowlist.get() == frozenset()
+        with deny("dns"):
+            assert _guard_allowlist.get() == frozenset()
+        assert _guard_allowlist.get() == frozenset()
+
+    def test_deny_resets_on_exception(self) -> None:
+        from bigfoot._guard import deny
+
+        with pytest.raises(ValueError, match="boom"):
+            with allow("dns", "socket"):
+                with deny("socket"):
+                    raise ValueError("boom")
+        assert _guard_allowlist.get() == frozenset()
+
+    def test_deny_rejects_unknown_plugin_names(self) -> None:
+        from bigfoot._errors import BigfootConfigError
+        from bigfoot._guard import deny
+
+        with pytest.raises(BigfootConfigError, match="Unknown plugin name"):
+            with deny("nonexistent_plugin"):
+                pass
+
+    def test_nested_deny(self) -> None:
+        from bigfoot._guard import deny
+
+        with allow("dns", "socket", "http"):
+            with deny("socket"):
+                assert _guard_allowlist.get() == frozenset({"dns", "http"})
+                with deny("dns"):
+                    assert _guard_allowlist.get() == frozenset({"http"})
+                assert _guard_allowlist.get() == frozenset({"dns", "http"})
+            assert _guard_allowlist.get() == frozenset({"dns", "socket", "http"})
+
+
 class TestPublicExports:
     """Test that guard mode symbols are exported from bigfoot package."""
 
@@ -245,6 +294,11 @@ class TestPublicExports:
         from bigfoot import allow as bigfoot_allow
 
         assert callable(bigfoot_allow)
+
+    def test_deny_importable_from_bigfoot(self) -> None:
+        from bigfoot import deny as bigfoot_deny
+
+        assert callable(bigfoot_deny)
 
     def test_guarded_call_error_importable_from_bigfoot(self) -> None:
         from bigfoot import GuardedCallError as BigfootGuardedCallError

@@ -21,7 +21,12 @@ def pytest_configure(config: pytest.Config) -> None:
     """Register bigfoot pytest markers."""
     config.addinivalue_line(
         "markers",
-        'allow(*plugin_names): allow specific plugins to make real calls (guard mode)',
+        "allow(*plugin_names): allow plugins to make real calls"
+        " (bypasses guard and sandbox)",
+    )
+    config.addinivalue_line(
+        "markers",
+        'deny(*plugin_names): remove plugins from the allowlist (narrows an outer allow)',
     )
 
 
@@ -140,23 +145,31 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         yield
         return
 
-    # Process @pytest.mark.allow
+    # Process @pytest.mark.allow and @pytest.mark.deny
     allowlist: frozenset[str] = frozenset()
     for mark in item.iter_markers("allow"):
         allowlist = allowlist | frozenset(mark.args)
 
-    # Validate allowlist names
-    if allowlist:
+    denylist: frozenset[str] = frozenset()
+    for mark in item.iter_markers("deny"):
+        denylist = denylist | frozenset(mark.args)
+
+    # Validate names
+    if allowlist or denylist:
         from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
         from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
 
         valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
-        unknown = allowlist - valid
+        unknown = (allowlist | denylist) - valid
         if unknown:
             raise BigfootConfigError(
-                f"Unknown plugin name(s) in @pytest.mark.allow: {sorted(unknown)}. "
+                f"Unknown plugin name(s) in @pytest.mark.allow/deny: "
+                f"{sorted(unknown)}. "
                 f"Valid names: {sorted(valid)}"
             )
+
+    # deny narrows allow
+    allowlist = allowlist - denylist
 
     allowlist_token = _guard_allowlist.set(allowlist)
     guard_token = _guard_active.set(True)
