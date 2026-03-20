@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover
     _AIOHTTP_AVAILABLE = False
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 

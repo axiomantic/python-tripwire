@@ -36,6 +36,10 @@ _guard_allowlist: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVa
     "bigfoot_guard_allowlist", default=frozenset()
 )
 
+_guard_patches_installed: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "bigfoot_guard_patches_installed", default=False
+)
+
 
 class _GuardPassThrough(BaseException):
     """Internal sentinel: interceptor should call the original function.
@@ -57,39 +61,51 @@ def get_active_verifier() -> StrictVerifier | None:
 
 
 def _get_verifier_or_raise(source_id: str) -> StrictVerifier:
-    """Return the active verifier, or handle guard mode, or raise SandboxNotActiveError.
+    """Return the active verifier, or handle guard mode, or raise.
 
     Called by interceptors when they fire. Decision tree:
-    1. _active_verifier set: return verifier (sandbox mode, existing behavior)
-    2. _guard_active True: check allowlist, raise _GuardPassThrough if allowed,
-       raise GuardedCallError if not
-    3. Neither: raise SandboxNotActiveError (existing behavior)
+
+    1. Sandbox active (_active_verifier set): return verifier.
+    2. Guard-eligible plugin (source_id prefix in GUARD_ELIGIBLE_PREFIXES):
+       a. Guard active + not in allowlist: raise GuardedCallError (blocked).
+       b. Guard active + in allowlist, or guard not active but patches
+          installed: raise _GuardPassThrough (call original).
+    3. Non-guard-eligible plugin (e.g., "mock:", "logging:"):
+       raise SandboxNotActiveError (existing behavior, guard is irrelevant).
+    4. No sandbox, no guard: raise SandboxNotActiveError.
     """
     verifier = _active_verifier.get()
     if verifier is not None:
         return verifier
-    # No sandbox active
-    if _guard_active.get():
-        _check_guard_allowlist(source_id)
-        # Allowed: caller must invoke original function
-        raise _GuardPassThrough()
+
+    # No sandbox active. Check if this is a guard-eligible plugin.
+    from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES  # noqa: PLC0415
+
+    plugin_name = source_id.split(":")[0]
+    is_guard_eligible = plugin_name in GUARD_ELIGIBLE_PREFIXES
+
+    if is_guard_eligible:
+        if _guard_active.get():
+            # Guard active: check allowlist
+            allowlist = _guard_allowlist.get()
+            if plugin_name not in allowlist:
+                from bigfoot._errors import GuardedCallError  # noqa: PLC0415
+
+                raise GuardedCallError(
+                    source_id=source_id, plugin_name=plugin_name,
+                )
+            # In allowlist: pass through to original
+            raise _GuardPassThrough()
+        if _guard_patches_installed.get():
+            # Patches installed but guard not active (fixture teardown).
+            # Pass through to original.
+            raise _GuardPassThrough()
+
+    # Non-guard-eligible plugin, or no guard infrastructure active.
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
 
     raise SandboxNotActiveError(source_id=source_id)
 
-
-def _check_guard_allowlist(source_id: str) -> None:
-    """Check if the plugin identified by source_id is in the guard allowlist.
-
-    Extracts the plugin name as the prefix before the first colon.
-    Raises GuardedCallError if the plugin is not allowed.
-    """
-    from bigfoot._errors import GuardedCallError  # noqa: PLC0415
-
-    plugin_name = source_id.split(":")[0]
-    allowlist = _guard_allowlist.get()
-    if plugin_name not in allowlist:
-        raise GuardedCallError(source_id=source_id, plugin_name=plugin_name)
 
 
 def _get_test_verifier_or_raise() -> StrictVerifier:

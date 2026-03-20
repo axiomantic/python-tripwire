@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 
 import pytest
@@ -613,19 +614,30 @@ def test_popen_mock_proxy_raises_outside_context() -> None:
 #   MUTATION: PopenPlugin clobbering subprocess.run would make run-original check fail.
 #   ESCAPE: Nothing reasonable -- four identity checks cover all four states.
 def test_popen_and_subprocess_coexist() -> None:
+    import bigfoot.plugins.subprocess as _sp_mod
     from bigfoot.plugins.subprocess import (
         _SUBPROCESS_RUN_ORIGINAL,
         SubprocessPlugin,
     )
 
-    # Reset SubprocessPlugin install count too (autouse fixture only handles PopenPlugin)
+    # Save guard fixture state (session fixture may have installed patches)
+    saved_count = SubprocessPlugin._install_count
+    saved_original_run = SubprocessPlugin._original_subprocess_run
+    saved_original_which = SubprocessPlugin._original_shutil_which
+    saved_bigfoot_run = _sp_mod._bigfoot_subprocess_run
+    saved_bigfoot_which = _sp_mod._bigfoot_shutil_which
+    saved_run = subprocess.run
+    saved_which = shutil.which
+
+    # Reset SubprocessPlugin install count (autouse fixture only handles PopenPlugin)
     with SubprocessPlugin._install_lock:
         SubprocessPlugin._install_count = 0
         if SubprocessPlugin._original_subprocess_run is not None:
             subprocess.run = SubprocessPlugin._original_subprocess_run
             SubprocessPlugin._original_subprocess_run = None
-        import bigfoot.plugins.subprocess as _sp_mod
-
+        if SubprocessPlugin._original_shutil_which is not None:
+            shutil.which = SubprocessPlugin._original_shutil_which  # type: ignore[assignment]
+            SubprocessPlugin._original_shutil_which = None
         _sp_mod._bigfoot_subprocess_run = None
         _sp_mod._bigfoot_shutil_which = None
 
@@ -643,19 +655,18 @@ def test_popen_and_subprocess_coexist() -> None:
         pp.deactivate()
         sp.deactivate()
 
-        # Reset SubprocessPlugin state
-        with SubprocessPlugin._install_lock:
-            SubprocessPlugin._install_count = 0
-            if SubprocessPlugin._original_subprocess_run is not None:
-                subprocess.run = SubprocessPlugin._original_subprocess_run
-                SubprocessPlugin._original_subprocess_run = None
-            import bigfoot.plugins.subprocess as _sp_mod2
-
-            _sp_mod2._bigfoot_subprocess_run = None
-            _sp_mod2._bigfoot_shutil_which = None
-
     assert subprocess.run is _SUBPROCESS_RUN_ORIGINAL
     assert subprocess.Popen is _ORIGINAL_POPEN
+
+    # Restore guard fixture state
+    with SubprocessPlugin._install_lock:
+        SubprocessPlugin._install_count = saved_count
+        SubprocessPlugin._original_subprocess_run = saved_original_run
+        SubprocessPlugin._original_shutil_which = saved_original_which
+        _sp_mod._bigfoot_subprocess_run = saved_bigfoot_run
+        _sp_mod._bigfoot_shutil_which = saved_bigfoot_which
+        subprocess.run = saved_run
+        shutil.which = saved_which  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------

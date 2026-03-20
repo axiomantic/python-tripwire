@@ -277,6 +277,14 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
     from bigfoot._errors import ConflictError
     from bigfoot.plugins.http import HttpPlugin
 
+    # Save guard fixture state (session fixture may have installed patches)
+    saved_count = HttpPlugin._install_count
+    saved_handle = httpx.HTTPTransport.handle_request
+
+    # Reset install count so _check_conflicts() runs on next activate()
+    with HttpPlugin._install_lock:
+        HttpPlugin._install_count = 0
+
     original = httpx.HTTPTransport.handle_request
 
     def fake_patch(self: object, request: object) -> None: ...
@@ -293,9 +301,10 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
         assert exc_info.value.target == "httpx.HTTPTransport.handle_request"
         assert exc_info.value.patcher == "an unknown library"
     finally:
-        httpx.HTTPTransport.handle_request = original  # type: ignore[method-assign]
-        # Ensure reference count is clean in case activate partially succeeded
-        HttpPlugin._install_count = 0
+        # Restore guard fixture state
+        httpx.HTTPTransport.handle_request = saved_handle  # type: ignore[method-assign]
+        with HttpPlugin._install_lock:
+            HttpPlugin._install_count = saved_count
 
 
 # ---------------------------------------------------------------------------

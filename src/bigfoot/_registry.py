@@ -121,6 +121,41 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)
 
+# Source-ID prefixes used by guard-eligible plugins (supports_guard=True,
+# default_enabled=True). Guard mode blocks calls whose source_id starts with
+# one of these prefixes. Prefixes that don't match registry names (e.g., "db"
+# for the "database" plugin) are included explicitly.
+#
+# Non-guard plugins (logging, jwt, crypto, celery) and opt-in plugins
+# (file_io, native) are NOT included. MockPlugin source_ids start with
+# "mock:" which is also not included.
+GUARD_ELIGIBLE_PREFIXES: frozenset[str] = frozenset({
+    "http",          # HttpPlugin
+    "subprocess",    # SubprocessPlugin, PopenPlugin
+    "smtp",          # SmtpPlugin
+    "socket",        # SocketPlugin
+    "db",            # DatabasePlugin (source_id: "db:connect", "db:execute", ...)
+    "database",      # DatabasePlugin (registry name, for allow() compatibility)
+    "websocket",     # AsyncWebSocketPlugin, SyncWebSocketPlugin
+    "async_websocket",  # registry name
+    "sync_websocket",   # registry name
+    "redis",         # RedisPlugin
+    "psycopg2",      # Psycopg2Plugin
+    "asyncpg",       # AsyncpgPlugin
+    "asyncio",       # AsyncSubprocessPlugin (source_id: "asyncio:subprocess:spawn")
+    "async_subprocess",  # registry name
+    "dns",           # DnsPlugin
+    "memcache",      # MemcachePlugin
+    "boto3",         # Boto3Plugin
+    "elasticsearch", # ElasticsearchPlugin
+    "mongo",         # MongoPlugin
+    "pika",          # PikaPlugin
+    "ssh",           # SshPlugin
+    "grpc",          # GrpcPlugin
+    "mcp",           # McpPlugin
+    "popen",         # PopenPlugin (registry name)
+})
+
 
 def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     """Import and return the plugin class for a registry entry."""

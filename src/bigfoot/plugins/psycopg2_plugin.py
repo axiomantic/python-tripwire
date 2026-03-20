@@ -3,7 +3,7 @@
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _GuardPassThrough, _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 

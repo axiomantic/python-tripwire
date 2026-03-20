@@ -22,9 +22,10 @@ def allow(*plugin_names: str) -> Generator[None, None, None]:
     No timeline recording: allowed calls are invisible to bigfoot.
     """
     from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
-    from bigfoot._registry import VALID_PLUGIN_NAMES  # noqa: PLC0415
+    from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
 
-    unknown = set(plugin_names) - VALID_PLUGIN_NAMES
+    valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
+    unknown = set(plugin_names) - valid
     if unknown:
         raise BigfootConfigError(
             f"Unknown plugin name(s) in allow(): {sorted(unknown)}. "
