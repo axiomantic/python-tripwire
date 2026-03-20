@@ -217,3 +217,27 @@ class TestAllow:
             with allow("dns"):
                 raise ValueError("boom")
         assert _guard_allowlist.get() == frozenset()
+
+
+class TestPublicExports:
+    """Test that guard mode symbols are exported from bigfoot package."""
+
+    def test_allow_importable_from_bigfoot(self) -> None:
+        from bigfoot import allow as bigfoot_allow
+
+        assert callable(bigfoot_allow)
+
+    def test_guarded_call_error_importable_from_bigfoot(self) -> None:
+        from bigfoot import GuardedCallError as BigfootGuardedCallError
+
+        assert issubclass(BigfootGuardedCallError, Exception)
+
+    def test_allow_in_all(self) -> None:
+        import bigfoot
+
+        assert "allow" in bigfoot.__all__
+
+    def test_guarded_call_error_in_all(self) -> None:
+        import bigfoot
+
+        assert "GuardedCallError" in bigfoot.__all__

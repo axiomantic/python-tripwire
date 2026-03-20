@@ -14,6 +14,7 @@ from bigfoot._errors import (
     BigfootConfigError,
     BigfootError,
     ConflictError,
+    GuardedCallError,
     InteractionMismatchError,
     InvalidStateError,
     MissingAssertionFieldsError,
@@ -24,6 +25,7 @@ from bigfoot._errors import (
     UnusedMocksError,
     VerificationError,
 )
+from bigfoot._guard import allow
 from bigfoot._mock_plugin import MockPlugin
 from bigfoot._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 
@@ -218,6 +220,9 @@ __all__ = [
     "ElasticsearchPlugin",
     "JwtPlugin",
     "CryptoPlugin",
+    # Guard mode
+    "allow",
+    "GuardedCallError",
     # Errors
     "BigfootConfigError",
     "BigfootError",
