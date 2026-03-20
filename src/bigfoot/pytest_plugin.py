@@ -96,7 +96,12 @@ def _bigfoot_guard_patches() -> Generator[None, None, None]:
             plugin.activate()
             activated.append(plugin)
         except Exception:
-            pass  # Skip plugins that fail to activate
+            import warnings
+
+            warnings.warn(
+                f"bigfoot: guard mode failed to activate plugin {entry.name!r}",
+                stacklevel=1,
+            )
 
     patches_token = _guard_patches_installed.set(True)
 
@@ -150,7 +155,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         if unknown:
             raise BigfootConfigError(
                 f"Unknown plugin name(s) in @pytest.mark.allow: {sorted(unknown)}. "
-                f"Valid names: {sorted(VALID_PLUGIN_NAMES)}"
+                f"Valid names: {sorted(valid)}"
             )
 
     allowlist_token = _guard_allowlist.set(allowlist)

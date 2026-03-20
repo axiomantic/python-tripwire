@@ -29,7 +29,7 @@ def allow(*plugin_names: str) -> Generator[None, None, None]:
     if unknown:
         raise BigfootConfigError(
             f"Unknown plugin name(s) in allow(): {sorted(unknown)}. "
-            f"Valid names: {sorted(VALID_PLUGIN_NAMES)}"
+            f"Valid names: {sorted(valid)}"
         )
 
     current = _guard_allowlist.get()
