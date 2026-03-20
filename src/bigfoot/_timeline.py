@@ -21,6 +21,7 @@ class Interaction:
     details: dict[str, Any]
     plugin: "BasePlugin"
     _asserted: bool = field(default=False, init=False, repr=False)
+    enforce: bool = field(default=True, init=False, repr=False)
 
 
 class Timeline:

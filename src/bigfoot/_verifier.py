@@ -229,7 +229,7 @@ class StrictVerifier:
     def verify_all(self) -> None:
         """Run Enforcement 2 and 3. Called at teardown."""
         self._assert_no_active_sandbox()
-        unasserted = self._timeline.all_unasserted()
+        unasserted = [i for i in self._timeline.all_unasserted() if i.enforce]
         unused: list[tuple[BasePlugin, Any]] = []
 
         for plugin in self._plugins:
