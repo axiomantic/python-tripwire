@@ -83,6 +83,24 @@ class HttpMockConfig:
     )
 
 
+@dataclass
+class HttpErrorConfig:
+    """Internal record of a registered mock error."""
+
+    method: str
+    url: str
+    params: dict[str, str] | None
+    raises: BaseException
+    required: bool = True
+    registration_traceback: str = field(
+        default_factory=lambda: "".join(traceback.format_stack()[:-2])
+    )
+
+
+# Union type for the unified mock queue
+HttpMockEntry = HttpMockConfig | HttpErrorConfig
+
+
 # ---------------------------------------------------------------------------
 # HttpRequestSentinel
 # ---------------------------------------------------------------------------

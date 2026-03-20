@@ -1912,3 +1912,29 @@ async def test_aiohttp_response_as_context_manager() -> None:
         response_headers={"content-type": "application/json"},
         response_body='{"ctx": true}',
     )
+
+
+# ---------------------------------------------------------------------------
+# HttpErrorConfig tests
+# ---------------------------------------------------------------------------
+
+
+def test_http_error_config_exists_and_has_expected_fields() -> None:
+    """HttpErrorConfig dataclass has method, url, params, raises, required fields."""
+    from bigfoot.plugins.http import HttpErrorConfig
+
+    exc = ConnectionError("refused")
+    config = HttpErrorConfig(
+        method="GET",
+        url="https://api.example.com/data",
+        params=None,
+        raises=exc,
+        required=True,
+    )
+    assert config.method == "GET"
+    assert config.url == "https://api.example.com/data"
+    assert config.params is None
+    assert config.raises is exc
+    assert config.required is True
+    assert isinstance(config.registration_traceback, str)
+    assert len(config.registration_traceback) > 0
