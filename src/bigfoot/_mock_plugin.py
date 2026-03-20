@@ -181,16 +181,21 @@ class MethodProxy:
 
         config = self._config_queue.popleft()
 
-        # Step 3: Record the interaction
+        # Step 3: Record the interaction (with raised in details if applicable)
+        details: dict[str, Any] = {
+            "mock_name": self._mock_name,
+            "method_name": self._method_name,
+            "args": args,
+            "kwargs": kwargs,
+        }
+
+        if isinstance(config.side_effect, _RaiseException):
+            details["raised"] = config.side_effect.exc
+
         interaction = Interaction(
             source_id=self.source_id,
             sequence=0,
-            details={
-                "mock_name": self._mock_name,
-                "method_name": self._method_name,
-                "args": args,
-                "kwargs": kwargs,
-            },
+            details=details,
             plugin=self._plugin,
         )
         self._plugin.record(interaction)

@@ -1507,3 +1507,46 @@ def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
         "    kwargs={'level': 'info'},\n"
         ")"
     )
+
+
+# ---------------------------------------------------------------------------
+# MethodProxy __call__ -- raised stored in details
+# ---------------------------------------------------------------------------
+
+
+def test_method_proxy_raises_stores_raised_in_details() -> None:
+    """When .raises() is configured, the exception instance is stored in details['raised']."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Service")
+    exc = ValueError("payment failed")
+    proxy.charge.raises(exc)
+
+    token = _active_verifier.set(v)
+    try:
+        with pytest.raises(ValueError):
+            proxy.charge("arg1")
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert interactions[0].details["raised"] is exc
+
+
+def test_method_proxy_returns_does_not_store_raised_in_details() -> None:
+    """When .returns() is configured, no 'raised' key appears in details."""
+    v = StrictVerifier()
+    p = MockPlugin(v)
+    proxy = p.get_or_create_proxy("Service")
+    proxy.charge.returns("ok")
+
+    token = _active_verifier.set(v)
+    try:
+        proxy.charge()
+    finally:
+        _active_verifier.reset(token)
+
+    interactions = v._timeline.all_unasserted()
+    assert len(interactions) == 1
+    assert "raised" not in interactions[0].details
