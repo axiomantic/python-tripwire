@@ -5,7 +5,7 @@ HttpPlugin, validating production-style usage rather than isolated unit behavior
 """
 
 import pytest
-from dirty_equals import AnyThing
+from dirty_equals import AnyThing, IsInstance
 
 import bigfoot
 from bigfoot import (
@@ -208,7 +208,8 @@ def test_required_false_suppresses_unused_mocks_error() -> None:
 def test_raises_side_effect_is_recorded_and_assertable() -> None:
     """Interaction from .raises() is recorded in the timeline and must be asserted."""
     proxy = bigfoot.mock("Database")
-    proxy.connect.raises(ConnectionError("db down"))
+    exc = ConnectionError("db down")
+    proxy.connect.raises(exc)
 
     with bigfoot.sandbox():
         with pytest.raises(ConnectionError, match="db down"):
@@ -218,6 +219,7 @@ def test_raises_side_effect_is_recorded_and_assertable() -> None:
         proxy.connect,
         args=(),
         kwargs={},
+        raised=exc,
     )
 
 
@@ -424,7 +426,7 @@ def test_spy_records_and_delegates() -> None:
         result = calc_spy.add(10, 20)
 
     assert result == 30
-    bigfoot.assert_interaction(calc_spy.add, args=(10, 20), kwargs={})
+    bigfoot.assert_interaction(calc_spy.add, args=(10, 20), kwargs={}, returned=30)
 
 
 # ---------------------------------------------------------------------------
@@ -446,7 +448,9 @@ def test_spy_records_when_real_raises() -> None:
         with pytest.raises(ConnectionError, match="unreachable"):
             flaky_spy.fetch()
 
-    bigfoot.assert_interaction(flaky_spy.fetch, args=(), kwargs={})
+    bigfoot.assert_interaction(
+        flaky_spy.fetch, args=(), kwargs={}, raised=IsInstance(ConnectionError)
+    )
 
 
 # ---------------------------------------------------------------------------
