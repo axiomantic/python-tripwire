@@ -322,20 +322,37 @@ class _BaseMock:
     # --- Sync context manager (individual activation, enforce=False) ---
 
     def __enter__(self) -> "_BaseMock":
+        from bigfoot._context import _active_verifier  # noqa: PLC0415
+
         self._activate(enforce=False)
+        # Set active verifier so MethodProxy.__call__ can find it
+        self._verifier_token = _active_verifier.set(self._plugin.verifier)
         return self
 
     def __exit__(self, *exc_info: Any) -> None:
+        from bigfoot._context import _active_verifier  # noqa: PLC0415
+
         self._deactivate()
+        if hasattr(self, "_verifier_token") and self._verifier_token is not None:
+            _active_verifier.reset(self._verifier_token)
+            self._verifier_token = None
 
     # --- Async context manager ---
 
     async def __aenter__(self) -> "_BaseMock":
+        from bigfoot._context import _active_verifier  # noqa: PLC0415
+
         self._activate(enforce=False)
+        self._verifier_token = _active_verifier.set(self._plugin.verifier)
         return self
 
     async def __aexit__(self, *exc_info: Any) -> None:
+        from bigfoot._context import _active_verifier  # noqa: PLC0415
+
         self._deactivate()
+        if hasattr(self, "_verifier_token") and self._verifier_token is not None:
+            _active_verifier.reset(self._verifier_token)
+            self._verifier_token = None
 
     # --- Activation / Deactivation ---
 
