@@ -28,6 +28,23 @@ _current_test_verifier: contextvars.ContextVar[StrictVerifier | None] = contextv
     "bigfoot_current_test_verifier", default=None
 )
 
+_guard_active: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "bigfoot_guard_active", default=False
+)
+
+_guard_allowlist: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
+    "bigfoot_guard_allowlist", default=frozenset()
+)
+
+
+class _GuardPassThrough(BaseException):
+    """Internal sentinel: interceptor should call the original function.
+
+    Inherits from BaseException (not Exception) so generic except clauses
+    in user code do not accidentally swallow it. Only interceptors should
+    catch this.
+    """
+
 
 # ---------------------------------------------------------------------------
 # Public accessors
