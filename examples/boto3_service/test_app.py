@@ -6,9 +6,9 @@ import pytest
 
 import bigfoot
 
-pytestmark = pytest.mark.allow("dns", "socket")
-
 from .app import upload_and_notify
+
+pytestmark = pytest.mark.allow("dns", "socket")
 
 
 @pytest.fixture(autouse=True)
