@@ -2267,3 +2267,90 @@ def test_assert_request_missing_raised_triggers_missing_fields_error() -> None:
             # raised= intentionally omitted
         )
     assert "raised" in exc_info.value.missing_fields
+
+
+# ---------------------------------------------------------------------------
+# Format helpers for error interactions
+# ---------------------------------------------------------------------------
+
+
+def test_format_interaction_error_shows_raised() -> None:
+    """format_interaction for error interaction shows raised exception type."""
+    v, p = _make_verifier_with_plugin()
+
+    exc = httpx.ConnectError("Connection refused")
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "request_headers": {},
+            "request_body": "",
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_interaction(interaction)
+    assert result == (
+        f"[HttpPlugin] GET https://api.example.com/data"
+        f" -> raised {type(exc).__module__}.{type(exc).__qualname__}({exc!s})"
+    )
+
+
+def test_format_assert_hint_error_includes_raised() -> None:
+    """format_assert_hint for error interaction includes raised= parameter."""
+    v, p = _make_verifier_with_plugin()
+
+    exc = httpx.ConnectError("Connection refused")
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "request_headers": {},
+            "request_body": "",
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_assert_hint(interaction)
+    assert result == (
+        "http.assert_request(\n"
+        '    "GET",\n'
+        '    "https://api.example.com/data",\n'
+        "    headers={},\n"
+        "    body='',\n"
+        f"    raised={exc!r},\n"
+        ")"
+    )
+
+
+def test_format_mock_hint_error_shows_mock_error() -> None:
+    """format_mock_hint for error interaction shows mock_error() call."""
+    v, p = _make_verifier_with_plugin()
+
+    exc = httpx.ConnectError("Connection refused")
+    interaction = Interaction(
+        source_id="http:request",
+        sequence=0,
+        details={
+            "method": "GET",
+            "url": "https://api.example.com/data",
+            "request_headers": {},
+            "request_body": "",
+            "raised": exc,
+        },
+        plugin=p,
+    )
+    result = p.format_mock_hint(interaction)
+    assert result == f'http.mock_error("GET", "https://api.example.com/data", raises={exc!r})'
+
+
+def test_format_unmocked_hint_suggests_both_options() -> None:
+    """format_unmocked_hint suggests both mock_response() and mock_error()."""
+    v, p = _make_verifier_with_plugin()
+    result = p.format_unmocked_hint("http:request", ("GET", "https://api.example.com/data"), {})
+    assert "mock_response" in result
+    assert "mock_error" in result

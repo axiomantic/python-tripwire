@@ -1369,12 +1369,19 @@ class HttpPlugin(BasePlugin):
     def format_interaction(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
         url = interaction.details.get("url", "?")
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            exc_type = type(raised).__module__ + "." + type(raised).__qualname__
+            return f"[HttpPlugin] {method} {url} -> raised {exc_type}({raised!s})"
         status = interaction.details.get("status", "?")
         return f"[HttpPlugin] {method} {url} (status={status})"
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "GET")
         url = interaction.details.get("url", "https://example.com/path")
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            return f'http.mock_error("{method}", "{url}", raises={raised!r})'
         return f'http.mock_response("{method}", "{url}", json={{...}})'
 
     def format_unmocked_hint(
@@ -1386,6 +1393,8 @@ class HttpPlugin(BasePlugin):
             f"Unexpected HTTP request: {method} {url}\n\n"
             f"  To mock this request, add before your sandbox:\n"
             f'    http.mock_response("{method}", "{url}", json={{...}})\n\n'
+            f"  Or to mock an error:\n"
+            f'    http.mock_error("{method}", "{url}", raises=ConnectionError(...))\n\n'
             f"  Or to mark it optional:\n"
             f'    http.mock_response("{method}", "{url}", json={{...}}, required=False)'
         )
@@ -1395,6 +1404,19 @@ class HttpPlugin(BasePlugin):
         url = interaction.details.get("url", "?")
         request_headers = interaction.details.get("request_headers", {})
         request_body = interaction.details.get("request_body", "")
+
+        if "raised" in interaction.details:
+            raised = interaction.details["raised"]
+            return (
+                f"http.assert_request(\n"
+                f'    "{method}",\n'
+                f'    "{url}",\n'
+                f"    headers={request_headers!r},\n"
+                f"    body={request_body!r},\n"
+                f"    raised={raised!r},\n"
+                f")"
+            )
+
         if self._require_response:
             status = interaction.details.get("status", 200)
             response_headers = interaction.details.get("response_headers", {})
