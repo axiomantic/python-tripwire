@@ -6,6 +6,8 @@ import pytest
 
 import bigfoot
 
+pytestmark = pytest.mark.allow("dns", "socket")
+
 from .app import upload_and_notify
 
 
