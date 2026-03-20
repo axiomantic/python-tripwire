@@ -108,6 +108,7 @@ nav:
     - pytest Integration: guides/pytest-integration.md
     - McpPlugin: guides/mcp-plugin.md
     - Writing Plugins: guides/writing-plugins.md
+    - Guard Mode: guides/guard-mode.md
     - How It Works: guides/how-it-works.md
     - Plugin Layers: guides/plugin-layers.md
   - API Reference:

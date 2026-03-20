@@ -525,6 +525,49 @@ Key implementation rules:
 
 ---
 
+## Guard mode support
+
+Plugins declare whether they participate in guard mode via the `supports_guard` class variable.
+
+### Default: `supports_guard = True`
+
+The default value in `BasePlugin` is `True`. This means bigfoot will activate the plugin at session startup during guard mode, and any intercepted call outside a sandbox will be blocked (or passed through if allowed). This is correct for any plugin that intercepts external I/O (HTTP, database, socket, etc.).
+
+### Setting `supports_guard = False`
+
+Set `supports_guard = False` for plugins that do not perform external I/O. Examples include `LoggingPlugin` (intercepts the `logging` module), `JwtPlugin` (JWT encode/decode), and `CryptoPlugin` (cryptographic operations). These plugins should only intercept when an explicit sandbox is active.
+
+```python
+from typing import ClassVar
+
+class MyComputePlugin(BasePlugin):
+    supports_guard: ClassVar[bool] = False
+    # ...
+```
+
+### Handling `_GuardPassThrough` in interceptors
+
+When guard mode is active and a call is allowed (via `allow()` or `@pytest.mark.allow`), `_get_verifier_or_raise()` raises `_GuardPassThrough` instead of returning a verifier. Guard-eligible interceptors must catch this and delegate to the original function:
+
+```python
+from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+
+def _my_interceptor(original_self, *args, **kwargs):
+    try:
+        verifier = _get_verifier_or_raise("myplugin:call")
+    except _GuardPassThrough:
+        return MyPlugin._original_function(original_self, *args, **kwargs)
+    # Normal interception logic follows...
+    plugin = _find_my_plugin(verifier)
+    return plugin._handle_call(original_self, *args, **kwargs)
+```
+
+`_GuardPassThrough` inherits from `BaseException` (not `Exception`) so that generic `except Exception` clauses in user code do not accidentally swallow it. Only interceptors should catch it.
+
+If your plugin has `supports_guard = False`, you do not need `_GuardPassThrough` handling because guard mode will never activate your plugin's interceptors.
+
+---
+
 ## Using a coding assistant
 
 If you use Claude Code or another AI coding assistant, bigfoot includes a project skill at `.claude/skills/adding-plugins/SKILL.md` that automates the full plugin creation lifecycle: scaffolding, implementation, tests, documentation, and example creation. Invoke it with "add a plugin for X" or similar phrasing.

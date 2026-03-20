@@ -13,6 +13,8 @@ bigfoot intercepts every external call your code makes and forces your tests to 
 2. **Every recorded interaction must be explicitly asserted.** Forget to assert an interaction? `UnassertedInteractionsError` at teardown.
 3. **Every registered mock must actually be triggered.** Register a mock that never fires? `UnusedMocksError` at teardown.
 
+**Guard mode** (enabled by default) goes further: bigfoot installs interceptors at test session startup, blocking any real I/O call that happens outside a sandbox. Accidental network calls, database connections, and subprocess invocations are caught immediately with `GuardedCallError`, not silently sent to production. Use `bigfoot.allow("dns", "socket")` or `@pytest.mark.allow(...)` to selectively permit real calls when needed.
+
 A plugin system makes it straightforward to intercept any service and enforce all three guarantees.
 
 ```bash
