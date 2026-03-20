@@ -1,4 +1,4 @@
-"""MockPlugin, MockProxy, MethodProxy, MockConfig."""
+"""MockPlugin, MockProxy, MethodProxy, MockConfig, _BaseMock, ImportSiteMock, ObjectMock."""
 
 import threading
 import traceback
@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._errors import UnmockedInteractionError
+from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -35,7 +35,7 @@ class _CallFn:
 
 
 # Sentinel: initial value for `result` in wraps delegation try/finally.
-# Never actually returned — the exception path re-raises before reaching `return result`.
+# Never actually returned -- the exception path re-raises before reaching `return result`.
 _SENTINEL = object()
 
 # Sentinel: distinguishes "parameter not passed" from None in assert_call().
@@ -68,12 +68,16 @@ class MockConfig:
 class MethodProxy:
     """Interceptor + source filter for a single mock method.
 
-    Attribute access on MockProxy returns a MethodProxy. Calling it routes
-    through the bigfoot interceptor.
+    Attribute access on _BaseMock or MockProxy returns a MethodProxy.
+    Calling it routes through the bigfoot interceptor.
     """
 
     def __init__(
-        self, mock_name: str, method_name: str, plugin: "MockPlugin", proxy: "MockProxy"
+        self,
+        mock_name: str,
+        method_name: str,
+        plugin: "MockPlugin",
+        proxy: "MockProxy | _BaseMock",
     ) -> None:
         self._mock_name = mock_name
         self._method_name = method_name
@@ -154,6 +158,31 @@ class MethodProxy:
 
         _get_test_verifier_or_raise().assert_interaction(self, **expected)
 
+    def _get_enforce(self) -> bool:
+        """Get the enforce flag from the proxy. Handles both _BaseMock and MockProxy."""
+        proxy = self._proxy
+        if isinstance(proxy, _BaseMock):
+            return proxy._enforce
+        # Old-style MockProxy: always enforce (sandbox-only usage)
+        return True
+
+    def _get_spy_flag(self) -> bool:
+        """Check if proxy is in spy mode."""
+        proxy = self._proxy
+        if isinstance(proxy, _BaseMock):
+            return proxy._spy
+        # Old-style MockProxy: check _wraps
+        wraps_obj: object = object.__getattribute__(proxy, "_wraps")
+        return wraps_obj is not None
+
+    def _get_wraps_target(self) -> Any:  # noqa: ANN401
+        """Get the wraps target for delegation."""
+        proxy = self._proxy
+        if isinstance(proxy, _BaseMock):
+            return getattr(proxy, "_wraps_target", None)
+        # Old-style MockProxy
+        return object.__getattribute__(proxy, "_wraps")
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         """Called when the mock is invoked. Routes through bigfoot interceptor."""
         from bigfoot._context import _get_verifier_or_raise
@@ -161,22 +190,28 @@ class MethodProxy:
         # Step 1: Verify sandbox is active (raises SandboxNotActiveError if not)
         _get_verifier_or_raise(self.source_id)
 
-        # Step 2: Check side-effect queue; fall back to wraps delegation if empty
-        wraps_obj: object = object.__getattribute__(self._proxy, "_wraps")
+        # Step 2: Check side-effect queue; fall back to spy delegation if empty
+        is_spy = self._get_spy_flag()
+        wraps_target = self._get_wraps_target()
+
         if not self._config_queue:
-            if wraps_obj is None:
+            if not is_spy or wraps_target is None:
                 raise UnmockedInteractionError(
                     source_id=self.source_id,
                     args=args,
                     kwargs=kwargs,
                     hint=self._plugin.format_unmocked_hint(self.source_id, args, kwargs),
                 )
-            # Wraps delegation: call the real object, record with returned/raised
+            # Spy delegation: call the original, record with returned/raised
             result: Any = _SENTINEL
             raised_exc: BaseException | None = None
             try:
-                real_method = getattr(wraps_obj, self._method_name)
-                result = real_method(*args, **kwargs)
+                if self._method_name == "__call__":
+                    # Direct callable: call the wraps target itself
+                    result = wraps_target(*args, **kwargs)
+                else:
+                    real_method = getattr(wraps_target, self._method_name)
+                    result = real_method(*args, **kwargs)
             except BaseException as exc:
                 raised_exc = exc
                 raise
@@ -198,13 +233,14 @@ class MethodProxy:
                     details=details,
                     plugin=self._plugin,
                 )
+                interaction.enforce = self._get_enforce()
                 self._plugin.record(interaction)
             return result
 
         config = self._config_queue.popleft()
 
         # Step 3: Record the interaction (with raised in details if applicable)
-        details: dict[str, Any] = {
+        details_dict: dict[str, Any] = {
             "mock_name": self._mock_name,
             "method_name": self._method_name,
             "args": args,
@@ -212,14 +248,15 @@ class MethodProxy:
         }
 
         if isinstance(config.side_effect, _RaiseException):
-            details["raised"] = config.side_effect.exc
+            details_dict["raised"] = config.side_effect.exc
 
         interaction = Interaction(
             source_id=self.source_id,
             sequence=0,
-            details=details,
+            details=details_dict,
             plugin=self._plugin,
         )
+        interaction.enforce = self._get_enforce()
         self._plugin.record(interaction)
 
         # Step 4: Execute the side effect
@@ -234,7 +271,196 @@ class MethodProxy:
 
 
 # ---------------------------------------------------------------------------
-# MockProxy
+# _BaseMock, ImportSiteMock, ObjectMock
+# ---------------------------------------------------------------------------
+
+
+class _BaseMock:
+    """Base class for ImportSiteMock and ObjectMock.
+
+    Handles method proxy management, context manager protocol, activation
+    state tracking, and setattr-based patching/restoration.
+    """
+
+    def __init__(self, plugin: "MockPlugin", spy: bool = False) -> None:
+        self._plugin = plugin
+        self._spy = spy
+        self._methods: dict[str, MethodProxy] = {}
+        self._original: Any = None  # captured at activation time
+        self._active: bool = False
+        self._enforce: bool = False  # True when activated via sandbox
+        if spy:
+            self._wraps_target: Any = None
+
+    # --- Subclass hook: resolve the (parent, attr_name) pair ---
+
+    def _resolve_target(self) -> tuple[object, str]:
+        """Return (parent_object, attr_name) for setattr patching."""
+        raise NotImplementedError
+
+    @property
+    def _display_name(self) -> str:
+        """Human-readable name for error messages and source_id."""
+        raise NotImplementedError
+
+    # --- Attribute access for method-level configuration ---
+
+    def __getattr__(self, method_name: str) -> MethodProxy:
+        if method_name.startswith("_") and method_name != "__call__":
+            raise AttributeError(method_name)
+        if method_name not in self._methods:
+            self._methods[method_name] = MethodProxy(
+                mock_name=self._display_name,
+                method_name=method_name,
+                plugin=self._plugin,
+                proxy=self,
+            )
+        return self._methods[method_name]
+
+    # --- Sync context manager (individual activation, enforce=False) ---
+
+    def __enter__(self) -> "_BaseMock":
+        self._activate(enforce=False)
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        self._deactivate()
+
+    # --- Async context manager ---
+
+    async def __aenter__(self) -> "_BaseMock":
+        self._activate(enforce=False)
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> None:
+        self._deactivate()
+
+    # --- Activation / Deactivation ---
+
+    def _activate(self, enforce: bool) -> None:
+        """Resolve target, save original, install dispatcher via setattr."""
+        if self._active:
+            return  # Already active (e.g., individual + sandbox)
+        parent, attr_name = self._resolve_target()
+        self._original = getattr(parent, attr_name)
+        self._enforce = enforce
+
+        if self._spy:
+            self._wraps_target = self._original
+
+        # Conflict detection
+        patch_key = (id(parent), attr_name)
+        self._plugin._register_active_patch(patch_key, self)
+
+        dispatcher = self._make_dispatcher()
+        setattr(parent, attr_name, dispatcher)
+        self._active = True
+
+    def _deactivate(self) -> None:
+        """Restore original via setattr, clear activation state."""
+        if not self._active:
+            return
+        parent, attr_name = self._resolve_target()
+        setattr(parent, attr_name, self._original)
+        self._active = False
+
+        patch_key = (id(parent), attr_name)
+        self._plugin._unregister_active_patch(patch_key)
+
+        self._original = None
+
+    def _make_dispatcher(self) -> Any:  # noqa: ANN401
+        """Create the replacement object installed at the import site."""
+        mock_ref = self
+
+        if callable(self._original) or not self._methods:
+            def dispatch(*args: Any, **kwargs: Any) -> Any:
+                method = mock_ref.__getattr__("__call__")
+                return method(*args, **kwargs)
+            return dispatch
+        else:
+            return _MockDispatchProxy(mock_ref)
+
+    # --- Ergonomic shortcuts for single-callable targets ---
+
+    def returns(self, value: Any) -> "_BaseMock":  # noqa: ANN401
+        self.__getattr__("__call__").returns(value)
+        return self
+
+    def raises(self, exc: BaseException | type[BaseException]) -> "_BaseMock":
+        self.__getattr__("__call__").raises(exc)
+        return self
+
+    def calls(self, fn: Callable[..., Any]) -> "_BaseMock":
+        self.__getattr__("__call__").calls(fn)
+        return self
+
+    def assert_call(self, **kwargs: Any) -> None:
+        self.__getattr__("__call__").assert_call(**kwargs)
+
+
+class ImportSiteMock(_BaseMock):
+    """A mock registered via bigfoot.mock("mod:attr")."""
+
+    def __init__(self, path: str, plugin: "MockPlugin", spy: bool = False) -> None:
+        super().__init__(plugin=plugin, spy=spy)
+        if ":" not in path:
+            raise ValueError(
+                f"Mock path {path!r} must use colon-separated format: "
+                f"'module.path:attr.path'. Example: 'myapp.services:cache'"
+            )
+        self._path = path
+
+    def _resolve_target(self) -> tuple[object, str]:
+        from bigfoot._path_resolution import resolve_target  # noqa: PLC0415
+        return resolve_target(self._path)
+
+    @property
+    def _display_name(self) -> str:
+        return self._path
+
+
+class ObjectMock(_BaseMock):
+    """A mock registered via bigfoot.mock.object(target, "attr")."""
+
+    def __init__(
+        self, target: object, attr: str, plugin: "MockPlugin", spy: bool = False
+    ) -> None:
+        super().__init__(plugin=plugin, spy=spy)
+        self._target = target
+        self._attr = attr
+
+    def _resolve_target(self) -> tuple[object, str]:
+        return self._target, self._attr
+
+    @property
+    def _display_name(self) -> str:
+        return f"{type(self._target).__name__}.{self._attr}"
+
+
+# ---------------------------------------------------------------------------
+# _MockDispatchProxy
+# ---------------------------------------------------------------------------
+
+
+class _MockDispatchProxy:
+    """Installed at the import site when the target is an object with methods."""
+
+    def __init__(self, mock: _BaseMock) -> None:
+        object.__setattr__(self, "_mock", mock)
+
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+        mock: _BaseMock = object.__getattribute__(self, "_mock")
+        if name in mock._methods:
+            return mock._methods[name]
+        # For spy mode, delegate unknown attributes to the wrapped original
+        if mock._spy and mock._original is not None:
+            return getattr(mock._original, name)
+        raise AttributeError(f"Mock {mock._display_name!r} has no configured method {name!r}")
+
+
+# ---------------------------------------------------------------------------
+# MockProxy (legacy, kept for backward compatibility during migration)
 # ---------------------------------------------------------------------------
 
 
@@ -290,6 +516,44 @@ class MockPlugin(BasePlugin):
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
         self._proxies: dict[str, MockProxy] = {}
+        self._mocks: list[_BaseMock] = []
+        self._active_patches: dict[tuple[int, str], _BaseMock] = {}
+
+    # --- New API: import-site and object mocks ---
+
+    def create_import_site_mock(
+        self, path: str, *, spy: bool = False
+    ) -> ImportSiteMock:
+        """Create and register an ImportSiteMock."""
+        mock = ImportSiteMock(path=path, plugin=self, spy=spy)
+        self._mocks.append(mock)
+        return mock
+
+    def create_object_mock(
+        self, target: object, attr: str, *, spy: bool = False
+    ) -> ObjectMock:
+        """Create and register an ObjectMock."""
+        mock = ObjectMock(target=target, attr=attr, plugin=self, spy=spy)
+        self._mocks.append(mock)
+        return mock
+
+    def _register_active_patch(
+        self, patch_key: tuple[int, str], mock: _BaseMock
+    ) -> None:
+        """Register an active patch for conflict detection."""
+        if patch_key in self._active_patches:
+            existing = self._active_patches[patch_key]
+            raise ConflictError(
+                target=mock._display_name,
+                patcher=f"bigfoot mock ({existing._display_name})",
+            )
+        self._active_patches[patch_key] = mock
+
+    def _unregister_active_patch(self, patch_key: tuple[int, str]) -> None:
+        """Unregister an active patch."""
+        self._active_patches.pop(patch_key, None)
+
+    # --- Legacy API (kept for backward compat during migration) ---
 
     def get_or_create_proxy(self, name: str, wraps: object = None) -> MockProxy:
         """Return an existing MockProxy for name, or create a new one.
@@ -404,9 +668,16 @@ class MockPlugin(BasePlugin):
         """Return MockConfig objects that are required=True and still in the queue (never
         consumed)."""
         unused: list[MockConfig] = []
+        # Legacy MockProxy path
         for proxy in self._proxies.values():
             methods = object.__getattribute__(proxy, "_methods")
             for method_proxy in methods.values():
+                for config in method_proxy._config_queue:
+                    if config.required:
+                        unused.append(config)
+        # New _BaseMock path
+        for mock in self._mocks:
+            for method_proxy in mock._methods.values():
                 for config in method_proxy._config_queue:
                     if config.required:
                         unused.append(config)
