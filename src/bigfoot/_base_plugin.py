@@ -1,5 +1,6 @@
 """BasePlugin abstract base class for all bigfoot plugins."""
 
+import threading
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -13,25 +14,78 @@ if TYPE_CHECKING:
 class BasePlugin(ABC):
     """Abstract base for all bigfoot plugins.
 
-    Subclasses must implement all abstract methods and maintain class-level
-    _install_count and _install_lock for reference-counted activation.
+    Subclasses get per-class _install_count and _install_lock automatically
+    via __init_subclass__. The default activate()/deactivate() implementations
+    provide reference-counted patching: override _install_patches() and
+    _restore_patches() instead of activate()/deactivate() for standard
+    ref-counting behavior. Plugins that need custom activation (e.g.,
+    StateMachinePlugin subclasses) can override activate()/deactivate() directly.
     """
 
     supports_guard: ClassVar[bool] = True
+
+    # Shared patching infrastructure -- each subclass gets its own via __init_subclass__
+    _install_count: ClassVar[int] = 0
+    _install_lock: ClassVar[threading.Lock] = threading.Lock()
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Give each plugin subclass its own lock and counter."""
+        super().__init_subclass__(**kwargs)
+        cls._install_count = 0
+        cls._install_lock = threading.Lock()
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         self.verifier = verifier
         verifier._register_plugin(self)
 
-    @abstractmethod
     def activate(self) -> None:
-        """Install interceptors. Reference-counted: only install if _install_count == 0.
-        Must be thread-safe. Check for conflicts before installing."""
+        """Reference-counted activation. Calls _check_conflicts() and
+        _install_patches() on first activation.
 
-    @abstractmethod
+        Plugins that need custom activation logic can override this method
+        directly. Plugins that use standard ref-counting should override
+        _install_patches() and _restore_patches() instead.
+        """
+        with type(self)._install_lock:
+            if type(self)._install_count == 0:
+                self._check_conflicts()
+                self._install_patches()
+            type(self)._install_count += 1
+
     def deactivate(self) -> None:
-        """Remove interceptors. Decrement _install_count. Only restore if count reaches 0.
-        Must not raise (collect errors for caller to raise after ContextVar reset)."""
+        """Reference-counted deactivation. Calls _restore_patches() when
+        count reaches 0.
+
+        Plugins that need custom deactivation logic can override this method
+        directly. Plugins that use standard ref-counting should override
+        _install_patches() and _restore_patches() instead.
+        """
+        with type(self)._install_lock:
+            type(self)._install_count = max(0, type(self)._install_count - 1)
+            if type(self)._install_count == 0:
+                self._restore_patches()
+
+    def _check_conflicts(self) -> None:
+        """Check for conflicting patches before installing.
+
+        Default: no-op. Domain plugins that need conflict detection override
+        this to raise ConflictError when foreign patches are detected.
+
+        Called by activate() when _install_count goes 0 -> 1, before
+        _install_patches().
+        """
+
+    def _install_patches(self) -> None:
+        """Install monkeypatches. Called once when install_count goes 0 -> 1.
+
+        Default: no-op. Plugins that do import-site patching override this.
+        """
+
+    def _restore_patches(self) -> None:
+        """Restore original functions. Called once when install_count goes 1 -> 0.
+
+        Default: no-op. Plugins that do import-site patching override this.
+        """
 
     @abstractmethod
     def matches(self, interaction: "Interaction", expected: dict[str, Any]) -> bool:

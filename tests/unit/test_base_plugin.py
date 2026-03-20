@@ -229,8 +229,6 @@ def test_record_not_in_abstract_methods() -> None:
     # IMPACT: All plugins would be forced to re-implement record(), defeating its purpose.
     assert BasePlugin.__abstractmethods__ == frozenset(
         {
-            "activate",
-            "deactivate",
             "matches",
             "format_interaction",
             "format_mock_hint",
@@ -242,20 +240,10 @@ def test_record_not_in_abstract_methods() -> None:
     )
 
 
-def test_missing_activate_prevents_instantiation() -> None:
-    """A subclass missing activate() cannot be instantiated."""
-    # ESCAPE:
-    # CLAIM: Omitting any single abstract method prevents instantiation.
-    # PATH: ABC enforcement via __abstractmethods__.
-    # CHECK: TypeError raised when attempting to instantiate the incomplete subclass.
-    # MUTATION: Removing @abstractmethod from activate() in BasePlugin would allow this class to instantiate.
-    # ESCAPE: Nothing reasonable.
-    # IMPACT: Incomplete plugins would be created, failing silently later with AttributeError.
+def test_missing_activate_uses_default() -> None:
+    """A subclass missing activate() can be instantiated and uses the default ref-counted impl."""
 
-    class MissingActivate(BasePlugin):  # type: ignore[abstract]
-        def deactivate(self) -> None:
-            pass
-
+    class MissingActivate(BasePlugin):
         def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
             return True
 
@@ -282,18 +270,19 @@ def test_missing_activate_prevents_instantiation() -> None:
         def format_unused_mock_hint(self, mock_config: Any) -> str:
             return ""
 
-    with pytest.raises(TypeError):
-        MissingActivate(_StubVerifier())  # type: ignore[abstract]
+    verifier = _StubVerifier()
+    p = MissingActivate(verifier)
+    # Default activate() should work without error
+    p.activate()
+    assert type(p)._install_count == 1
+    p.deactivate()
+    assert type(p)._install_count == 0
 
 
-def test_missing_deactivate_prevents_instantiation() -> None:
-    """A subclass missing deactivate() cannot be instantiated."""
-    # ESCAPE: Same rationale as test_missing_activate_prevents_instantiation.
+def test_missing_deactivate_uses_default() -> None:
+    """A subclass missing deactivate() can be instantiated and uses the default ref-counted impl."""
 
-    class MissingDeactivate(BasePlugin):  # type: ignore[abstract]
-        def activate(self) -> None:
-            pass
-
+    class MissingDeactivate(BasePlugin):
         def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
             return True
 
@@ -320,8 +309,13 @@ def test_missing_deactivate_prevents_instantiation() -> None:
         def format_unused_mock_hint(self, mock_config: Any) -> str:
             return ""
 
-    with pytest.raises(TypeError):
-        MissingDeactivate(_StubVerifier())  # type: ignore[abstract]
+    verifier = _StubVerifier()
+    p = MissingDeactivate(verifier)
+    # Default deactivate() should work without error
+    p.activate()
+    assert type(p)._install_count == 1
+    p.deactivate()
+    assert type(p)._install_count == 0
 
 
 def test_missing_matches_prevents_instantiation() -> None:
@@ -706,6 +700,176 @@ def test_assertable_fields_contract_returns_frozenset() -> None:
     result = p.assertable_fields(None)  # type: ignore[arg-type]
     assert isinstance(result, frozenset)
     assert result == frozenset()
+
+
+import threading
+
+
+# ---------------------------------------------------------------------------
+# Shared patching infrastructure tests (Task 0.2)
+# ---------------------------------------------------------------------------
+
+
+class _RefCountPlugin(BasePlugin):
+    """Minimal concrete plugin for testing shared patching primitives."""
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        return True
+
+    def format_interaction(self, interaction: Interaction) -> str:
+        return ""
+
+    def format_mock_hint(self, interaction: Interaction) -> str:
+        return ""
+
+    def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+        return ""
+
+    def format_assert_hint(self, interaction: Interaction) -> str:
+        return ""
+
+    def get_unused_mocks(self) -> list[Any]:
+        return []
+
+    def format_unused_mock_hint(self, mock_config: Any) -> str:
+        return ""
+
+
+class _AnotherRefCountPlugin(BasePlugin):
+    """Second concrete plugin to verify per-class lock/counter."""
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        return True
+
+    def format_interaction(self, interaction: Interaction) -> str:
+        return ""
+
+    def format_mock_hint(self, interaction: Interaction) -> str:
+        return ""
+
+    def format_unmocked_hint(self, source_id: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str:
+        return ""
+
+    def format_assert_hint(self, interaction: Interaction) -> str:
+        return ""
+
+    def get_unused_mocks(self) -> list[Any]:
+        return []
+
+    def format_unused_mock_hint(self, mock_config: Any) -> str:
+        return ""
+
+
+def test_subclass_gets_own_install_count() -> None:
+    """Each BasePlugin subclass gets its own _install_count via __init_subclass__."""
+    assert _RefCountPlugin._install_count == 0
+    assert _AnotherRefCountPlugin._install_count == 0
+    # Modifying one does not affect the other
+    _RefCountPlugin._install_count = 5
+    assert _AnotherRefCountPlugin._install_count == 0
+    _RefCountPlugin._install_count = 0  # reset
+
+
+def test_subclass_gets_own_install_lock() -> None:
+    """Each BasePlugin subclass gets its own _install_lock via __init_subclass__."""
+    assert isinstance(_RefCountPlugin._install_lock, type(threading.Lock()))
+    assert _RefCountPlugin._install_lock is not _AnotherRefCountPlugin._install_lock
+
+
+def test_default_activate_increments_count() -> None:
+    """Default activate() increments _install_count."""
+    from bigfoot._verifier import StrictVerifier
+    v = StrictVerifier()
+    plugin = _RefCountPlugin(v)
+    initial = type(plugin)._install_count
+    plugin.activate()
+    assert type(plugin)._install_count == initial + 1
+    plugin.deactivate()
+
+
+def test_default_deactivate_decrements_count() -> None:
+    """Default deactivate() decrements _install_count."""
+    from bigfoot._verifier import StrictVerifier
+    v = StrictVerifier()
+    plugin = _RefCountPlugin(v)
+    plugin.activate()
+    plugin.activate()
+    assert type(plugin)._install_count == 2
+    plugin.deactivate()
+    assert type(plugin)._install_count == 1
+    plugin.deactivate()
+    assert type(plugin)._install_count == 0
+
+
+def test_default_deactivate_floors_at_zero() -> None:
+    """Default deactivate() does not go below 0."""
+    from bigfoot._verifier import StrictVerifier
+    v = StrictVerifier()
+    plugin = _RefCountPlugin(v)
+    plugin.deactivate()
+    assert type(plugin)._install_count == 0
+
+
+def test_default_activate_calls_install_patches_on_first() -> None:
+    """Default activate() calls _install_patches() on first activation only."""
+    from bigfoot._verifier import StrictVerifier
+
+    call_count = 0
+
+    class _TrackingPlugin(_RefCountPlugin):
+        def _install_patches(self) -> None:
+            nonlocal call_count
+            call_count += 1
+
+    v = StrictVerifier()
+    plugin = _TrackingPlugin(v)
+    plugin.activate()
+    assert call_count == 1
+    plugin.activate()
+    assert call_count == 1  # not called again
+    plugin.deactivate()
+    plugin.deactivate()
+
+
+def test_default_deactivate_calls_restore_patches_on_last() -> None:
+    """Default deactivate() calls _restore_patches() when count reaches 0."""
+    from bigfoot._verifier import StrictVerifier
+
+    call_count = 0
+
+    class _TrackingPlugin(_RefCountPlugin):
+        def _restore_patches(self) -> None:
+            nonlocal call_count
+            call_count += 1
+
+    v = StrictVerifier()
+    plugin = _TrackingPlugin(v)
+    plugin.activate()
+    plugin.activate()
+    plugin.deactivate()
+    assert call_count == 0  # not yet
+    plugin.deactivate()
+    assert call_count == 1  # now
+
+
+def test_default_activate_calls_check_conflicts_before_install() -> None:
+    """Default activate() calls _check_conflicts() before _install_patches()."""
+    from bigfoot._verifier import StrictVerifier
+
+    call_order: list[str] = []
+
+    class _OrderPlugin(_RefCountPlugin):
+        def _check_conflicts(self) -> None:
+            call_order.append("check_conflicts")
+
+        def _install_patches(self) -> None:
+            call_order.append("install_patches")
+
+    v = StrictVerifier()
+    plugin = _OrderPlugin(v)
+    plugin.activate()
+    assert call_order == ["check_conflicts", "install_patches"]
+    plugin.deactivate()
 
 
 def test_assertable_fields_default_returns_details_keys() -> None:
