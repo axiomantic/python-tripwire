@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -52,15 +52,12 @@ class MemcacheMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_memcache_plugin() -> MemcachePlugin:
+def _get_memcache_plugin() -> MemcachePlugin | None:
     verifier = _get_verifier_or_raise("memcache:command")
     for plugin in verifier._plugins:
         if isinstance(plugin, MemcachePlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot MemcachePlugin interceptor is active but no "
-        "MemcachePlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -110,7 +107,23 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
     cmd_upper = method_name.upper()
 
     def _patched(client_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        plugin = _get_memcache_plugin()
+        # Check allowlist FIRST - bypasses both guard and sandbox
+        if "memcache" in _guard_allowlist.get():
+            original = MemcachePlugin._originals.get(method_name)
+            if original is not None:
+                return original(client_self, *args, **kwargs)
+        try:
+            plugin = _get_memcache_plugin()
+        except _GuardPassThrough:
+            original = MemcachePlugin._originals.get(method_name)
+            if original is not None:
+                return original(client_self, *args, **kwargs)
+            raise
+        if plugin is None:
+            original = MemcachePlugin._originals.get(method_name)
+            if original is not None:
+                return original(client_self, *args, **kwargs)
+            return None
         with plugin._registry_lock:
             queue = plugin._queues.get(cmd_upper)
             if not queue:

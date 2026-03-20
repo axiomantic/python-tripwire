@@ -5,7 +5,7 @@ import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import _get_verifier_or_raise
@@ -112,6 +112,8 @@ class LoggingPlugin(BasePlugin):
     Patches logging.Logger._log globally. Uses reference counting
     so nested sandboxes work correctly, following the SubprocessPlugin pattern.
     """
+
+    supports_guard: ClassVar[bool] = False
 
     # Class-level reference counting — shared across all instances/verifiers.
     _install_count: int = 0

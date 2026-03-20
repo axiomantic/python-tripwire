@@ -5,7 +5,7 @@ import traceback
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._errors import UnmockedInteractionError
@@ -251,6 +251,8 @@ class MockProxy:
 
 class MockPlugin(BasePlugin):
     """Core mock plugin: intercepts method calls on named proxy objects."""
+
+    supports_guard: ClassVar[bool] = False
 
     _install_count: int = 0
     _install_lock: threading.Lock = threading.Lock()

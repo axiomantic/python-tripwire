@@ -198,6 +198,8 @@ class CeleryPlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
+    supports_guard: ClassVar[bool] = False
+
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()
 

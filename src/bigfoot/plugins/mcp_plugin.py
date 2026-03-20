@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -62,15 +62,12 @@ class McpMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_mcp_plugin() -> McpPlugin:
+def _get_mcp_plugin() -> McpPlugin | None:
     verifier = _get_verifier_or_raise("mcp:client:call_tool")
     for plugin in verifier._plugins:
         if isinstance(plugin, McpPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot McpPlugin interceptor is active but no "
-        "McpPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -97,7 +94,15 @@ async def _patched_call_tool(
     *args: Any,  # noqa: ANN401
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
-    plugin = _get_mcp_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "mcp" in _guard_allowlist.get():
+        return await McpPlugin._original_call_tool(self, name, arguments, *args, **kwargs)
+    try:
+        plugin = _get_mcp_plugin()
+    except _GuardPassThrough:
+        return await McpPlugin._original_call_tool(self, name, arguments, *args, **kwargs)
+    if plugin is None:
+        return await McpPlugin._original_call_tool(self, name, arguments, *args, **kwargs)
     queue_key = f"client:call_tool:{name}"
     source_id = f"mcp:{queue_key}"
 
@@ -138,7 +143,15 @@ async def _patched_read_resource(
     *args: Any,  # noqa: ANN401
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
-    plugin = _get_mcp_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "mcp" in _guard_allowlist.get():
+        return await McpPlugin._original_read_resource(self, uri, *args, **kwargs)
+    try:
+        plugin = _get_mcp_plugin()
+    except _GuardPassThrough:
+        return await McpPlugin._original_read_resource(self, uri, *args, **kwargs)
+    if plugin is None:
+        return await McpPlugin._original_read_resource(self, uri, *args, **kwargs)
     uri_str = str(uri)
     queue_key = f"client:read_resource:{uri_str}"
     source_id = f"mcp:{queue_key}"
@@ -179,7 +192,15 @@ async def _patched_get_prompt(
     *args: Any,  # noqa: ANN401
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
-    plugin = _get_mcp_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "mcp" in _guard_allowlist.get():
+        return await McpPlugin._original_get_prompt(self, name, arguments, *args, **kwargs)
+    try:
+        plugin = _get_mcp_plugin()
+    except _GuardPassThrough:
+        return await McpPlugin._original_get_prompt(self, name, arguments, *args, **kwargs)
+    if plugin is None:
+        return await McpPlugin._original_get_prompt(self, name, arguments, *args, **kwargs)
     queue_key = f"client:get_prompt:{name}"
     source_id = f"mcp:{queue_key}"
 
@@ -230,7 +251,21 @@ async def _patched_handle_request(
     """Wrapped _handle_request that intercepts call_tool, read_resource, get_prompt requests."""
     import mcp.types as types  # noqa: PLC0415
 
-    plugin = _get_mcp_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "mcp" in _guard_allowlist.get():
+        return await McpPlugin._original_handle_request(  # type: ignore[no-any-return]
+            self, message, req, session, lifespan_context, raise_exceptions,
+        )
+    try:
+        plugin = _get_mcp_plugin()
+    except _GuardPassThrough:
+        return await McpPlugin._original_handle_request(  # type: ignore[no-any-return]
+            self, message, req, session, lifespan_context, raise_exceptions,
+        )
+    if plugin is None:
+        return await McpPlugin._original_handle_request(  # type: ignore[no-any-return]
+            self, message, req, session, lifespan_context, raise_exceptions,
+        )
 
     # Determine if this is a request type we intercept
     req_type = type(req)

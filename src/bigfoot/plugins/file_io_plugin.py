@@ -478,6 +478,8 @@ class FileIoPlugin(BasePlugin):
     NOT default enabled: requires explicit enabled_plugins = ["file_io"].
     """
 
+    supports_guard: ClassVar[bool] = False
+
     # Class-level reference counting
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()

@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover
     _AIOHTTP_AVAILABLE = False
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -519,7 +519,13 @@ class HttpPlugin(BasePlugin):
             transport_self: httpx.HTTPTransport,
             request: httpx.Request,
         ) -> httpx.Response:
-            verifier = _get_verifier_or_raise("http:request")
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "http" in _guard_allowlist.get():
+                return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
+            try:
+                verifier = _get_verifier_or_raise("http:request")
+            except _GuardPassThrough:
+                return HttpPlugin._original_httpx_transport_handle(transport_self, request)  # type: ignore[no-any-return]
             plugin = _find_http_plugin(verifier)
             return plugin._handle_httpx_request(transport_self, request)
 
@@ -528,7 +534,17 @@ class HttpPlugin(BasePlugin):
             transport_self: httpx.AsyncHTTPTransport,
             request: httpx.Request,
         ) -> httpx.Response:
-            verifier = _get_verifier_or_raise("http:request")
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "http" in _guard_allowlist.get():
+                return await HttpPlugin._original_httpx_async_transport_handle(  # type: ignore[no-any-return]
+                    transport_self, request,
+                )
+            try:
+                verifier = _get_verifier_or_raise("http:request")
+            except _GuardPassThrough:
+                return await HttpPlugin._original_httpx_async_transport_handle(  # type: ignore[no-any-return]
+                    transport_self, request,
+                )
             plugin = _find_http_plugin(verifier)
             return await plugin._handle_httpx_async_request(transport_self, request)
 
@@ -538,7 +554,13 @@ class HttpPlugin(BasePlugin):
             request: requests.PreparedRequest,
             **kwargs: Any,  # noqa: ANN401
         ) -> requests.Response:
-            verifier = _get_verifier_or_raise("http:request")
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "http" in _guard_allowlist.get():
+                return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
+            try:
+                verifier = _get_verifier_or_raise("http:request")
+            except _GuardPassThrough:
+                return HttpPlugin._original_requests_adapter_send(adapter_self, request, **kwargs)  # type: ignore[no-any-return]
             plugin = _find_http_plugin(verifier)
             return plugin._handle_requests_request(adapter_self, request, **kwargs)
 
@@ -608,7 +630,23 @@ class HttpPlugin(BasePlugin):
         def _bigfoot_urllib_dispatch(
             req: urllib.request.Request,
         ) -> urllib.response.addinfourl:
-            verifier = _get_verifier_or_raise("http:request")
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "http" in _guard_allowlist.get():
+                original_opener = HttpPlugin._original_urllib_opener
+                urllib.request.install_opener(original_opener)
+                try:
+                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                finally:
+                    HttpPlugin._reinstall_urllib_opener()
+            try:
+                verifier = _get_verifier_or_raise("http:request")
+            except _GuardPassThrough:
+                original_opener = HttpPlugin._original_urllib_opener
+                urllib.request.install_opener(original_opener)
+                try:
+                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                finally:
+                    HttpPlugin._reinstall_urllib_opener()
             plugin = _find_http_plugin(verifier)
             return plugin._handle_urllib_request(req)
 
@@ -648,7 +686,17 @@ class HttpPlugin(BasePlugin):
             str_or_url: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
         ) -> Any:  # noqa: ANN401
-            verifier = _get_verifier_or_raise("http:request")
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "http" in _guard_allowlist.get():
+                return await HttpPlugin._original_aiohttp_request(
+                    session_self, method, str_or_url, **kwargs,
+                )
+            try:
+                verifier = _get_verifier_or_raise("http:request")
+            except _GuardPassThrough:
+                return await HttpPlugin._original_aiohttp_request(
+                    session_self, method, str_or_url, **kwargs,
+                )
             plugin = _find_http_plugin(verifier)
             return await plugin._handle_aiohttp_request(session_self, method, str_or_url, **kwargs)
 
@@ -1110,7 +1158,23 @@ class HttpPlugin(BasePlugin):
         def _bigfoot_urllib_dispatch_ref(
             req: urllib.request.Request,
         ) -> urllib.response.addinfourl:
-            verifier = _get_verifier_or_raise("http:request")
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "http" in _guard_allowlist.get():
+                original_opener = HttpPlugin._original_urllib_opener
+                urllib.request.install_opener(original_opener)
+                try:
+                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                finally:
+                    HttpPlugin._reinstall_urllib_opener()
+            try:
+                verifier = _get_verifier_or_raise("http:request")
+            except _GuardPassThrough:
+                original_opener = HttpPlugin._original_urllib_opener
+                urllib.request.install_opener(original_opener)
+                try:
+                    return urllib.request.urlopen(req)  # type: ignore[no-any-return]
+                finally:
+                    HttpPlugin._reinstall_urllib_opener()
             plugin = _find_http_plugin(verifier)
             return plugin._handle_urllib_request(req)
 

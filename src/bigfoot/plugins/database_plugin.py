@@ -4,7 +4,7 @@ import sqlite3
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -150,7 +150,13 @@ class _FakeConnection:
 
 
 def _patched_connect(database: str, **_kwargs: object) -> _FakeConnection:
-    plugin = _get_database_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "database" in _guard_allowlist.get() or "db" in _guard_allowlist.get():
+        return DatabasePlugin._original_connect(database, **_kwargs)  # type: ignore[no-any-return]
+    try:
+        plugin = _get_database_plugin()
+    except _GuardPassThrough:
+        return DatabasePlugin._original_connect(database, **_kwargs)  # type: ignore[no-any-return]
     fake_conn = _FakeConnection(plugin)
     plugin._bind_connection(fake_conn)
     handle = plugin._lookup_session(fake_conn)

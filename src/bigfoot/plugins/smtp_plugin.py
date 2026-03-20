@@ -4,7 +4,7 @@ import smtplib
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -53,6 +53,16 @@ def _find_smtp_plugin() -> "SmtpPlugin":
 
 class _FakeSMTP:
     """Fake smtplib.SMTP that routes all operations through SmtpPlugin."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        # Check allowlist FIRST - bypasses both guard and sandbox
+        if "smtp" in _guard_allowlist.get():
+            return _ORIGINAL_SMTP(*args, **kwargs)
+        try:
+            _find_smtp_plugin()
+        except _GuardPassThrough:
+            return _ORIGINAL_SMTP(*args, **kwargs)
+        return super().__new__(cls)
 
     def __init__(self, host: str = "", port: int = 0, **kwargs: Any) -> None:  # noqa: ANN401
         plugin = _find_smtp_plugin()

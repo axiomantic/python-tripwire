@@ -61,9 +61,19 @@ def test_get_active_verifier_returns_set_value() -> None:
 
 
 def test_get_verifier_or_raise_raises_when_no_verifier() -> None:
-    with pytest.raises(SandboxNotActiveError) as exc_info:
-        _get_verifier_or_raise(source_id="test_source")
-    assert exc_info.value.source_id == "test_source"
+    """With guard mode active (default), raises GuardedCallError instead of
+    SandboxNotActiveError. Disable guard to test the original behavior."""
+    from bigfoot._context import _guard_active, _guard_patches_installed
+
+    guard_token = _guard_active.set(False)
+    patches_token = _guard_patches_installed.set(False)
+    try:
+        with pytest.raises(SandboxNotActiveError) as exc_info:
+            _get_verifier_or_raise(source_id="test_source")
+        assert exc_info.value.source_id == "test_source"
+    finally:
+        _guard_patches_installed.reset(patches_token)
+        _guard_active.reset(guard_token)
 
 
 def test_get_verifier_or_raise_returns_verifier_when_set() -> None:

@@ -200,6 +200,48 @@ class BigfootConfigError(BigfootError):
     """
 
 
+class GuardedCallError(BigfootError):
+    """Raised when an I/O call is intercepted during guard mode without
+    an active sandbox or allow() permission.
+
+    This error means your test (or code it calls) made a real external
+    call that bigfoot's guard mode blocked.
+    """
+
+    def __init__(self, source_id: str, plugin_name: str) -> None:
+        self.source_id = source_id
+        self.plugin_name = plugin_name
+        super().__init__(self._build_message())
+
+    def _build_message(self) -> str:
+        lines = [
+            f"GuardedCallError: {self.source_id!r} blocked by bigfoot guard mode.",
+            "",
+            "  FOR TEST AUTHORS:",
+            "    Option 1: Use a sandbox to mock this call:",
+            "      with bigfoot_verifier.sandbox():",
+            "          # ... your code ...",
+            "    Option 2: Explicitly allow this call (no assertion tracking):",
+            f'      with bigfoot.allow("{self.plugin_name}"):',
+            "          # ... your code ...",
+            "    Option 3: Allow via pytest mark (entire test):",
+            f'      @pytest.mark.allow("{self.plugin_name}")',
+            "      def test_something():",
+            "          ...",
+            "",
+            "  FOR PLUGIN AUTHORS:",
+            "    If this plugin does not perform real I/O, set:",
+            "      supports_guard: ClassVar[bool] = False",
+            "",
+            "  FOR CONTRIBUTORS:",
+            "    To add guard support to a new I/O plugin:",
+            "    1. Keep supports_guard = True (the default)",
+            "    2. Add try/except _GuardPassThrough to each interceptor",
+            "    3. On _GuardPassThrough, call the original function",
+        ]
+        return "\n".join(lines)
+
+
 class InvalidStateError(BigfootError):
     """Raised when a state-machine method is called from an invalid state.
 

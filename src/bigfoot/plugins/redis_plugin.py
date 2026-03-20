@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -59,15 +59,12 @@ class RedisMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_redis_plugin() -> RedisPlugin:
+def _get_redis_plugin() -> RedisPlugin | None:
     verifier = _get_verifier_or_raise("redis:execute_command")
     for plugin in verifier._plugins:
         if isinstance(plugin, RedisPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot RedisPlugin interceptor is active but no "
-        "RedisPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +85,15 @@ class _RedisSentinel:
 
 
 def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-    plugin = _get_redis_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "redis" in _guard_allowlist.get():
+        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
+    try:
+        plugin = _get_redis_plugin()
+    except _GuardPassThrough:
+        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
+    if plugin is None:
+        return RedisPlugin._original_execute_command(redis_self, command, *args, **kwargs)
     cmd_upper = command.upper()
     with plugin._registry_lock:
         queue = plugin._queues.get(cmd_upper)

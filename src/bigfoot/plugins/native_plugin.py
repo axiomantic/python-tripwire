@@ -255,6 +255,8 @@ class NativePlugin(BasePlugin):
     Each library:function pair has its own FIFO deque of NativeMockConfig objects.
     """
 
+    supports_guard: ClassVar[bool] = False
+
     # Class-level reference counting
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()

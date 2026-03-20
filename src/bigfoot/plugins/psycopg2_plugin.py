@@ -3,7 +3,7 @@
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -161,7 +161,13 @@ class _FakePsycopg2Connection:
 def _patched_psycopg2_connect(
     dsn: str = "", **kwargs: object
 ) -> _FakePsycopg2Connection:
-    plugin = _get_psycopg2_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "psycopg2" in _guard_allowlist.get():
+        return Psycopg2Plugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
+    try:
+        plugin = _get_psycopg2_plugin()
+    except _GuardPassThrough:
+        return Psycopg2Plugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
     fake_conn = _FakePsycopg2Connection(plugin)
     plugin._bind_connection(fake_conn)
     handle = plugin._lookup_session(fake_conn)

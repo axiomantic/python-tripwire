@@ -11,7 +11,7 @@ import asyncio.subprocess
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -181,7 +181,13 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                     *args: Any,  # noqa: ANN401
                     **kwargs: Any,  # noqa: ANN401
                 ) -> _AsyncFakeProcess:
-                    plugin = _find_async_subprocess_plugin()
+                    # Check allowlist FIRST - bypasses both guard and sandbox
+                    if "async_subprocess" in _guard_allowlist.get():
+                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
+                    try:
+                        plugin = _find_async_subprocess_plugin()
+                    except _GuardPassThrough:
+                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
                     proc = _AsyncFakeProcess()
                     proc._plugin = plugin
                     plugin._bind_connection(proc)
@@ -201,7 +207,13 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
                     cmd: str,
                     **kwargs: Any,  # noqa: ANN401
                 ) -> _AsyncFakeProcess:
-                    plugin = _find_async_subprocess_plugin()
+                    # Check allowlist FIRST - bypasses both guard and sandbox
+                    if "async_subprocess" in _guard_allowlist.get():
+                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
+                    try:
+                        plugin = _find_async_subprocess_plugin()
+                    except _GuardPassThrough:
+                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
                     proc = _AsyncFakeProcess()
                     proc._plugin = plugin
                     plugin._bind_connection(proc)

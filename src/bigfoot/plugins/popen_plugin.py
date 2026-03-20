@@ -13,7 +13,7 @@ import subprocess
 import threading
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -93,6 +93,21 @@ class _FakeStream:
 
 class _FakePopen:
     """Fake subprocess.Popen that routes all operations through PopenPlugin."""
+
+    def __new__(
+        cls,
+        args: Any,  # noqa: ANN401
+        *pos_args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Any:  # noqa: ANN401
+        # Check allowlist FIRST - bypasses both guard and sandbox
+        if "subprocess" in _guard_allowlist.get() or "popen" in _guard_allowlist.get():
+            return _ORIGINAL_POPEN(args, *pos_args, **kwargs)
+        try:
+            _find_popen_plugin()
+        except _GuardPassThrough:
+            return _ORIGINAL_POPEN(args, *pos_args, **kwargs)
+        return super().__new__(cls)
 
     def __init__(
         self,

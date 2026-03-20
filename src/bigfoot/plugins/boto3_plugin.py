@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -62,15 +62,12 @@ class Boto3MockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_boto3_plugin() -> Boto3Plugin:
+def _get_boto3_plugin() -> Boto3Plugin | None:
     verifier = _get_verifier_or_raise("boto3:_make_api_call")
     for plugin in verifier._plugins:
         if isinstance(plugin, Boto3Plugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot Boto3Plugin interceptor is active but no "
-        "Boto3Plugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +106,15 @@ class _ServiceProxy:
 def _patched_make_api_call(
     client_self: object, operation_name: str, api_params: dict[str, Any],
 ) -> Any:  # noqa: ANN401
-    plugin = _get_boto3_plugin()
+    # Check allowlist FIRST - bypasses both guard and sandbox
+    if "boto3" in _guard_allowlist.get():
+        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
+    try:
+        plugin = _get_boto3_plugin()
+    except _GuardPassThrough:
+        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
+    if plugin is None:
+        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
     service_name = client_self.meta.service_model.service_name  # type: ignore[attr-defined]
     queue_key = f"{service_name}:{operation_name}"
     source_id = f"boto3:{queue_key}"

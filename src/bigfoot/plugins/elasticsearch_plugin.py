@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -76,15 +76,12 @@ class ElasticsearchMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_elasticsearch_plugin() -> ElasticsearchPlugin:
+def _get_elasticsearch_plugin() -> ElasticsearchPlugin | None:
     verifier = _get_verifier_or_raise("elasticsearch:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, ElasticsearchPlugin):
             return plugin
-    raise RuntimeError(
-        "BUG: bigfoot ElasticsearchPlugin interceptor is active but no "
-        "ElasticsearchPlugin is registered on the current verifier."
-    )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +106,23 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
     detail_keys = _OPERATION_DETAILS.get(operation, ())
 
     def interceptor(es_self: object, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        plugin = _get_elasticsearch_plugin()
+        # Check allowlist FIRST - bypasses both guard and sandbox
+        if "elasticsearch" in _guard_allowlist.get():
+            original = ElasticsearchPlugin._originals.get(operation)
+            if original is not None:
+                return original(es_self, *args, **kwargs)
+        try:
+            plugin = _get_elasticsearch_plugin()
+        except _GuardPassThrough:
+            original = ElasticsearchPlugin._originals.get(operation)
+            if original is not None:
+                return original(es_self, *args, **kwargs)
+            raise
+        if plugin is None:
+            original = ElasticsearchPlugin._originals.get(operation)
+            if original is not None:
+                return original(es_self, *args, **kwargs)
+            return None
         source_id = f"elasticsearch:{operation}"
 
         with plugin._registry_lock:

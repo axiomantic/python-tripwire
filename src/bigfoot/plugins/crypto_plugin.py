@@ -202,6 +202,8 @@ class CryptoPlugin(BasePlugin):
     is recorded.
     """
 
+    supports_guard: ClassVar[bool] = False
+
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _original_encrypt: ClassVar[Any] = None

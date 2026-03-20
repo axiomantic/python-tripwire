@@ -28,19 +28,11 @@ from bigfoot.plugins.boto3_plugin import (
 def _make_verifier_with_plugin() -> tuple[StrictVerifier, Boto3Plugin]:
     """Return (verifier, plugin) with Boto3Plugin registered but NOT activated.
 
-    Removes DnsPlugin to prevent it from intercepting boto3's internal
-    DNS lookups (e.g. credential provider hitting 169.254.169.254).
+    DNS and Socket calls from boto3 internals (credential provider hitting
+    169.254.169.254) are handled by the @pytest.mark.allow("dns", "socket")
+    mark which bypasses both guard and sandbox modes.
     """
     v = StrictVerifier()
-    # Remove DNS and Socket plugins to avoid intercepting boto3 internals
-    # (credential provider hits 169.254.169.254, client creation opens sockets).
-    from bigfoot.plugins.dns_plugin import DnsPlugin
-    from bigfoot.plugins.socket_plugin import SocketPlugin
-
-    v._plugins = [
-        p for p in v._plugins
-        if not isinstance(p, (DnsPlugin, SocketPlugin))
-    ]
     for p in v._plugins:
         if isinstance(p, Boto3Plugin):
             return v, p
@@ -59,20 +51,7 @@ def _reset_plugin_count() -> None:
             Boto3Plugin._original_make_api_call = None
 
 
-@pytest.fixture(autouse=True)
-def _disable_network_plugins(bigfoot_verifier: StrictVerifier) -> None:
-    """Remove DNS and Socket plugins from the auto-verifier.
-
-    boto3 client creation triggers credential resolution (DNS to 169.254.169.254)
-    and socket connections that would be intercepted by these plugins.
-    """
-    from bigfoot.plugins.dns_plugin import DnsPlugin
-    from bigfoot.plugins.socket_plugin import SocketPlugin
-
-    bigfoot_verifier._plugins = [
-        p for p in bigfoot_verifier._plugins
-        if not isinstance(p, (DnsPlugin, SocketPlugin))
-    ]
+pytestmark = pytest.mark.allow("dns", "socket")
 
 
 @pytest.fixture(autouse=True)

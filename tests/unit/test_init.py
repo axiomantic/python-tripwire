@@ -39,6 +39,10 @@ def test_all_contains_expected_names() -> None:
         "ElasticsearchPlugin",
         "JwtPlugin",
         "CryptoPlugin",
+        # Guard mode
+        "allow",
+        "deny",
+        "GuardedCallError",
         # Errors
         "BigfootConfigError",
         "BigfootError",

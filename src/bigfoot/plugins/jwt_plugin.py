@@ -167,6 +167,8 @@ class JwtPlugin(BasePlugin):
     assertion output.
     """
 
+    supports_guard: ClassVar[bool] = False
+
     _install_count: ClassVar[int] = 0
     _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _original_encode: ClassVar[Any] = None

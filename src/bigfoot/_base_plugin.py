@@ -1,7 +1,7 @@
 """BasePlugin abstract base class for all bigfoot plugins."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._recording import _recording_in_progress
 
@@ -16,6 +16,8 @@ class BasePlugin(ABC):
     Subclasses must implement all abstract methods and maintain class-level
     _install_count and _install_lock for reference-counted activation.
     """
+
+    supports_guard: ClassVar[bool] = True
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         self.verifier = verifier

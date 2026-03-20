@@ -326,15 +326,22 @@ def test_check_conflicts_does_not_raise_when_no_foreign_patch() -> None:
 #   MUTATION: Calling real network instead of raising lets calls through silently.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
+    from bigfoot._context import _guard_active, _guard_patches_installed
+
     v, p = _make_verifier_with_plugin()
     p.activate()
     # No sandbox active -- _active_verifier ContextVar is None
-    token = _active_verifier.set(None)
+    # Disable guard mode to test the original SandboxNotActiveError behavior
+    av_token = _active_verifier.set(None)
+    guard_token = _guard_active.set(False)
+    patches_token = _guard_patches_installed.set(False)
     try:
         with pytest.raises(SandboxNotActiveError):
             httpx.get("https://api.example.com/no-sandbox")
     finally:
-        _active_verifier.reset(token)
+        _guard_patches_installed.reset(patches_token)
+        _guard_active.reset(guard_token)
+        _active_verifier.reset(av_token)
 
 
 # ESCAPE: test_requests_interceptor_raises_sandbox_not_active_when_no_sandbox
@@ -344,14 +351,20 @@ def test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
 #   MUTATION: Letting request proceed to real network skips the error entirely.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_requests_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
+    from bigfoot._context import _guard_active, _guard_patches_installed
+
     v, p = _make_verifier_with_plugin()
     p.activate()
-    token = _active_verifier.set(None)
+    av_token = _active_verifier.set(None)
+    guard_token = _guard_active.set(False)
+    patches_token = _guard_patches_installed.set(False)
     try:
         with pytest.raises(SandboxNotActiveError):
             requests.get("https://api.example.com/no-sandbox")
     finally:
-        _active_verifier.reset(token)
+        _guard_patches_installed.reset(patches_token)
+        _guard_active.reset(guard_token)
+        _active_verifier.reset(av_token)
 
 
 # ---------------------------------------------------------------------------
