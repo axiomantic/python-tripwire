@@ -12,35 +12,54 @@ bigfoot registers an autouse pytest fixture behind the scenes. Every test automa
 
 ## Step 2: Create a mock
 
+bigfoot offers two ways to create mocks:
+
+**Import-site mock** patches a module attribute at its import location. Use `"module.path:attribute"` colon-separated syntax:
+
 ```python
-email = bigfoot.mock("EmailService")
+cache = bigfoot.mock("myapp.services:cache")
 ```
 
-`bigfoot.mock("EmailService")` returns a `MockProxy` named `"EmailService"`. The name is used in error messages and `assert_interaction()` calls. Calling `bigfoot.mock()` with the same name twice within a test returns the same proxy.
+**Object mock** patches an attribute on a specific object instance:
+
+```python
+email_service = EmailService()
+email = bigfoot.mock.object(email_service, "send")
+```
+
+Both return a mock object. Calling `bigfoot.mock()` or `bigfoot.mock.object()` registers the mock with the current test's verifier automatically.
 
 ## Step 3: Configure return values
 
 ```python
-email.send.returns(True)
+email.returns(True)
 ```
 
-Attribute access on a `MockProxy` returns a `MethodProxy`. `.returns(True)` appends a return-value entry to the method's FIFO queue. The first call to `email.send(...)` will return `True`, the second will use the next entry in the queue (or raise `UnmockedInteractionError` if the queue is empty).
+`.returns(True)` appends a return-value entry to the method's FIFO queue. The first call to `email(...)` will return `True`, the second will use the next entry in the queue (or raise `UnmockedInteractionError` if the queue is empty).
+
+For mocks with multiple methods, access methods by attribute:
+
+```python
+cache = bigfoot.mock("myapp.services:cache")
+cache.get.returns("cached_value")
+cache.set.returns(None)
+```
 
 ## Step 4: Enter the sandbox
 
 ```python
 with bigfoot:
-    result = email.send(to="user@example.com", subject="Welcome")
+    result = email_service.send(to="user@example.com", subject="Welcome")
     assert result is True
 ```
 
-`with bigfoot:` is the preferred sandbox syntax. It is shorthand for `with bigfoot.sandbox():`. Both forms activate all plugins for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling the mock raises `SandboxNotActiveError`.
+`with bigfoot:` is the preferred sandbox syntax. It is shorthand for `with bigfoot.sandbox():`. Both forms activate all plugins and all registered mocks for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling a mocked target raises `SandboxNotActiveError`.
 
 `with bigfoot:` returns the active `StrictVerifier` from `__enter__`, so you can capture it if needed:
 
 ```python
 with bigfoot as v:
-    result = email.send(to="user@example.com", subject="Welcome")
+    result = email_service.send(to="user@example.com", subject="Welcome")
     # v is the StrictVerifier for this test
 ```
 
@@ -60,10 +79,16 @@ def test_with_custom_plugin():
 ## Step 5: Assert interactions
 
 ```python
-bigfoot.assert_interaction(email.send, kwargs="{'to': 'user@example.com', 'subject': 'Welcome'}")
+email.assert_call(args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
 ```
 
-Assertions must happen **after** the sandbox exits. `assert_interaction()` takes a source object (a `MethodProxy` or `bigfoot.http.request`) and keyword arguments that must match the recorded interaction's `details` dict. By default it checks the next unasserted interaction in sequence order. Use `bigfoot.in_any_order()` to relax ordering.
+Assertions must happen **after** the sandbox exits. `assert_call()` takes `args` (positional arguments tuple) and `kwargs` (keyword arguments dict) that must match the recorded interaction's details. Both `args` and `kwargs` are required. By default it checks the next unasserted interaction in sequence order. Use `bigfoot.in_any_order()` to relax ordering.
+
+For import-site mocks with methods, assert on the method proxy:
+
+```python
+cache.get.assert_call(args=("my_key",), kwargs={})
+```
 
 ## Step 6: Verify all (automatic in pytest)
 
@@ -83,28 +108,31 @@ When constructing `StrictVerifier` manually (outside pytest), call `verify_all()
 Raised immediately when a mock method is called with an empty queue.
 
 ```
-UnmockedInteractionError: source_id='mock:EmailService.send', args=(), kwargs={'to': 'user@example.com'},
-hint='Unexpected call to EmailService.send
+UnmockedInteractionError: source_id='mock:myapp.services:cache.get', args=('missing_key',), kwargs={},
+hint='Unexpected call to myapp.services:cache.get
 
-  Called with: args=(), kwargs={'to': 'user@example.com'}
+  Called with: args=('missing_key',), kwargs={}
 
   To mock this interaction, add before your sandbox:
-    bigfoot.mock("EmailService").send.returns(<value>)
+    verifier.mock("myapp.services:cache").get.returns(<value>)
 
   Or to mark it optional:
-    bigfoot.mock("EmailService").send.required(False).returns(<value>)'
+    verifier.mock("myapp.services:cache").get.required(False).returns(<value>)'
 ```
 
 ### UnassertedInteractionsError
 
-Raised at teardown when at least one recorded interaction was never matched by `assert_interaction()`.
+Raised at teardown when at least one recorded interaction was never matched by `assert_call()` or `assert_interaction()`.
 
 ```
 UnassertedInteractionsError: 1 unasserted interaction(s), hint='1 interaction(s) were not asserted
 
-  [sequence=0] [MockPlugin] EmailService.send
+  [sequence=0] [MockPlugin] myapp.services:cache.get
     To assert this interaction:
-      bigfoot.assert_interaction(bigfoot.mock("EmailService").send)
+      verifier.mock("myapp.services:cache").get.assert_call(
+          args=("my_key",),
+          kwargs={},
+      )
 '
 ```
 
@@ -115,13 +143,13 @@ Raised at teardown when a `required=True` mock was registered but never called.
 ```
 UnusedMocksError: 1 unused mock(s), hint='1 mock(s) were registered but never triggered
 
-  mock:EmailService.send
+  mock:myapp.services:cache.get
     Mock registered at:
-      File "test_email.py", line 5, in test_welcome_email
-        email.send.returns(True)
+      File "test_cache.py", line 5, in test_lookup
+        cache.get.returns("value")
     Options:
       - Remove this mock if it's not needed
-      - Mark it optional: bigfoot.mock("EmailService").send.required(False).returns(...)
+      - Mark it optional: verifier.mock("myapp.services:cache").get.required(False).returns(...)
 '
 ```
 
@@ -141,13 +169,45 @@ Raised when `assert_interaction()`, `in_any_order()`, or `verify_all()` is calle
 import bigfoot
 
 def test_welcome_email():
-    email = bigfoot.mock("EmailService")
+    # Create a mock that patches myapp.email:service at the import site
+    email = bigfoot.mock("myapp.email:service")
     email.send.returns(True)
 
     with bigfoot:
-        result = email.send(to="user@example.com", subject="Welcome")
+        # Code under test calls myapp.email.service.send(...)
+        from myapp.email import service
+        result = service.send(to="user@example.com", subject="Welcome")
         assert result is True
 
-    bigfoot.assert_interaction(email.send)
+    email.send.assert_call(
+        args=(),
+        kwargs={"to": "user@example.com", "subject": "Welcome"},
+    )
     # verify_all() called automatically at teardown
+```
+
+### Object mock example
+
+For simpler cases where you have direct access to the object being tested:
+
+```python
+import bigfoot
+
+class EmailService:
+    def send(self, to: str, subject: str) -> bool:
+        raise NotImplementedError("real implementation")
+
+def test_welcome_email_object_mock():
+    service = EmailService()
+    mock = bigfoot.mock.object(service, "send")
+    mock.returns(True)
+
+    with bigfoot:
+        result = service.send(to="user@example.com", subject="Welcome")
+        assert result is True
+
+    mock.assert_call(
+        args=(),
+        kwargs={"to": "user@example.com", "subject": "Welcome"},
+    )
 ```

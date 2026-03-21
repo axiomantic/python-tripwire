@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-03-20
+
+### Added
+
+- **Import-site mocking:** `bigfoot.mock("mod:attr")` patches module-level attributes using colon-separated `"module.path:attribute"` syntax. Replaces the old `bigfoot.mock("Name")` string-name API.
+- **Object mocking:** `bigfoot.mock.object(target, "attr")` patches an attribute on a specific object instance.
+- **Spy factories:** `bigfoot.spy("mod:attr")` and `bigfoot.spy.object(target, "attr")` create spies that delegate to the real implementation when the queue is empty, recording `returned` or `raised` in interaction details.
+- **Error mocking for HTTP:** `bigfoot.http.mock_error(method, url, raises=...)` registers a mock that raises an exception instead of returning a response. Error mocks participate in the same FIFO queue as `mock_response()`.
+- **Error assertion for HTTP:** `bigfoot.http.assert_request(..., raised=...)` asserts error interactions with request fields plus the raised exception.
+- **`raised` field in interaction details** across all plugins. When a mock raises an exception (via `.raises()` or spy delegation), the exception is captured in `interaction.details["raised"]` and must be asserted.
+- **`returned` field for spy interactions.** When a spy delegates to the real implementation and the method returns successfully, the return value is captured in `interaction.details["returned"]` and must be asserted.
+- **`enforce` flag on `Interaction`:** controls whether `verify_all()` checks the interaction. Mocks activated via individual context managers (`with mock:`) set `enforce=False`; sandbox activation sets `enforce=True`.
+- **`PatchSet` and `PatchTarget` shared patching primitives:** ref-counted patching infrastructure used by `BasePlugin.activate()`/`deactivate()` and the new mock system.
+- **`resolve_target()`** for colon-separated import-site path resolution.
+
+### Changed
+
+- **Breaking:** `bigfoot.mock("Name")` string-name API replaced by `bigfoot.mock("mod:attr")` colon-separated import-site format. The old `MockProxy`-based API is retained internally for backward compatibility but is no longer the public API.
+- **Breaking:** `MockPlugin.assertable_fields()` now adapts based on interaction content: returns `{args, kwargs}` for standard calls, adds `raised` when present, adds `returned` when present.
+- `_MockFactory` and `_SpyFactory` replace the prior `mock()` and `spy()` functions, providing `.object()` methods.
+- `SandboxContext` now activates/deactivates all registered `_BaseMock` instances alongside plugin lifecycle.
+- All `BasePlugin` subclasses and `StateMachinePlugin` subclasses migrated to shared patching hooks (`PatchSet`-based `activate()`/`deactivate()`).
+
+### Improved
+
+- README updated with new mock/spy API examples, error mocking, and spy observability sections.
+- All ruff lint errors resolved.
+- All mypy errors in `_BaseMock` context manager token cleanup resolved.
+
+## [0.13.2] - 2026-03-17
+
+### Changed
+
+- Updated tagline to "Full-certainty test mocking for Python".
+
+## [0.13.1] - 2026-03-17
+
+### Changed
+
+- Updated PyPI long description for better discoverability.
+
+## [0.13.0] - 2026-03-16
+
+### Added
+
+- **Guard mode:** bigfoot installs interceptors at test session startup, blocking real I/O calls that happen outside a sandbox. Accidental network calls, database connections, and subprocess invocations raise `GuardedCallError` immediately. Use `bigfoot.allow("dns", "socket")` or `@pytest.mark.allow(...)` to selectively permit real calls. Use `bigfoot.deny(...)` or `@pytest.mark.deny(...)` to narrow the allowlist. Enabled by default; opt out via `[tool.bigfoot] guard = false` in `pyproject.toml`.
+- **13 new plugins** across 11 categories: MongoPlugin, ElasticsearchPlugin, MemcachePlugin, DnsPlugin, SshPlugin, GrpcPlugin, Boto3Plugin, CeleryPlugin, PikaPlugin, JwtPlugin, CryptoPlugin, FileIoPlugin, NativePlugin.
+
 ## [0.12.2] - 2026-03-15
 
 ### Improved
@@ -218,6 +266,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.14.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.14.0
+[0.13.2]: https://github.com/axiomantic/bigfoot/releases/tag/v0.13.2
+[0.13.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.13.1
+[0.13.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.13.0
+[0.12.2]: https://github.com/axiomantic/bigfoot/releases/tag/v0.12.2
+[0.12.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.12.1
+[0.12.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.12.0
+[0.11.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.11.1
+[0.11.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.11.0
 [0.10.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.10.1
 [0.10.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.10.0
 [0.9.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.9.0

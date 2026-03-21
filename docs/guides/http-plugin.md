@@ -183,6 +183,61 @@ def test_requests():
                                 headers=IsMapping(), body="")
 ```
 
+## Mocking errors
+
+Use `bigfoot.http.mock_error(method, url, raises=...)` to register a mock that raises an exception instead of returning a response. This simulates connection failures, timeouts, and other transport-level errors:
+
+```python
+import bigfoot, httpx
+
+def test_connection_failure():
+    bigfoot.http.mock_error("GET", "https://api.example.com/data",
+                            raises=httpx.ConnectError("Connection refused"))
+
+    with bigfoot:
+        try:
+            httpx.get("https://api.example.com/data")
+        except httpx.ConnectError:
+            pass  # expected
+
+    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+                                headers={}, body="",
+                                raised=IsInstance(httpx.ConnectError))
+```
+
+Parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `method` | `str` | required | HTTP method, case-insensitive |
+| `url` | `str` | required | Full URL to match |
+| `raises` | `BaseException` | required | The exception instance to raise |
+| `params` | `dict[str, str] \| None` | `None` | Query parameters that must be present |
+| `required` | `bool` | `True` | Whether an unused mock causes `UnusedMocksError` |
+
+Error mocks participate in the same FIFO queue as `mock_response()` calls. They are consumed in registration order alongside normal response mocks:
+
+```python
+# First call succeeds, second fails
+bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"ok": True})
+bigfoot.http.mock_error("GET", "https://api.example.com/data",
+                        raises=httpx.ReadTimeout("timeout"))
+```
+
+## Asserting error interactions
+
+When an error mock fires, the interaction is recorded with request fields plus a `raised` field instead of response fields. Use the `raised` parameter on `assert_request()` to assert these interactions:
+
+```python
+bigfoot.http.assert_request("GET", "https://api.example.com/data",
+                            headers={}, body="",
+                            raised=IsInstance(httpx.ConnectError))
+```
+
+When `raised` is provided, `assert_request()` is always terminal (error interactions have no response to chain). It returns `None` regardless of the `require_response` setting.
+
+The assertable fields for error interactions are: `method`, `url`, `request_headers`, `request_body`, and `raised`. Response fields (`response_status`, `response_headers`, `response_body`) are not present and must not be asserted.
+
 ## UnmockedInteractionError for HTTP
 
 When HTTP code fires a request with no matching mock, bigfoot raises `UnmockedInteractionError` with a hint:
