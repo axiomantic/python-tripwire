@@ -267,10 +267,6 @@ class SshPlugin(StateMachinePlugin):
     exec_command, open_sftp, and sftp_* are self-transitions on connected.
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_ssh_client: ClassVar[Any] = None
 
@@ -355,25 +351,20 @@ class SshPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install paramiko.SSHClient patch."""
         if not _PARAMIKO_AVAILABLE:  # pragma: no cover
             return
-        with SshPlugin._install_lock:
-            if SshPlugin._install_count == 0:
-                SshPlugin._original_ssh_client = paramiko_lib.SSHClient
-                paramiko_lib.SSHClient = _FakeSSHClient
-            SshPlugin._install_count += 1
+        SshPlugin._original_ssh_client = paramiko_lib.SSHClient
+        paramiko_lib.SSHClient = _FakeSSHClient
 
-    def deactivate(self) -> None:
+    def _restore_patches(self) -> None:
+        """Restore original paramiko.SSHClient."""
         if not _PARAMIKO_AVAILABLE:  # pragma: no cover
             return
-        with SshPlugin._install_lock:
-            SshPlugin._install_count = max(0, SshPlugin._install_count - 1)
-            if SshPlugin._install_count == 0:
-                if SshPlugin._original_ssh_client is not None:
-                    paramiko_lib.SSHClient = SshPlugin._original_ssh_client
-                    SshPlugin._original_ssh_client = None
+        if SshPlugin._original_ssh_client is not None:
+            paramiko_lib.SSHClient = SshPlugin._original_ssh_client
+            SshPlugin._original_ssh_client = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

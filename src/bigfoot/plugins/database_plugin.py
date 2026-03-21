@@ -176,10 +176,6 @@ class DatabasePlugin(StateMachinePlugin):
     States: connected -> in_transaction -> connected/closed
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None  # noqa: ANN401
 
@@ -233,19 +229,6 @@ class DatabasePlugin(StateMachinePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted module-level patch installation."""
-        with DatabasePlugin._install_lock:
-            if DatabasePlugin._install_count == 0:
-                self._install_patches()
-            DatabasePlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with DatabasePlugin._install_lock:
-            DatabasePlugin._install_count = max(0, DatabasePlugin._install_count - 1)
-            if DatabasePlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Patch installation / restoration

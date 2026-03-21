@@ -186,10 +186,6 @@ class PopenPlugin(StateMachinePlugin):
     independent names in the subprocess module and restore correctly.
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_popen: ClassVar[Any] = None
 
@@ -232,28 +228,22 @@ class PopenPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install subprocess.Popen patch."""
         global _bigfoot_popen_class
 
-        with PopenPlugin._install_lock:
-            if PopenPlugin._install_count == 0:
-                self._check_conflicts()
-                PopenPlugin._original_popen = subprocess.Popen
-                _bigfoot_popen_class = _FakePopen
-                subprocess.Popen = _FakePopen  # type: ignore[assignment, misc]
-            PopenPlugin._install_count += 1
+        PopenPlugin._original_popen = subprocess.Popen
+        _bigfoot_popen_class = _FakePopen
+        subprocess.Popen = _FakePopen  # type: ignore[assignment, misc]
 
-    def deactivate(self) -> None:
+    def _restore_patches(self) -> None:
+        """Restore original subprocess.Popen."""
         global _bigfoot_popen_class
 
-        with PopenPlugin._install_lock:
-            PopenPlugin._install_count = max(0, PopenPlugin._install_count - 1)
-            if PopenPlugin._install_count == 0:
-                if PopenPlugin._original_popen is not None:
-                    subprocess.Popen = PopenPlugin._original_popen  # type: ignore[misc]
-                    PopenPlugin._original_popen = None
-                _bigfoot_popen_class = None
+        if PopenPlugin._original_popen is not None:
+            subprocess.Popen = PopenPlugin._original_popen  # type: ignore[misc]
+            PopenPlugin._original_popen = None
+        _bigfoot_popen_class = None
 
     # ------------------------------------------------------------------
     # Conflict detection

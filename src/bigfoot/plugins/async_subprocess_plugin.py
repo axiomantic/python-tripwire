@@ -119,10 +119,6 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
     States: created -> running -> terminated
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved originals, restored when count reaches 0.
     _original_exec: ClassVar[Any] = None
     _original_shell: ClassVar[Any] = None
@@ -166,90 +162,83 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install asyncio.create_subprocess_exec/shell patches."""
         global _bigfoot_create_subprocess_exec, _bigfoot_create_subprocess_shell
 
-        with AsyncSubprocessPlugin._install_lock:
-            if AsyncSubprocessPlugin._install_count == 0:
-                self._check_conflicts()
-                AsyncSubprocessPlugin._original_exec = asyncio.create_subprocess_exec
-                AsyncSubprocessPlugin._original_shell = asyncio.create_subprocess_shell
+        AsyncSubprocessPlugin._original_exec = asyncio.create_subprocess_exec
+        AsyncSubprocessPlugin._original_shell = asyncio.create_subprocess_shell
 
-                async def _fake_create_subprocess_exec(
-                    program: str,
-                    *args: Any,  # noqa: ANN401
-                    **kwargs: Any,  # noqa: ANN401
-                ) -> _AsyncFakeProcess:
-                    # Check allowlist FIRST - bypasses both guard and sandbox
-                    if "async_subprocess" in _guard_allowlist.get():
-                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
-                    try:
-                        plugin = _find_async_subprocess_plugin()
-                    except _GuardPassThrough:
-                        return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
-                    proc = _AsyncFakeProcess()
-                    proc._plugin = plugin
-                    plugin._bind_connection(proc)
-                    command = [program, *[str(a) for a in args]]
-                    stdin = kwargs.get("stdin")
-                    plugin._execute_step(
-                        plugin._lookup_session(proc), "spawn", (program, *args), kwargs,
-                        _SOURCE_SPAWN,
-                        details={
-                            "command": command,
-                            "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None,
-                        },
-                    )
-                    return proc
+        async def _fake_create_subprocess_exec(
+            program: str,
+            *args: Any,  # noqa: ANN401
+            **kwargs: Any,  # noqa: ANN401
+        ) -> _AsyncFakeProcess:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "async_subprocess" in _guard_allowlist.get():
+                return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
+            try:
+                plugin = _find_async_subprocess_plugin()
+            except _GuardPassThrough:
+                return await _ORIGINAL_CREATE_SUBPROCESS_EXEC(program, *args, **kwargs)  # type: ignore[no-any-return]
+            proc = _AsyncFakeProcess()
+            proc._plugin = plugin
+            plugin._bind_connection(proc)
+            command = [program, *[str(a) for a in args]]
+            stdin = kwargs.get("stdin")
+            plugin._execute_step(
+                plugin._lookup_session(proc), "spawn", (program, *args), kwargs,
+                _SOURCE_SPAWN,
+                details={
+                    "command": command,
+                    "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None,
+                },
+            )
+            return proc
 
-                async def _fake_create_subprocess_shell(
-                    cmd: str,
-                    **kwargs: Any,  # noqa: ANN401
-                ) -> _AsyncFakeProcess:
-                    # Check allowlist FIRST - bypasses both guard and sandbox
-                    if "async_subprocess" in _guard_allowlist.get():
-                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
-                    try:
-                        plugin = _find_async_subprocess_plugin()
-                    except _GuardPassThrough:
-                        return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
-                    proc = _AsyncFakeProcess()
-                    proc._plugin = plugin
-                    plugin._bind_connection(proc)
-                    stdin = kwargs.get("stdin")
-                    plugin._execute_step(
-                        plugin._lookup_session(proc), "spawn", (cmd,), kwargs,
-                        _SOURCE_SPAWN,
-                        details={
-                            "command": cmd,
-                            "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None,
-                        },
-                    )
-                    return proc
+        async def _fake_create_subprocess_shell(
+            cmd: str,
+            **kwargs: Any,  # noqa: ANN401
+        ) -> _AsyncFakeProcess:
+            # Check allowlist FIRST - bypasses both guard and sandbox
+            if "async_subprocess" in _guard_allowlist.get():
+                return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
+            try:
+                plugin = _find_async_subprocess_plugin()
+            except _GuardPassThrough:
+                return await _ORIGINAL_CREATE_SUBPROCESS_SHELL(cmd, **kwargs)  # type: ignore[no-any-return]
+            proc = _AsyncFakeProcess()
+            proc._plugin = plugin
+            plugin._bind_connection(proc)
+            stdin = kwargs.get("stdin")
+            plugin._execute_step(
+                plugin._lookup_session(proc), "spawn", (cmd,), kwargs,
+                _SOURCE_SPAWN,
+                details={
+                    "command": cmd,
+                    "stdin": stdin if isinstance(stdin, (bytes, type(None))) else None,
+                },
+            )
+            return proc
 
-                _bigfoot_create_subprocess_exec = _fake_create_subprocess_exec
-                _bigfoot_create_subprocess_shell = _fake_create_subprocess_shell
+        _bigfoot_create_subprocess_exec = _fake_create_subprocess_exec
+        _bigfoot_create_subprocess_shell = _fake_create_subprocess_shell
 
-                asyncio.create_subprocess_exec = _fake_create_subprocess_exec  # type: ignore[assignment]
-                asyncio.create_subprocess_shell = _fake_create_subprocess_shell  # type: ignore[assignment]
+        asyncio.create_subprocess_exec = _fake_create_subprocess_exec  # type: ignore[assignment]
+        asyncio.create_subprocess_shell = _fake_create_subprocess_shell  # type: ignore[assignment]
 
-            AsyncSubprocessPlugin._install_count += 1
-
-    def deactivate(self) -> None:
+    def _restore_patches(self) -> None:
+        """Restore original asyncio.create_subprocess_exec/shell."""
         global _bigfoot_create_subprocess_exec, _bigfoot_create_subprocess_shell
 
-        with AsyncSubprocessPlugin._install_lock:
-            AsyncSubprocessPlugin._install_count = max(0, AsyncSubprocessPlugin._install_count - 1)
-            if AsyncSubprocessPlugin._install_count == 0:
-                if AsyncSubprocessPlugin._original_exec is not None:
-                    asyncio.create_subprocess_exec = AsyncSubprocessPlugin._original_exec
-                    AsyncSubprocessPlugin._original_exec = None
-                if AsyncSubprocessPlugin._original_shell is not None:
-                    asyncio.create_subprocess_shell = AsyncSubprocessPlugin._original_shell
-                    AsyncSubprocessPlugin._original_shell = None
-                _bigfoot_create_subprocess_exec = None
-                _bigfoot_create_subprocess_shell = None
+        if AsyncSubprocessPlugin._original_exec is not None:
+            asyncio.create_subprocess_exec = AsyncSubprocessPlugin._original_exec
+            AsyncSubprocessPlugin._original_exec = None
+        if AsyncSubprocessPlugin._original_shell is not None:
+            asyncio.create_subprocess_shell = AsyncSubprocessPlugin._original_shell
+            AsyncSubprocessPlugin._original_shell = None
+        _bigfoot_create_subprocess_exec = None
+        _bigfoot_create_subprocess_shell = None
 
     # ------------------------------------------------------------------
     # Conflict detection

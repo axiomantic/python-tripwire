@@ -197,10 +197,6 @@ class PikaPlugin(StateMachinePlugin):
     close is also valid from connected (skipping channel_open).
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_blocking_connection: ClassVar[Any] = None
 
@@ -270,25 +266,20 @@ class PikaPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install pika.BlockingConnection patch."""
         if not _PIKA_AVAILABLE:  # pragma: no cover
             return
-        with PikaPlugin._install_lock:
-            if PikaPlugin._install_count == 0:
-                PikaPlugin._original_blocking_connection = pika_lib.BlockingConnection
-                pika_lib.BlockingConnection = _FakeBlockingConnection
-            PikaPlugin._install_count += 1
+        PikaPlugin._original_blocking_connection = pika_lib.BlockingConnection
+        pika_lib.BlockingConnection = _FakeBlockingConnection
 
-    def deactivate(self) -> None:
+    def _restore_patches(self) -> None:
+        """Restore original pika.BlockingConnection."""
         if not _PIKA_AVAILABLE:  # pragma: no cover
             return
-        with PikaPlugin._install_lock:
-            PikaPlugin._install_count = max(0, PikaPlugin._install_count - 1)
-            if PikaPlugin._install_count == 0:
-                if PikaPlugin._original_blocking_connection is not None:
-                    pika_lib.BlockingConnection = PikaPlugin._original_blocking_connection
-                    PikaPlugin._original_blocking_connection = None
+        if PikaPlugin._original_blocking_connection is not None:
+            pika_lib.BlockingConnection = PikaPlugin._original_blocking_connection
+            PikaPlugin._original_blocking_connection = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

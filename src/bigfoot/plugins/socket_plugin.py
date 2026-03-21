@@ -59,10 +59,6 @@ class SocketPlugin(StateMachinePlugin):
     States: disconnected -> connected -> closed
     """
 
-    # Class-level reference counting — shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved originals, restored when count reaches 0.
     _original_connect: ClassVar[Any] = None
     _original_send: ClassVar[Any] = None
@@ -120,19 +116,6 @@ class SocketPlugin(StateMachinePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with SocketPlugin._install_lock:
-            if SocketPlugin._install_count == 0:
-                self._install_patches()
-            SocketPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with SocketPlugin._install_lock:
-            SocketPlugin._install_count = max(0, SocketPlugin._install_count - 1)
-            if SocketPlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Patch installation / restoration
