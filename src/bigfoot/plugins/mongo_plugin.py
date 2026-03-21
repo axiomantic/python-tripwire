@@ -191,6 +191,8 @@ def _make_patched_method(operation: str) -> Any:  # noqa: ANN401
             config = queue.popleft()
 
         details = _extract_details(operation, collection_self, args, kwargs)
+        if config.raises is not None:
+            details["raised"] = config.raises
 
         interaction = Interaction(
             source_id=source_id,
@@ -221,10 +223,6 @@ class MongoPlugin(BasePlugin):
 
     Each operation name has its own FIFO deque of MongoMockConfig objects.
     """
-
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
 
     # Saved originals, restored when count reaches 0.
     _original_methods: ClassVar[dict[str, Any] | None] = None
@@ -284,34 +282,29 @@ class MongoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install pymongo Collection method patches."""
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[mongo] to use MongoPlugin: pip install bigfoot[mongo]"
             )
-        with MongoPlugin._install_lock:
-            if MongoPlugin._install_count == 0:
-                MongoPlugin._original_methods = {}
-                for op in MongoPlugin._INTERCEPTED_OPERATIONS:
-                    MongoPlugin._original_methods[op] = getattr(
-                        pymongo.collection.Collection, op
-                    )
-                    setattr(
-                        pymongo.collection.Collection,
-                        op,
-                        _make_patched_method(op),
-                    )
-            MongoPlugin._install_count += 1
+        MongoPlugin._original_methods = {}
+        for op in MongoPlugin._INTERCEPTED_OPERATIONS:
+            MongoPlugin._original_methods[op] = getattr(
+                pymongo.collection.Collection, op
+            )
+            setattr(
+                pymongo.collection.Collection,
+                op,
+                _make_patched_method(op),
+            )
 
-    def deactivate(self) -> None:
-        with MongoPlugin._install_lock:
-            MongoPlugin._install_count = max(0, MongoPlugin._install_count - 1)
-            if MongoPlugin._install_count == 0:
-                if MongoPlugin._original_methods is not None:
-                    for method_name, original in MongoPlugin._original_methods.items():
-                        setattr(pymongo.collection.Collection, method_name, original)
-                    MongoPlugin._original_methods = None
+    def _restore_patches(self) -> None:
+        """Restore original pymongo Collection methods."""
+        if MongoPlugin._original_methods is not None:
+            for method_name, original in MongoPlugin._original_methods.items():
+                setattr(pymongo.collection.Collection, method_name, original)
+            MongoPlugin._original_methods = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

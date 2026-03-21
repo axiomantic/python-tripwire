@@ -3,7 +3,6 @@
 import functools
 import io
 import json as json_module
-import threading
 import traceback
 import urllib.request
 import urllib.response
@@ -290,10 +289,6 @@ class HttpPlugin(BasePlugin):
     at the class level. Uses reference counting so nested sandboxes work correctly.
     """
 
-    # Class-level reference counting — shared across all instances/verifiers.
-    _install_count: int = 0
-    _install_lock: threading.Lock = threading.Lock()
-
     # Saved originals, restored when count reaches 0.
     _original_httpx_transport_handle: Any = None
     _original_httpx_async_transport_handle: Any = None
@@ -499,20 +494,6 @@ class HttpPlugin(BasePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with HttpPlugin._install_lock:
-            if HttpPlugin._install_count == 0:
-                self._check_conflicts()
-                self._install_patches()
-            HttpPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with HttpPlugin._install_lock:
-            HttpPlugin._install_count = max(0, HttpPlugin._install_count - 1)
-            if HttpPlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Conflict detection
@@ -828,7 +809,7 @@ class HttpPlugin(BasePlugin):
             },
             plugin=self,
         )
-        self.verifier._timeline.append(interaction)
+        self.record(interaction)
 
     def _record_http_error_interaction(
         self,

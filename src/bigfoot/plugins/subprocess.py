@@ -2,7 +2,6 @@
 
 import shutil
 import subprocess
-import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
@@ -133,10 +132,6 @@ class SubprocessPlugin(BasePlugin):
     so nested sandboxes work correctly, following the HttpPlugin pattern exactly.
     """
 
-    # Class-level reference counting — shared across all instances/verifiers.
-    _install_count: int = 0
-    _install_lock: threading.Lock = threading.Lock()
-
     # Saved originals, restored when count reaches 0.
     _original_subprocess_run: Any = None
     _original_shutil_which: Any = None
@@ -256,20 +251,6 @@ class SubprocessPlugin(BasePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with SubprocessPlugin._install_lock:
-            if SubprocessPlugin._install_count == 0:
-                self._check_conflicts()
-                self._install_patches()
-            SubprocessPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with SubprocessPlugin._install_lock:
-            SubprocessPlugin._install_count = max(0, SubprocessPlugin._install_count - 1)
-            if SubprocessPlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Conflict detection
@@ -393,15 +374,18 @@ class SubprocessPlugin(BasePlugin):
         self._run_queue.popleft()
 
         # Record on timeline BEFORE potentially raising (call still happened)
+        details_run: dict[str, Any] = {
+            "command": config.command,
+            "returncode": config.returncode,
+            "stdout": config.stdout,
+            "stderr": config.stderr,
+        }
+        if config.raises is not None:
+            details_run["raised"] = config.raises
         interaction = Interaction(
             source_id=_SOURCE_RUN,
             sequence=0,
-            details={
-                "command": config.command,
-                "returncode": config.returncode,
-                "stdout": config.stdout,
-                "stderr": config.stderr,
-            },
+            details=details_run,
             plugin=self,
         )
         self.record(interaction)

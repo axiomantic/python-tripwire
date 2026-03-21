@@ -130,6 +130,8 @@ def _consume_mock(
             )
         config = queue.popleft()
 
+    if config.raises is not None:
+        details["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
@@ -238,9 +240,6 @@ class DnsPlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     _original_getaddrinfo: ClassVar[Any] = None
     _original_gethostbyname: ClassVar[Any] = None
     _original_resolve: ClassVar[Any] = None
@@ -329,39 +328,33 @@ class DnsPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with DnsPlugin._install_lock:
-            if DnsPlugin._install_count == 0:
-                DnsPlugin._original_getaddrinfo = socket.getaddrinfo
-                DnsPlugin._original_gethostbyname = socket.gethostbyname
-                socket.getaddrinfo = _patched_getaddrinfo  # type: ignore[assignment]
-                socket.gethostbyname = _patched_gethostbyname
+    def _install_patches(self) -> None:
+        """Install DNS interception patches."""
+        DnsPlugin._original_getaddrinfo = socket.getaddrinfo
+        DnsPlugin._original_gethostbyname = socket.gethostbyname
+        socket.getaddrinfo = _patched_getaddrinfo  # type: ignore[assignment]
+        socket.gethostbyname = _patched_gethostbyname
 
-                if _DNSPYTHON_AVAILABLE:
-                    DnsPlugin._original_resolve = dns.resolver.resolve
-                    DnsPlugin._original_resolver_resolve = dns.resolver.Resolver.resolve
-                    dns.resolver.resolve = _patched_module_resolve  # type: ignore[assignment]
-                    dns.resolver.Resolver.resolve = _patched_resolver_resolve  # type: ignore[assignment, method-assign]
+        if _DNSPYTHON_AVAILABLE:
+            DnsPlugin._original_resolve = dns.resolver.resolve
+            DnsPlugin._original_resolver_resolve = dns.resolver.Resolver.resolve
+            dns.resolver.resolve = _patched_module_resolve  # type: ignore[assignment]
+            dns.resolver.Resolver.resolve = _patched_resolver_resolve  # type: ignore[assignment, method-assign]
 
-            DnsPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with DnsPlugin._install_lock:
-            DnsPlugin._install_count = max(0, DnsPlugin._install_count - 1)
-            if DnsPlugin._install_count == 0:
-                if DnsPlugin._original_getaddrinfo is not None:
-                    socket.getaddrinfo = DnsPlugin._original_getaddrinfo
-                    DnsPlugin._original_getaddrinfo = None
-                if DnsPlugin._original_gethostbyname is not None:
-                    socket.gethostbyname = DnsPlugin._original_gethostbyname
-                    DnsPlugin._original_gethostbyname = None
-                if DnsPlugin._original_resolve is not None and _DNSPYTHON_AVAILABLE:
-                    dns.resolver.resolve = DnsPlugin._original_resolve
-                    DnsPlugin._original_resolve = None
-                if DnsPlugin._original_resolver_resolve is not None and _DNSPYTHON_AVAILABLE:
-                    dns.resolver.Resolver.resolve = DnsPlugin._original_resolver_resolve  # type: ignore[method-assign]
-                    DnsPlugin._original_resolver_resolve = None
+    def _restore_patches(self) -> None:
+        """Restore original DNS functions."""
+        if DnsPlugin._original_getaddrinfo is not None:
+            socket.getaddrinfo = DnsPlugin._original_getaddrinfo
+            DnsPlugin._original_getaddrinfo = None
+        if DnsPlugin._original_gethostbyname is not None:
+            socket.gethostbyname = DnsPlugin._original_gethostbyname
+            DnsPlugin._original_gethostbyname = None
+        if DnsPlugin._original_resolve is not None and _DNSPYTHON_AVAILABLE:
+            dns.resolver.resolve = DnsPlugin._original_resolve
+            DnsPlugin._original_resolve = None
+        if DnsPlugin._original_resolver_resolve is not None and _DNSPYTHON_AVAILABLE:
+            dns.resolver.Resolver.resolve = DnsPlugin._original_resolver_resolve  # type: ignore[method-assign]
+            DnsPlugin._original_resolver_resolve = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

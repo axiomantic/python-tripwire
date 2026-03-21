@@ -115,10 +115,6 @@ class LoggingPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    # Class-level reference counting — shared across all instances/verifiers.
-    _install_count: int = 0
-    _install_lock: threading.Lock = threading.Lock()
-
     # Saved original, restored when count reaches 0.
     _original_logger_log: Any = None
 
@@ -211,20 +207,6 @@ class LoggingPlugin(BasePlugin):
     # ------------------------------------------------------------------
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with LoggingPlugin._install_lock:
-            if LoggingPlugin._install_count == 0:
-                self._check_conflicts()
-                self._install_patches()
-            LoggingPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with LoggingPlugin._install_lock:
-            LoggingPlugin._install_count = max(0, LoggingPlugin._install_count - 1)
-            if LoggingPlugin._install_count == 0:
-                self._restore_patches()
 
     # ------------------------------------------------------------------
     # Conflict detection

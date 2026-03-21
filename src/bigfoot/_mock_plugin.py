@@ -529,9 +529,6 @@ class MockPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _install_count: int = 0
-    _install_lock: threading.Lock = threading.Lock()
-
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
         self._proxies: dict[str, MockProxy] = {}
@@ -587,16 +584,6 @@ class MockPlugin(BasePlugin):
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations
     # ------------------------------------------------------------------
-
-    def activate(self) -> None:
-        """Reference-counted install. Increments _install_count under lock."""
-        with MockPlugin._install_lock:
-            MockPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        """Reference-counted uninstall. Decrements _install_count, floored at 0."""
-        with MockPlugin._install_lock:
-            MockPlugin._install_count = max(0, MockPlugin._install_count - 1)
 
     def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
         """Return True if all expected fields match the interaction's details."""

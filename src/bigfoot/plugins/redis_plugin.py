@@ -108,11 +108,14 @@ def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwa
             )
         config = queue.popleft()
 
-    # Record interaction on the shared timeline and immediately mark asserted.
+    # Record interaction on the shared timeline
+    details: dict[str, Any] = {"command": cmd_upper, "args": args, "kwargs": kwargs}
+    if config.raises is not None:
+        details["raised"] = config.raises
     interaction = Interaction(
         source_id=f"redis:{cmd_upper.lower()}",
         sequence=0,
-        details={"command": cmd_upper, "args": args, "kwargs": kwargs},
+        details=details,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -137,10 +140,6 @@ class RedisPlugin(BasePlugin):
     Each command name (uppercase) has its own FIFO deque of RedisMockConfig
     objects. Calls are stateless -- there are no state transitions.
     """
-
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
 
     # Saved original, restored when count reaches 0.
     _original_execute_command: ClassVar[Any] = None
@@ -186,25 +185,20 @@ class RedisPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install Redis.execute_command patch."""
         if not _REDIS_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[redis] to use RedisPlugin: pip install bigfoot[redis]"
             )
-        with RedisPlugin._install_lock:
-            if RedisPlugin._install_count == 0:
-                RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
-                redis_lib.Redis.execute_command = _patched_execute_command  # type: ignore[assignment]
-            RedisPlugin._install_count += 1
+        RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
+        redis_lib.Redis.execute_command = _patched_execute_command  # type: ignore[assignment]
 
-    def deactivate(self) -> None:
-        with RedisPlugin._install_lock:
-            RedisPlugin._install_count = max(0, RedisPlugin._install_count - 1)
-            if RedisPlugin._install_count == 0:
-                if RedisPlugin._original_execute_command is not None:
-                    redis_lib.Redis.execute_command = RedisPlugin._original_execute_command  # type: ignore[method-assign]
-                    RedisPlugin._original_execute_command = None
+    def _restore_patches(self) -> None:
+        """Restore original Redis.execute_command."""
+        if RedisPlugin._original_execute_command is not None:
+            redis_lib.Redis.execute_command = RedisPlugin._original_execute_command  # type: ignore[method-assign]
+            RedisPlugin._original_execute_command = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

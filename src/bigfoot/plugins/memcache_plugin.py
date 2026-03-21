@@ -155,6 +155,8 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
             details["keys"] = list((args[0] if args else kwargs.get("mapping", {})).keys())
             details["expire"] = args[1] if len(args) > 1 else kwargs.get("expire", 0)
 
+        if config.raises is not None:
+            details["raised"] = config.raises
         interaction = Interaction(
             source_id=f"memcache:{method_name}",
             sequence=0,
@@ -183,8 +185,6 @@ class MemcachePlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _originals: ClassVar[dict[str, Any]] = {m: None for m in _ALL_INTERCEPTED}
 
     def __init__(self, verifier: StrictVerifier) -> None:
@@ -221,30 +221,26 @@ class MemcachePlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
+    def _install_patches(self) -> None:
+        """Install pymemcache Client method patches."""
         if not _PYMEMCACHE_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[pymemcache] to use MemcachePlugin: pip install bigfoot[pymemcache]"
             )
         from pymemcache.client.base import Client
 
-        with MemcachePlugin._install_lock:
-            if MemcachePlugin._install_count == 0:
-                for method_name in _ALL_INTERCEPTED:
-                    MemcachePlugin._originals[method_name] = getattr(Client, method_name, None)
-                    setattr(Client, method_name, _make_patched_method(method_name))
-            MemcachePlugin._install_count += 1
+        for method_name in _ALL_INTERCEPTED:
+            MemcachePlugin._originals[method_name] = getattr(Client, method_name, None)
+            setattr(Client, method_name, _make_patched_method(method_name))
 
-    def deactivate(self) -> None:
+    def _restore_patches(self) -> None:
+        """Restore original pymemcache Client methods."""
         from pymemcache.client.base import Client
 
-        with MemcachePlugin._install_lock:
-            MemcachePlugin._install_count = max(0, MemcachePlugin._install_count - 1)
-            if MemcachePlugin._install_count == 0:
-                for method_name, original in MemcachePlugin._originals.items():
-                    if original is not None:
-                        setattr(Client, method_name, original)
-                MemcachePlugin._originals = {k: None for k in MemcachePlugin._originals}
+        for method_name, original in MemcachePlugin._originals.items():
+            if original is not None:
+                setattr(Client, method_name, original)
+        MemcachePlugin._originals = {k: None for k in MemcachePlugin._originals}
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

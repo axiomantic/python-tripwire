@@ -175,6 +175,8 @@ def _intercept_operation(
                 )
             config = queue.popleft()
 
+        if config.raises is not None:
+            details["raised"] = config.raises
         interaction = Interaction(
             source_id=source_id,
             sequence=0,
@@ -480,10 +482,6 @@ class FileIoPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    # Class-level reference counting
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved originals, restored when count reaches 0
     _original_open: ClassVar[Any] = None
     _original_read_text: ClassVar[Any] = None
@@ -546,112 +544,107 @@ class FileIoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted module-level patch installation."""
-        with FileIoPlugin._install_lock:
-            if FileIoPlugin._install_count == 0:
-                # Conflict detection for builtins.open
-                current_open = builtins.open
-                if hasattr(current_open, "__module__") and current_open.__module__ not in (
-                    "builtins",
-                    "_io",
-                    "io",
-                    None,
-                ):
-                    mod = current_open.__module__
-                    if "unittest.mock" in mod:
-                        patcher = "unittest.mock"
-                    elif "pytest_mock" in mod:
-                        patcher = "pytest-mock"
-                    else:
-                        patcher = "an unknown library"
-                    raise ConflictError(target="builtins.open", patcher=patcher)
+    def _check_conflicts(self) -> None:
+        """Verify builtins.open has not been patched by a third party."""
+        current_open = builtins.open
+        if hasattr(current_open, "__module__") and current_open.__module__ not in (
+            "builtins",
+            "_io",
+            "io",
+            None,
+        ):
+            mod = current_open.__module__
+            if "unittest.mock" in mod:
+                patcher = "unittest.mock"
+            elif "pytest_mock" in mod:
+                patcher = "pytest-mock"
+            else:
+                patcher = "an unknown library"
+            raise ConflictError(target="builtins.open", patcher=patcher)
 
-                # Save originals
-                FileIoPlugin._original_open = builtins.open
-                FileIoPlugin._original_read_text = pathlib.Path.read_text
-                FileIoPlugin._original_read_bytes = pathlib.Path.read_bytes
-                FileIoPlugin._original_write_text = pathlib.Path.write_text
-                FileIoPlugin._original_write_bytes = pathlib.Path.write_bytes
-                FileIoPlugin._original_remove = os.remove
-                FileIoPlugin._original_unlink = os.unlink
-                FileIoPlugin._original_rename = os.rename
-                FileIoPlugin._original_replace = os.replace
-                FileIoPlugin._original_makedirs = os.makedirs
-                FileIoPlugin._original_mkdir = os.mkdir
-                FileIoPlugin._original_copy = shutil.copy
-                FileIoPlugin._original_copy2 = shutil.copy2
-                FileIoPlugin._original_copytree = shutil.copytree
-                FileIoPlugin._original_rmtree = shutil.rmtree
+    def _install_patches(self) -> None:
+        """Install file I/O interceptors."""
+        # Save originals
+        FileIoPlugin._original_open = builtins.open
+        FileIoPlugin._original_read_text = pathlib.Path.read_text
+        FileIoPlugin._original_read_bytes = pathlib.Path.read_bytes
+        FileIoPlugin._original_write_text = pathlib.Path.write_text
+        FileIoPlugin._original_write_bytes = pathlib.Path.write_bytes
+        FileIoPlugin._original_remove = os.remove
+        FileIoPlugin._original_unlink = os.unlink
+        FileIoPlugin._original_rename = os.rename
+        FileIoPlugin._original_replace = os.replace
+        FileIoPlugin._original_makedirs = os.makedirs
+        FileIoPlugin._original_mkdir = os.mkdir
+        FileIoPlugin._original_copy = shutil.copy
+        FileIoPlugin._original_copy2 = shutil.copy2
+        FileIoPlugin._original_copytree = shutil.copytree
+        FileIoPlugin._original_rmtree = shutil.rmtree
 
-                # Install interceptors
-                builtins.open = _intercepted_open
-                pathlib.Path.read_text = _intercepted_read_text  # type: ignore[assignment, method-assign]
-                pathlib.Path.read_bytes = _intercepted_read_bytes  # type: ignore[assignment, method-assign]
-                pathlib.Path.write_text = _intercepted_write_text  # type: ignore[assignment, method-assign]
-                pathlib.Path.write_bytes = _intercepted_write_bytes  # type: ignore[assignment, method-assign]
-                os.remove = _intercepted_remove
-                os.unlink = _intercepted_unlink
-                os.rename = _intercepted_rename
-                os.replace = _intercepted_replace
-                os.makedirs = _intercepted_makedirs
-                os.mkdir = _intercepted_mkdir
-                shutil.copy = _intercepted_copy
-                shutil.copy2 = _intercepted_copy2
-                shutil.copytree = _intercepted_copytree
-                shutil.rmtree = _intercepted_rmtree  # type: ignore[assignment]
+        # Install interceptors
+        builtins.open = _intercepted_open
+        pathlib.Path.read_text = _intercepted_read_text  # type: ignore[assignment, method-assign]
+        pathlib.Path.read_bytes = _intercepted_read_bytes  # type: ignore[assignment, method-assign]
+        pathlib.Path.write_text = _intercepted_write_text  # type: ignore[assignment, method-assign]
+        pathlib.Path.write_bytes = _intercepted_write_bytes  # type: ignore[assignment, method-assign]
+        os.remove = _intercepted_remove
+        os.unlink = _intercepted_unlink
+        os.rename = _intercepted_rename
+        os.replace = _intercepted_replace
+        os.makedirs = _intercepted_makedirs
+        os.mkdir = _intercepted_mkdir
+        shutil.copy = _intercepted_copy
+        shutil.copy2 = _intercepted_copy2
+        shutil.copytree = _intercepted_copytree
+        shutil.rmtree = _intercepted_rmtree  # type: ignore[assignment]
 
-            FileIoPlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with FileIoPlugin._install_lock:
-            FileIoPlugin._install_count = max(0, FileIoPlugin._install_count - 1)
-            if FileIoPlugin._install_count == 0:
-                if FileIoPlugin._original_open is not None:
-                    builtins.open = FileIoPlugin._original_open
-                    FileIoPlugin._original_open = None
-                if FileIoPlugin._original_read_text is not None:
-                    pathlib.Path.read_text = FileIoPlugin._original_read_text  # type: ignore[method-assign]
-                    FileIoPlugin._original_read_text = None
-                if FileIoPlugin._original_read_bytes is not None:
-                    pathlib.Path.read_bytes = FileIoPlugin._original_read_bytes  # type: ignore[method-assign]
-                    FileIoPlugin._original_read_bytes = None
-                if FileIoPlugin._original_write_text is not None:
-                    pathlib.Path.write_text = FileIoPlugin._original_write_text  # type: ignore[method-assign]
-                    FileIoPlugin._original_write_text = None
-                if FileIoPlugin._original_write_bytes is not None:
-                    pathlib.Path.write_bytes = FileIoPlugin._original_write_bytes  # type: ignore[method-assign]
-                    FileIoPlugin._original_write_bytes = None
-                if FileIoPlugin._original_remove is not None:
-                    os.remove = FileIoPlugin._original_remove
-                    FileIoPlugin._original_remove = None
-                if FileIoPlugin._original_unlink is not None:
-                    os.unlink = FileIoPlugin._original_unlink
-                    FileIoPlugin._original_unlink = None
-                if FileIoPlugin._original_rename is not None:
-                    os.rename = FileIoPlugin._original_rename
-                    FileIoPlugin._original_rename = None
-                if FileIoPlugin._original_replace is not None:
-                    os.replace = FileIoPlugin._original_replace
-                    FileIoPlugin._original_replace = None
-                if FileIoPlugin._original_makedirs is not None:
-                    os.makedirs = FileIoPlugin._original_makedirs
-                    FileIoPlugin._original_makedirs = None
-                if FileIoPlugin._original_mkdir is not None:
-                    os.mkdir = FileIoPlugin._original_mkdir
-                    FileIoPlugin._original_mkdir = None
-                if FileIoPlugin._original_copy is not None:
-                    shutil.copy = FileIoPlugin._original_copy
-                    FileIoPlugin._original_copy = None
-                if FileIoPlugin._original_copy2 is not None:
-                    shutil.copy2 = FileIoPlugin._original_copy2
-                    FileIoPlugin._original_copy2 = None
-                if FileIoPlugin._original_copytree is not None:
-                    shutil.copytree = FileIoPlugin._original_copytree
-                    FileIoPlugin._original_copytree = None
-                if FileIoPlugin._original_rmtree is not None:
-                    shutil.rmtree = FileIoPlugin._original_rmtree
-                    FileIoPlugin._original_rmtree = None
+    def _restore_patches(self) -> None:
+        """Restore original file I/O functions."""
+        if FileIoPlugin._original_open is not None:
+            builtins.open = FileIoPlugin._original_open
+            FileIoPlugin._original_open = None
+        if FileIoPlugin._original_read_text is not None:
+            pathlib.Path.read_text = FileIoPlugin._original_read_text  # type: ignore[method-assign]
+            FileIoPlugin._original_read_text = None
+        if FileIoPlugin._original_read_bytes is not None:
+            pathlib.Path.read_bytes = FileIoPlugin._original_read_bytes  # type: ignore[method-assign]
+            FileIoPlugin._original_read_bytes = None
+        if FileIoPlugin._original_write_text is not None:
+            pathlib.Path.write_text = FileIoPlugin._original_write_text  # type: ignore[method-assign]
+            FileIoPlugin._original_write_text = None
+        if FileIoPlugin._original_write_bytes is not None:
+            pathlib.Path.write_bytes = FileIoPlugin._original_write_bytes  # type: ignore[method-assign]
+            FileIoPlugin._original_write_bytes = None
+        if FileIoPlugin._original_remove is not None:
+            os.remove = FileIoPlugin._original_remove
+            FileIoPlugin._original_remove = None
+        if FileIoPlugin._original_unlink is not None:
+            os.unlink = FileIoPlugin._original_unlink
+            FileIoPlugin._original_unlink = None
+        if FileIoPlugin._original_rename is not None:
+            os.rename = FileIoPlugin._original_rename
+            FileIoPlugin._original_rename = None
+        if FileIoPlugin._original_replace is not None:
+            os.replace = FileIoPlugin._original_replace
+            FileIoPlugin._original_replace = None
+        if FileIoPlugin._original_makedirs is not None:
+            os.makedirs = FileIoPlugin._original_makedirs
+            FileIoPlugin._original_makedirs = None
+        if FileIoPlugin._original_mkdir is not None:
+            os.mkdir = FileIoPlugin._original_mkdir
+            FileIoPlugin._original_mkdir = None
+        if FileIoPlugin._original_copy is not None:
+            shutil.copy = FileIoPlugin._original_copy
+            FileIoPlugin._original_copy = None
+        if FileIoPlugin._original_copy2 is not None:
+            shutil.copy2 = FileIoPlugin._original_copy2
+            FileIoPlugin._original_copy2 = None
+        if FileIoPlugin._original_copytree is not None:
+            shutil.copytree = FileIoPlugin._original_copytree
+            FileIoPlugin._original_copytree = None
+        if FileIoPlugin._original_rmtree is not None:
+            shutil.rmtree = FileIoPlugin._original_rmtree
+            FileIoPlugin._original_rmtree = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

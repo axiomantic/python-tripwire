@@ -105,16 +105,19 @@ def _patched_delay(task_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: A
             )
         config = queue.popleft()
 
+    details: dict[str, Any] = {
+        "task_name": task_name,
+        "dispatch_method": "delay",
+        "args": args,
+        "kwargs": kwargs,
+        "options": {},
+    }
+    if config.raises is not None:
+        details["raised"] = config.raises
     interaction = Interaction(
         source_id=f"celery:{task_name}:delay",
         sequence=0,
-        details={
-            "task_name": task_name,
-            "dispatch_method": "delay",
-            "args": args,
-            "kwargs": kwargs,
-            "options": {},
-        },
+        details=details,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -167,16 +170,19 @@ def _patched_apply_async(
             )
         config = queue.popleft()
 
+    details_apply: dict[str, Any] = {
+        "task_name": task_name,
+        "dispatch_method": "apply_async",
+        "args": actual_args,
+        "kwargs": actual_kwargs,
+        "options": all_options,
+    }
+    if config.raises is not None:
+        details_apply["raised"] = config.raises
     interaction = Interaction(
         source_id=f"celery:{task_name}:apply_async",
         sequence=0,
-        details={
-            "task_name": task_name,
-            "dispatch_method": "apply_async",
-            "args": actual_args,
-            "kwargs": actual_kwargs,
-            "options": all_options,
-        },
+        details=details_apply,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -199,9 +205,6 @@ class CeleryPlugin(BasePlugin):
     """
 
     supports_guard: ClassVar[bool] = False
-
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
 
     _original_delay: ClassVar[Any] = None
     _original_apply_async: ClassVar[Any] = None
@@ -263,33 +266,29 @@ class CeleryPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
+    def _install_patches(self) -> None:
+        """Install Celery Task.delay and Task.apply_async patches."""
         if not _CELERY_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[celery] to use CeleryPlugin: pip install bigfoot[celery]"
             )
         from celery.app.task import Task
 
-        with CeleryPlugin._install_lock:
-            if CeleryPlugin._install_count == 0:
-                CeleryPlugin._original_delay = Task.delay
-                CeleryPlugin._original_apply_async = Task.apply_async
-                Task.delay = _patched_delay
-                Task.apply_async = _patched_apply_async
-            CeleryPlugin._install_count += 1
+        CeleryPlugin._original_delay = Task.delay
+        CeleryPlugin._original_apply_async = Task.apply_async
+        Task.delay = _patched_delay
+        Task.apply_async = _patched_apply_async
 
-    def deactivate(self) -> None:
+    def _restore_patches(self) -> None:
+        """Restore original Celery Task methods."""
         from celery.app.task import Task
 
-        with CeleryPlugin._install_lock:
-            CeleryPlugin._install_count = max(0, CeleryPlugin._install_count - 1)
-            if CeleryPlugin._install_count == 0:
-                if CeleryPlugin._original_delay is not None:
-                    Task.delay = CeleryPlugin._original_delay
-                    CeleryPlugin._original_delay = None
-                if CeleryPlugin._original_apply_async is not None:
-                    Task.apply_async = CeleryPlugin._original_apply_async
-                    CeleryPlugin._original_apply_async = None
+        if CeleryPlugin._original_delay is not None:
+            Task.delay = CeleryPlugin._original_delay
+            CeleryPlugin._original_delay = None
+        if CeleryPlugin._original_apply_async is not None:
+            Task.apply_async = CeleryPlugin._original_apply_async
+            CeleryPlugin._original_apply_async = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

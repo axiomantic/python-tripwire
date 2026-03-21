@@ -150,14 +150,17 @@ class _FuncProxy:
             config = queue.popleft()
 
         serialized_args = tuple(_serialize_arg(a) for a in args)
+        details_native: dict[str, Any] = {
+            "library": self._library_name,
+            "function": self._function_name,
+            "args": serialized_args,
+        }
+        if config.raises is not None:
+            details_native["raised"] = config.raises
         interaction = Interaction(
             source_id=source_id,
             sequence=0,
-            details={
-                "library": self._library_name,
-                "function": self._function_name,
-                "args": serialized_args,
-            },
+            details=details_native,
             plugin=self._plugin,
         )
         self._plugin.record(interaction)
@@ -257,10 +260,6 @@ class NativePlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    # Class-level reference counting
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved originals, restored when count reaches 0
     _original_cdll_init: ClassVar[Any] = None
     _original_ffi_dlopen: ClassVar[Any] = None
@@ -322,31 +321,24 @@ class NativePlugin(BasePlugin):
                 patcher=patcher,
             )
 
-    def activate(self) -> None:
-        """Reference-counted class-level patch installation."""
-        with NativePlugin._install_lock:
-            if NativePlugin._install_count == 0:
-                self._check_conflicts()
-                NativePlugin._original_cdll_init = ctypes.CDLL.__init__
-                ctypes.CDLL.__init__ = _patched_cdll_init  # type: ignore[assignment]
+    def _install_patches(self) -> None:
+        """Install ctypes.CDLL and optionally cffi.FFI patches."""
+        NativePlugin._original_cdll_init = ctypes.CDLL.__init__
+        ctypes.CDLL.__init__ = _patched_cdll_init  # type: ignore[assignment]
 
-                # Optionally patch cffi if available
-                if _CFFI_AVAILABLE:
-                    NativePlugin._original_ffi_dlopen = cffi_lib.FFI.dlopen
-                    cffi_lib.FFI.dlopen = _patched_ffi_dlopen
+        # Optionally patch cffi if available
+        if _CFFI_AVAILABLE:
+            NativePlugin._original_ffi_dlopen = cffi_lib.FFI.dlopen
+            cffi_lib.FFI.dlopen = _patched_ffi_dlopen
 
-            NativePlugin._install_count += 1
-
-    def deactivate(self) -> None:
-        with NativePlugin._install_lock:
-            NativePlugin._install_count = max(0, NativePlugin._install_count - 1)
-            if NativePlugin._install_count == 0:
-                if NativePlugin._original_cdll_init is not None:
-                    ctypes.CDLL.__init__ = NativePlugin._original_cdll_init  # type: ignore[method-assign]
-                    NativePlugin._original_cdll_init = None
-                if NativePlugin._original_ffi_dlopen is not None and _CFFI_AVAILABLE:
-                    cffi_lib.FFI.dlopen = NativePlugin._original_ffi_dlopen
-                    NativePlugin._original_ffi_dlopen = None
+    def _restore_patches(self) -> None:
+        """Restore original ctypes.CDLL and cffi.FFI functions."""
+        if NativePlugin._original_cdll_init is not None:
+            ctypes.CDLL.__init__ = NativePlugin._original_cdll_init  # type: ignore[method-assign]
+            NativePlugin._original_cdll_init = None
+        if NativePlugin._original_ffi_dlopen is not None and _CFFI_AVAILABLE:
+            cffi_lib.FFI.dlopen = NativePlugin._original_ffi_dlopen
+            NativePlugin._original_ffi_dlopen = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

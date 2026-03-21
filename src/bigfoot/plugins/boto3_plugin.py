@@ -131,10 +131,13 @@ def _patched_make_api_call(
             )
         config = queue.popleft()
 
+    details: dict[str, Any] = {"service": service_name, "operation": operation_name, "params": api_params}
+    if config.raises is not None:
+        details["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={"service": service_name, "operation": operation_name, "params": api_params},
+        details=details,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -158,8 +161,6 @@ class Boto3Plugin(BasePlugin):
     Each service:operation pair has its own FIFO deque of Boto3MockConfig objects.
     """
 
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _original_make_api_call: ClassVar[Any] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
@@ -224,24 +225,20 @@ class Boto3Plugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
+    def _install_patches(self) -> None:
+        """Install botocore._make_api_call patch."""
         if not _BOTO3_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[boto3] to use Boto3Plugin: pip install bigfoot[boto3]"
             )
-        with Boto3Plugin._install_lock:
-            if Boto3Plugin._install_count == 0:
-                Boto3Plugin._original_make_api_call = botocore.client.BaseClient._make_api_call
-                botocore.client.BaseClient._make_api_call = _patched_make_api_call
-            Boto3Plugin._install_count += 1
+        Boto3Plugin._original_make_api_call = botocore.client.BaseClient._make_api_call
+        botocore.client.BaseClient._make_api_call = _patched_make_api_call
 
-    def deactivate(self) -> None:
-        with Boto3Plugin._install_lock:
-            Boto3Plugin._install_count = max(0, Boto3Plugin._install_count - 1)
-            if Boto3Plugin._install_count == 0:
-                if Boto3Plugin._original_make_api_call is not None:
-                    botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call
-                    Boto3Plugin._original_make_api_call = None
+    def _restore_patches(self) -> None:
+        """Restore original botocore._make_api_call."""
+        if Boto3Plugin._original_make_api_call is not None:
+            botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call
+            Boto3Plugin._original_make_api_call = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

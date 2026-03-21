@@ -161,15 +161,18 @@ class _GrpcCallable:
         if self._call_type in ("stream_unary", "stream_stream"):
             request = list(request) if request is not None else []
 
+        details_grpc: dict[str, Any] = {
+            "method": self._method,
+            "call_type": self._call_type,
+            "request": request,
+            "metadata": metadata,
+        }
+        if config.raises is not None:
+            details_grpc["raised"] = config.raises
         interaction = Interaction(
             source_id=source_id,
             sequence=0,
-            details={
-                "method": self._method,
-                "call_type": self._call_type,
-                "request": request,
-                "metadata": metadata,
-            },
+            details=details_grpc,
             plugin=plugin,
         )
         plugin.record(interaction)
@@ -280,10 +283,6 @@ class GrpcPlugin(BasePlugin):
     Each (call_type, method) pair has its own FIFO deque of GrpcMockConfig objects.
     """
 
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
-
     # Saved originals, restored when count reaches 0.
     _original_insecure_channel: ClassVar[Any] = None
     _original_secure_channel: ClassVar[Any] = None
@@ -368,30 +367,25 @@ class GrpcPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted module-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install gRPC channel patches."""
         if not _GRPC_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[grpc] to use GrpcPlugin: pip install bigfoot[grpc]"
             )
-        with GrpcPlugin._install_lock:
-            if GrpcPlugin._install_count == 0:
-                GrpcPlugin._original_insecure_channel = grpc_lib.insecure_channel
-                GrpcPlugin._original_secure_channel = grpc_lib.secure_channel
-                grpc_lib.insecure_channel = _patched_insecure_channel
-                grpc_lib.secure_channel = _patched_secure_channel
-            GrpcPlugin._install_count += 1
+        GrpcPlugin._original_insecure_channel = grpc_lib.insecure_channel
+        GrpcPlugin._original_secure_channel = grpc_lib.secure_channel
+        grpc_lib.insecure_channel = _patched_insecure_channel
+        grpc_lib.secure_channel = _patched_secure_channel
 
-    def deactivate(self) -> None:
-        with GrpcPlugin._install_lock:
-            GrpcPlugin._install_count = max(0, GrpcPlugin._install_count - 1)
-            if GrpcPlugin._install_count == 0:
-                if GrpcPlugin._original_insecure_channel is not None:
-                    grpc_lib.insecure_channel = GrpcPlugin._original_insecure_channel
-                    GrpcPlugin._original_insecure_channel = None
-                if GrpcPlugin._original_secure_channel is not None:
-                    grpc_lib.secure_channel = GrpcPlugin._original_secure_channel
-                    GrpcPlugin._original_secure_channel = None
+    def _restore_patches(self) -> None:
+        """Restore original gRPC channel functions."""
+        if GrpcPlugin._original_insecure_channel is not None:
+            grpc_lib.insecure_channel = GrpcPlugin._original_insecure_channel
+            GrpcPlugin._original_insecure_channel = None
+        if GrpcPlugin._original_secure_channel is not None:
+            grpc_lib.secure_channel = GrpcPlugin._original_secure_channel
+            GrpcPlugin._original_secure_channel = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations
@@ -472,58 +466,67 @@ class GrpcPlugin(BasePlugin):
     # Typed assertion helpers
     # ------------------------------------------------------------------
 
+    _ABSENT: ClassVar[object] = object()
+
     def _assert_call(
         self,
         call_type: str,
         method: str,
         request: Any,  # noqa: ANN401
         metadata: Any = None,  # noqa: ANN401
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Common implementation for typed assertion helpers."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
 
         source_id = f"grpc:{call_type}:{method}"
         sentinel = _GrpcSentinel(source_id)
-        _get_test_verifier_or_raise().assert_interaction(
-            sentinel,
-            method=method,
-            call_type=call_type,
-            request=request,
-            metadata=metadata,
-        )
+        expected: dict[str, Any] = {
+            "method": method,
+            "call_type": call_type,
+            "request": request,
+            "metadata": metadata,
+        }
+        if raised is not GrpcPlugin._ABSENT:
+            expected["raised"] = raised
+        _get_test_verifier_or_raise().assert_interaction(sentinel, **expected)
 
     def assert_unary_unary(
         self,
         method: str,
         request: Any,  # noqa: ANN401
         metadata: Any = None,  # noqa: ANN401
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Typed helper: assert the next unary_unary interaction."""
-        self._assert_call("unary_unary", method, request, metadata)
+        self._assert_call("unary_unary", method, request, metadata, raised)
 
     def assert_unary_stream(
         self,
         method: str,
         request: Any,  # noqa: ANN401
         metadata: Any = None,  # noqa: ANN401
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Typed helper: assert the next unary_stream interaction."""
-        self._assert_call("unary_stream", method, request, metadata)
+        self._assert_call("unary_stream", method, request, metadata, raised)
 
     def assert_stream_unary(
         self,
         method: str,
         request: Any,  # noqa: ANN401
         metadata: Any = None,  # noqa: ANN401
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Typed helper: assert the next stream_unary interaction."""
-        self._assert_call("stream_unary", method, request, metadata)
+        self._assert_call("stream_unary", method, request, metadata, raised)
 
     def assert_stream_stream(
         self,
         method: str,
         request: Any,  # noqa: ANN401
         metadata: Any = None,  # noqa: ANN401
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Typed helper: assert the next stream_stream interaction."""
-        self._assert_call("stream_stream", method, request, metadata)
+        self._assert_call("stream_stream", method, request, metadata, raised)

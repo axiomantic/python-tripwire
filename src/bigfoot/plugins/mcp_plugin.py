@@ -119,15 +119,18 @@ async def _patched_call_tool(
             )
         config = queue.popleft()
 
+    details_ct: dict[str, Any] = {
+        "direction": "client",
+        "method": "call_tool",
+        "tool_name": name,
+        "arguments": arguments if arguments is not None else {},
+    }
+    if config.raises is not None:
+        details_ct["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={
-            "direction": "client",
-            "method": "call_tool",
-            "tool_name": name,
-            "arguments": arguments if arguments is not None else {},
-        },
+        details=details_ct,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -168,14 +171,17 @@ async def _patched_read_resource(
             )
         config = queue.popleft()
 
+    details_rr: dict[str, Any] = {
+        "direction": "client",
+        "method": "read_resource",
+        "uri": uri_str,
+    }
+    if config.raises is not None:
+        details_rr["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={
-            "direction": "client",
-            "method": "read_resource",
-            "uri": uri_str,
-        },
+        details=details_rr,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -217,15 +223,18 @@ async def _patched_get_prompt(
             )
         config = queue.popleft()
 
+    details_gp: dict[str, Any] = {
+        "direction": "client",
+        "method": "get_prompt",
+        "prompt_name": name,
+        "arguments": arguments if arguments is not None else {},
+    }
+    if config.raises is not None:
+        details_gp["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={
-            "direction": "client",
-            "method": "get_prompt",
-            "prompt_name": name,
-            "arguments": arguments if arguments is not None else {},
-        },
+        details=details_gp,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -322,6 +331,8 @@ async def _patched_handle_request(
                 )
             config = queue.popleft()
 
+        if config.raises is not None:
+            details["raised"] = config.raises
         interaction = Interaction(
             source_id=source_id,
             sequence=0,
@@ -357,10 +368,6 @@ class McpPlugin(BasePlugin):
 
     Each (direction, method, key) triple has its own FIFO deque of McpMockConfig objects.
     """
-
-    # Class-level reference counting -- shared across all instances/verifiers.
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
 
     # Saved originals, restored when count reaches 0.
     _original_call_tool: ClassVar[Any] = None
@@ -497,41 +504,36 @@ class McpPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
-        """Reference-counted module-level patch installation."""
+    def _install_patches(self) -> None:
+        """Install MCP client/server patches."""
         if not _MCP_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[mcp] to use McpPlugin: pip install bigfoot[mcp]"
             )
-        with McpPlugin._install_lock:
-            if McpPlugin._install_count == 0:
-                McpPlugin._original_call_tool = _ClientSession.call_tool
-                McpPlugin._original_read_resource = _ClientSession.read_resource
-                McpPlugin._original_get_prompt = _ClientSession.get_prompt
-                McpPlugin._original_handle_request = _Server._handle_request
+        McpPlugin._original_call_tool = _ClientSession.call_tool
+        McpPlugin._original_read_resource = _ClientSession.read_resource
+        McpPlugin._original_get_prompt = _ClientSession.get_prompt
+        McpPlugin._original_handle_request = _Server._handle_request
 
-                _ClientSession.call_tool = _patched_call_tool  # type: ignore[method-assign]
-                _ClientSession.read_resource = _patched_read_resource  # type: ignore[method-assign]
-                _ClientSession.get_prompt = _patched_get_prompt  # type: ignore[method-assign]
-                _Server._handle_request = _patched_handle_request  # type: ignore[method-assign]
-            McpPlugin._install_count += 1
+        _ClientSession.call_tool = _patched_call_tool  # type: ignore[method-assign]
+        _ClientSession.read_resource = _patched_read_resource  # type: ignore[method-assign]
+        _ClientSession.get_prompt = _patched_get_prompt  # type: ignore[method-assign]
+        _Server._handle_request = _patched_handle_request  # type: ignore[method-assign]
 
-    def deactivate(self) -> None:
-        with McpPlugin._install_lock:
-            McpPlugin._install_count = max(0, McpPlugin._install_count - 1)
-            if McpPlugin._install_count == 0:
-                if McpPlugin._original_call_tool is not None:
-                    _ClientSession.call_tool = McpPlugin._original_call_tool  # type: ignore[method-assign]
-                    McpPlugin._original_call_tool = None
-                if McpPlugin._original_read_resource is not None:
-                    _ClientSession.read_resource = McpPlugin._original_read_resource  # type: ignore[method-assign]
-                    McpPlugin._original_read_resource = None
-                if McpPlugin._original_get_prompt is not None:
-                    _ClientSession.get_prompt = McpPlugin._original_get_prompt  # type: ignore[method-assign]
-                    McpPlugin._original_get_prompt = None
-                if McpPlugin._original_handle_request is not None:
-                    _Server._handle_request = McpPlugin._original_handle_request  # type: ignore[method-assign]
-                    McpPlugin._original_handle_request = None
+    def _restore_patches(self) -> None:
+        """Restore original MCP client/server functions."""
+        if McpPlugin._original_call_tool is not None:
+            _ClientSession.call_tool = McpPlugin._original_call_tool  # type: ignore[method-assign]
+            McpPlugin._original_call_tool = None
+        if McpPlugin._original_read_resource is not None:
+            _ClientSession.read_resource = McpPlugin._original_read_resource  # type: ignore[method-assign]
+            McpPlugin._original_read_resource = None
+        if McpPlugin._original_get_prompt is not None:
+            _ClientSession.get_prompt = McpPlugin._original_get_prompt  # type: ignore[method-assign]
+            McpPlugin._original_get_prompt = None
+        if McpPlugin._original_handle_request is not None:
+            _Server._handle_request = McpPlugin._original_handle_request  # type: ignore[method-assign]
+            McpPlugin._original_handle_request = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations
@@ -674,12 +676,15 @@ class McpPlugin(BasePlugin):
     # Typed assertion helpers
     # ------------------------------------------------------------------
 
+    _ABSENT: ClassVar[object] = object()
+
     def assert_call_tool(
         self,
         tool_name: str,
         *,
         arguments: dict[str, Any] | None = None,
         direction: str = "client",
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Assert the next call_tool interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
@@ -692,6 +697,8 @@ class McpPlugin(BasePlugin):
             "tool_name": tool_name,
             "arguments": arguments if arguments is not None else {},
         }
+        if raised is not McpPlugin._ABSENT:
+            expected["raised"] = raised
         _get_test_verifier_or_raise().assert_interaction(sentinel, **expected)
 
     def assert_read_resource(
@@ -699,6 +706,7 @@ class McpPlugin(BasePlugin):
         uri: str,
         *,
         direction: str = "client",
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Assert the next read_resource interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
@@ -710,6 +718,8 @@ class McpPlugin(BasePlugin):
             "method": "read_resource",
             "uri": uri,
         }
+        if raised is not McpPlugin._ABSENT:
+            expected["raised"] = raised
         _get_test_verifier_or_raise().assert_interaction(sentinel, **expected)
 
     def assert_get_prompt(
@@ -718,6 +728,7 @@ class McpPlugin(BasePlugin):
         *,
         arguments: dict[str, Any] | None = None,
         direction: str = "client",
+        raised: Any = _ABSENT,  # noqa: ANN401
     ) -> None:
         """Assert the next get_prompt interaction."""
         from bigfoot._context import _get_test_verifier_or_raise  # noqa: PLC0415
@@ -730,4 +741,6 @@ class McpPlugin(BasePlugin):
             "prompt_name": prompt_name,
             "arguments": arguments if arguments is not None else {},
         }
+        if raised is not McpPlugin._ABSENT:
+            expected["raised"] = raised
         _get_test_verifier_or_raise().assert_interaction(sentinel, **expected)

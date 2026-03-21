@@ -105,10 +105,13 @@ def _patched_encode(
         config = queue.popleft()
 
     # SECURITY: key is intentionally excluded from details
+    details_encode: dict[str, Any] = {"payload": payload, "algorithm": algorithm, "extra_kwargs": kwargs}
+    if config.raises is not None:
+        details_encode["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={"payload": payload, "algorithm": algorithm, "extra_kwargs": kwargs},
+        details=details_encode,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -138,10 +141,13 @@ def _patched_decode(
         config = queue.popleft()
 
     # SECURITY: key is intentionally excluded from details
+    details_decode: dict[str, Any] = {"token": token, "algorithms": algorithms, "options": options}
+    if config.raises is not None:
+        details_decode["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={"token": token, "algorithms": algorithms, "options": options},
+        details=details_decode,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -169,8 +175,6 @@ class JwtPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _original_encode: ClassVar[Any] = None
     _original_decode: ClassVar[Any] = None
 
@@ -219,29 +223,25 @@ class JwtPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
+    def _install_patches(self) -> None:
+        """Install jwt.encode and jwt.decode patches."""
         if not _JWT_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[jwt] to use JwtPlugin: pip install bigfoot[jwt]"
             )
-        with JwtPlugin._install_lock:
-            if JwtPlugin._install_count == 0:
-                JwtPlugin._original_encode = jwt_lib.encode
-                JwtPlugin._original_decode = jwt_lib.decode
-                jwt_lib.encode = _patched_encode  # type: ignore[assignment]
-                jwt_lib.decode = _patched_decode  # type: ignore[assignment]
-            JwtPlugin._install_count += 1
+        JwtPlugin._original_encode = jwt_lib.encode
+        JwtPlugin._original_decode = jwt_lib.decode
+        jwt_lib.encode = _patched_encode  # type: ignore[assignment]
+        jwt_lib.decode = _patched_decode  # type: ignore[assignment]
 
-    def deactivate(self) -> None:
-        with JwtPlugin._install_lock:
-            JwtPlugin._install_count = max(0, JwtPlugin._install_count - 1)
-            if JwtPlugin._install_count == 0:
-                if JwtPlugin._original_encode is not None:
-                    jwt_lib.encode = JwtPlugin._original_encode
-                    JwtPlugin._original_encode = None
-                if JwtPlugin._original_decode is not None:
-                    jwt_lib.decode = JwtPlugin._original_decode
-                    JwtPlugin._original_decode = None
+    def _restore_patches(self) -> None:
+        """Restore original jwt.encode and jwt.decode."""
+        if JwtPlugin._original_encode is not None:
+            jwt_lib.encode = JwtPlugin._original_encode
+            JwtPlugin._original_encode = None
+        if JwtPlugin._original_decode is not None:
+            jwt_lib.decode = JwtPlugin._original_decode
+            JwtPlugin._original_decode = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

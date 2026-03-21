@@ -143,6 +143,8 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
             if key in kwargs:
                 details[key] = kwargs[key]
 
+        if config.raises is not None:
+            details["raised"] = config.raises
         interaction = Interaction(
             source_id=source_id,
             sequence=0,
@@ -170,8 +172,6 @@ class ElasticsearchPlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _originals: ClassVar[dict[str, Any]] = {}
 
     def __init__(self, verifier: StrictVerifier) -> None:
@@ -207,28 +207,24 @@ class ElasticsearchPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
+    def _install_patches(self) -> None:
+        """Install Elasticsearch method patches."""
         if not _ELASTICSEARCH_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[elasticsearch] to use ElasticsearchPlugin: "
                 "pip install bigfoot[elasticsearch]"
             )
-        with ElasticsearchPlugin._install_lock:
-            if ElasticsearchPlugin._install_count == 0:
-                es_cls = es_lib.Elasticsearch
-                for method_name in _INTERCEPTED_METHODS:
-                    ElasticsearchPlugin._originals[method_name] = getattr(es_cls, method_name)
-                    setattr(es_cls, method_name, _make_interceptor(method_name))
-            ElasticsearchPlugin._install_count += 1
+        es_cls = es_lib.Elasticsearch
+        for method_name in _INTERCEPTED_METHODS:
+            ElasticsearchPlugin._originals[method_name] = getattr(es_cls, method_name)
+            setattr(es_cls, method_name, _make_interceptor(method_name))
 
-    def deactivate(self) -> None:
-        with ElasticsearchPlugin._install_lock:
-            ElasticsearchPlugin._install_count = max(0, ElasticsearchPlugin._install_count - 1)
-            if ElasticsearchPlugin._install_count == 0:
-                es_cls = es_lib.Elasticsearch
-                for method_name, original in ElasticsearchPlugin._originals.items():
-                    setattr(es_cls, method_name, original)
-                ElasticsearchPlugin._originals.clear()
+    def _restore_patches(self) -> None:
+        """Restore original Elasticsearch methods."""
+        es_cls = es_lib.Elasticsearch
+        for method_name, original in ElasticsearchPlugin._originals.items():
+            setattr(es_cls, method_name, original)
+        ElasticsearchPlugin._originals.clear()
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

@@ -110,10 +110,13 @@ def _patched_fernet_encrypt(fernet_self: object, data: bytes) -> Any:  # noqa: A
         config = queue.popleft()
 
     # SECURITY: actual plaintext NOT stored, only length
+    details_enc: dict[str, Any] = {"plaintext_length": len(data)}
+    if config.raises is not None:
+        details_enc["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={"plaintext_length": len(data)},
+        details=details_enc,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -140,10 +143,13 @@ def _patched_fernet_decrypt(fernet_self: object, token: bytes | str, ttl: int | 
         config = queue.popleft()
 
     # Token is safe to store (it's ciphertext, not secret)
+    details_dec: dict[str, Any] = {"token": token, "ttl": ttl}
+    if config.raises is not None:
+        details_dec["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={"token": token, "ttl": ttl},
+        details=details_dec,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -173,10 +179,13 @@ def _patched_generate_private_key(
         config = queue.popleft()
 
     # SECURITY: no actual key data stored, only metadata
+    details_gen: dict[str, Any] = {"algorithm": "RSA", "key_size": key_size}
+    if config.raises is not None:
+        details_gen["raised"] = config.raises
     interaction = Interaction(
         source_id=source_id,
         sequence=0,
-        details={"algorithm": "RSA", "key_size": key_size},
+        details=details_gen,
         plugin=plugin,
     )
     plugin.record(interaction)
@@ -204,8 +213,6 @@ class CryptoPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _install_count: ClassVar[int] = 0
-    _install_lock: ClassVar[threading.Lock] = threading.Lock()
     _original_encrypt: ClassVar[Any] = None
     _original_decrypt: ClassVar[Any] = None
     _original_generate_private_key: ClassVar[Any] = None
@@ -271,34 +278,30 @@ class CryptoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def activate(self) -> None:
+    def _install_patches(self) -> None:
+        """Install cryptography Fernet and RSA patches."""
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
                 "Install bigfoot[crypto] to use CryptoPlugin: pip install bigfoot[crypto]"
             )
-        with CryptoPlugin._install_lock:
-            if CryptoPlugin._install_count == 0:
-                CryptoPlugin._original_encrypt = _Fernet.encrypt
-                CryptoPlugin._original_decrypt = _Fernet.decrypt
-                CryptoPlugin._original_generate_private_key = _rsa_mod.generate_private_key
-                _Fernet.encrypt = _patched_fernet_encrypt  # type: ignore[assignment]
-                _Fernet.decrypt = _patched_fernet_decrypt  # type: ignore[assignment]
-                _rsa_mod.generate_private_key = _patched_generate_private_key
-            CryptoPlugin._install_count += 1
+        CryptoPlugin._original_encrypt = _Fernet.encrypt
+        CryptoPlugin._original_decrypt = _Fernet.decrypt
+        CryptoPlugin._original_generate_private_key = _rsa_mod.generate_private_key
+        _Fernet.encrypt = _patched_fernet_encrypt  # type: ignore[assignment]
+        _Fernet.decrypt = _patched_fernet_decrypt  # type: ignore[assignment]
+        _rsa_mod.generate_private_key = _patched_generate_private_key
 
-    def deactivate(self) -> None:
-        with CryptoPlugin._install_lock:
-            CryptoPlugin._install_count = max(0, CryptoPlugin._install_count - 1)
-            if CryptoPlugin._install_count == 0:
-                if CryptoPlugin._original_encrypt is not None:
-                    _Fernet.encrypt = CryptoPlugin._original_encrypt  # type: ignore[method-assign]
-                    CryptoPlugin._original_encrypt = None
-                if CryptoPlugin._original_decrypt is not None:
-                    _Fernet.decrypt = CryptoPlugin._original_decrypt  # type: ignore[method-assign]
-                    CryptoPlugin._original_decrypt = None
-                if CryptoPlugin._original_generate_private_key is not None:
-                    _rsa_mod.generate_private_key = CryptoPlugin._original_generate_private_key
-                    CryptoPlugin._original_generate_private_key = None
+    def _restore_patches(self) -> None:
+        """Restore original cryptography functions."""
+        if CryptoPlugin._original_encrypt is not None:
+            _Fernet.encrypt = CryptoPlugin._original_encrypt  # type: ignore[method-assign]
+            CryptoPlugin._original_encrypt = None
+        if CryptoPlugin._original_decrypt is not None:
+            _Fernet.decrypt = CryptoPlugin._original_decrypt  # type: ignore[method-assign]
+            CryptoPlugin._original_decrypt = None
+        if CryptoPlugin._original_generate_private_key is not None:
+            _rsa_mod.generate_private_key = CryptoPlugin._original_generate_private_key
+            CryptoPlugin._original_generate_private_key = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations
