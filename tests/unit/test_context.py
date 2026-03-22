@@ -9,8 +9,8 @@ import pytest
 from bigfoot._context import (
     _active_verifier,
     _any_order_depth,
-    get_verifier_or_raise,
     get_active_verifier,
+    get_verifier_or_raise,
     is_in_any_order,
 )
 from bigfoot._errors import SandboxNotActiveError

@@ -34,7 +34,8 @@ from bigfoot._errors import UnusedMocksError as UnusedMocksError
 from bigfoot._errors import VerificationError as VerificationError
 from bigfoot._guard import allow as allow
 from bigfoot._guard import deny as deny
-from bigfoot._mock_plugin import ImportSiteMock, MockPlugin as MockPlugin, ObjectMock
+from bigfoot._mock_plugin import ImportSiteMock, ObjectMock
+from bigfoot._mock_plugin import MockPlugin as MockPlugin
 from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES as GUARD_ELIGIBLE_PREFIXES
 from bigfoot._registry import PluginEntry as PluginEntry
 from bigfoot._timeline import Interaction as Interaction
@@ -122,14 +123,14 @@ except ImportError: ...
 # Module-level context manager protocol
 # ---------------------------------------------------------------------------
 
-def __enter__() -> StrictVerifier: ...
-def __exit__(
+def __enter__() -> StrictVerifier: ...  # noqa: N807
+def __exit__(  # noqa: N807
     __exc_type: type[BaseException] | None,
     __exc_val: BaseException | None,
     __exc_tb: types.TracebackType | None,
 ) -> None: ...
-async def __aenter__() -> StrictVerifier: ...
-async def __aexit__(
+async def __aenter__() -> StrictVerifier: ...  # noqa: N807
+async def __aexit__(  # noqa: N807
     __exc_type: type[BaseException] | None,
     __exc_val: BaseException | None,
     __exc_tb: types.TracebackType | None,
@@ -141,7 +142,7 @@ async def __aexit__(
 
 def current_verifier() -> StrictVerifier: ...
 def sandbox() -> SandboxContext: ...
-def assert_interaction(source: Any, **expected: object) -> None: ...
+def assert_interaction(source: Any, **expected: object) -> None: ...  # noqa: ANN401
 def in_any_order() -> InAnyOrderContext: ...
 def verify_all() -> None: ...
 

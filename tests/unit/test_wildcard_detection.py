@@ -3,7 +3,7 @@
 import pytest
 
 import bigfoot
-from bigfoot._context import _active_verifier, _current_test_verifier
+from bigfoot._context import _current_test_verifier
 from bigfoot._errors import AllWildcardAssertionError
 from bigfoot._verifier import StrictVerifier
 

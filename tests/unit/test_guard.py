@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from bigfoot._context import (
+    GuardPassThrough,
     _guard_active,
     _guard_allowlist,
-    GuardPassThrough,
 )
 
 
