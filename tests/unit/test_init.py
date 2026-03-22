@@ -15,6 +15,14 @@ def test_all_contains_expected_names() -> None:
     import bigfoot
 
     expected_all = {
+        # Plugin authoring API
+        "BasePlugin",
+        "Interaction",
+        "Timeline",
+        "GuardPassThrough",
+        "get_verifier_or_raise",
+        "GUARD_ELIGIBLE_PREFIXES",
+        "PluginEntry",
         # Classes
         "StrictVerifier",
         "SandboxContext",
@@ -44,6 +52,7 @@ def test_all_contains_expected_names() -> None:
         "deny",
         "GuardedCallError",
         # Errors
+        "AllWildcardAssertionError",
         "BigfootConfigError",
         "BigfootError",
         "AssertionInsideSandboxError",

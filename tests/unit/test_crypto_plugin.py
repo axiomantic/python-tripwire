@@ -37,7 +37,7 @@ def _reset_plugin_count() -> None:
     with CryptoPlugin._install_lock:
         CryptoPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        CryptoPlugin.__new__(CryptoPlugin)._restore_patches()
+        CryptoPlugin.__new__(CryptoPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

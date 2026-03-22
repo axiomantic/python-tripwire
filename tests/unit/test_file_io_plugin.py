@@ -46,7 +46,7 @@ def _reset_plugin_count() -> None:
     with FileIoPlugin._install_lock:
         FileIoPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        FileIoPlugin.__new__(FileIoPlugin)._restore_patches()
+        FileIoPlugin.__new__(FileIoPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

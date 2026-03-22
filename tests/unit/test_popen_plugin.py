@@ -42,7 +42,7 @@ def _reset_install_count() -> None:
     with PopenPlugin._install_lock:
         PopenPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        PopenPlugin.__new__(PopenPlugin)._restore_patches()
+        PopenPlugin.__new__(PopenPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)
@@ -631,7 +631,7 @@ def test_popen_and_subprocess_coexist() -> None:
     # Reset SubprocessPlugin via its own _restore_patches() (autouse fixture only handles PopenPlugin)
     with SubprocessPlugin._install_lock:
         SubprocessPlugin._install_count = 0
-        SubprocessPlugin.__new__(SubprocessPlugin)._restore_patches()
+        SubprocessPlugin.__new__(SubprocessPlugin).restore_patches()
 
     v = StrictVerifier()
     sp = SubprocessPlugin(v)

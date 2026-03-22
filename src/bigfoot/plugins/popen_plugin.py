@@ -12,7 +12,7 @@ restore their respective targets correctly when deactivated.
 import subprocess
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import ConflictError
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -49,7 +49,7 @@ _bigfoot_popen_class: Any = None
 
 
 def _find_popen_plugin() -> "PopenPlugin":
-    verifier = _get_verifier_or_raise(_SOURCE_SPAWN)
+    verifier = get_verifier_or_raise(_SOURCE_SPAWN)
     try:
         return next(p for p in verifier._plugins if isinstance(p, PopenPlugin))
     except StopIteration:
@@ -104,7 +104,7 @@ class _FakePopen:
             return _ORIGINAL_POPEN(args, *pos_args, **kwargs)
         try:
             _find_popen_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             return _ORIGINAL_POPEN(args, *pos_args, **kwargs)
         return super().__new__(cls)
 
@@ -186,7 +186,7 @@ class PopenPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_popen: ClassVar[Any] = None
+    _original_popen: ClassVar[type[subprocess.Popen[Any]] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -227,20 +227,20 @@ class PopenPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install subprocess.Popen patch."""
         global _bigfoot_popen_class
 
         PopenPlugin._original_popen = subprocess.Popen
         _bigfoot_popen_class = _FakePopen
-        subprocess.Popen = _FakePopen  # type: ignore[assignment, misc]
+        setattr(subprocess, "Popen", _FakePopen)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original subprocess.Popen."""
         global _bigfoot_popen_class
 
         if PopenPlugin._original_popen is not None:
-            subprocess.Popen = PopenPlugin._original_popen  # type: ignore[misc]
+            setattr(subprocess, "Popen", PopenPlugin._original_popen)
             PopenPlugin._original_popen = None
         _bigfoot_popen_class = None
 
@@ -248,7 +248,7 @@ class PopenPlugin(StateMachinePlugin):
     # Conflict detection
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify subprocess.Popen has not been patched by a third party."""
         current_popen: Any = subprocess.Popen
         if current_popen is not _ORIGINAL_POPEN and current_popen is not _FakePopen:

@@ -1,9 +1,10 @@
 """SocketPlugin: intercepts socket.socket connect/send/sendall/recv/close."""
 
 import socket
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -24,11 +25,11 @@ _SOURCE_CLOSE = "socket:close"
 # Import-time constants — captured BEFORE any patches are installed.
 # ---------------------------------------------------------------------------
 
-_SOCKET_CONNECT_ORIGINAL: Any = socket.socket.connect
-_SOCKET_SEND_ORIGINAL: Any = socket.socket.send
-_SOCKET_SENDALL_ORIGINAL: Any = socket.socket.sendall
-_SOCKET_RECV_ORIGINAL: Any = socket.socket.recv
-_SOCKET_CLOSE_ORIGINAL: Any = socket.socket.close
+_SOCKET_CONNECT_ORIGINAL: Callable[..., Any] = socket.socket.connect
+_SOCKET_SEND_ORIGINAL: Callable[..., Any] = socket.socket.send
+_SOCKET_SENDALL_ORIGINAL: Callable[..., Any] = socket.socket.sendall
+_SOCKET_RECV_ORIGINAL: Callable[..., Any] = socket.socket.recv
+_SOCKET_CLOSE_ORIGINAL: Callable[..., Any] = socket.socket.close
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +38,7 @@ _SOCKET_CLOSE_ORIGINAL: Any = socket.socket.close
 
 
 def _get_socket_plugin() -> "SocketPlugin | None":
-    verifier = _get_verifier_or_raise(_SOURCE_CONNECT)
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
     for plugin in verifier._plugins:
         if isinstance(plugin, SocketPlugin):
             return plugin
@@ -59,11 +60,11 @@ class SocketPlugin(StateMachinePlugin):
     """
 
     # Saved originals, restored when count reaches 0.
-    _original_connect: ClassVar[Any] = None
-    _original_send: ClassVar[Any] = None
-    _original_sendall: ClassVar[Any] = None
-    _original_recv: ClassVar[Any] = None
-    _original_close: ClassVar[Any] = None
+    _original_connect: ClassVar[Callable[..., Any] | None] = None
+    _original_send: ClassVar[Callable[..., Any] | None] = None
+    _original_sendall: ClassVar[Callable[..., Any] | None] = None
+    _original_recv: ClassVar[Callable[..., Any] | None] = None
+    _original_close: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -120,7 +121,7 @@ class SocketPlugin(StateMachinePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         SocketPlugin._original_connect = socket.socket.connect
         SocketPlugin._original_send = socket.socket.send
         SocketPlugin._original_sendall = socket.socket.sendall
@@ -130,13 +131,13 @@ class SocketPlugin(StateMachinePlugin):
         def _patched_connect(sock_self: socket.socket, address: object) -> None:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "socket" in _guard_allowlist.get():
-                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
+                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
-                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
+            except GuardPassThrough:
+                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
             if plugin is None:
-                return _SOCKET_CONNECT_ORIGINAL(sock_self, address)  # type: ignore[no-any-return]
+                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
             handle = plugin._bind_connection(sock_self)
             if isinstance(address, tuple) and len(address) >= 2:
                 host = str(address[0])
@@ -156,13 +157,13 @@ class SocketPlugin(StateMachinePlugin):
         ) -> int:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "socket" in _guard_allowlist.get():
-                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+                return cast(int, _SOCKET_SEND_ORIGINAL(sock_self, data, flags))
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
-                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+            except GuardPassThrough:
+                return cast(int, _SOCKET_SEND_ORIGINAL(sock_self, data, flags))
             if plugin is None:
-                return _SOCKET_SEND_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+                return cast(int, _SOCKET_SEND_ORIGINAL(sock_self, data, flags))
             handle = plugin._lookup_session(sock_self)
             return int(
                 plugin._execute_step(
@@ -178,13 +179,13 @@ class SocketPlugin(StateMachinePlugin):
         ) -> None:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "socket" in _guard_allowlist.get():
-                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+                return cast(None, _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags))
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
-                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+            except GuardPassThrough:
+                return cast(None, _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags))
             if plugin is None:
-                return _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags)  # type: ignore[no-any-return]
+                return cast(None, _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags))
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "sendall", (data,), {"flags": flags}, _SOURCE_SENDALL,
@@ -194,13 +195,13 @@ class SocketPlugin(StateMachinePlugin):
         def _patched_recv(sock_self: socket.socket, bufsize: int, flags: int = 0) -> bytes:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "socket" in _guard_allowlist.get():
-                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
+                return cast(bytes, _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags))
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
-                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
+            except GuardPassThrough:
+                return cast(bytes, _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags))
             if plugin is None:
-                return _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags)  # type: ignore[no-any-return]
+                return cast(bytes, _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags))
             handle = plugin._lookup_session(sock_self)
             result, interaction = plugin._execute_step(
                 handle, "recv", (bufsize,), {"flags": flags}, _SOURCE_RECV,
@@ -214,13 +215,13 @@ class SocketPlugin(StateMachinePlugin):
         def _patched_close(sock_self: socket.socket) -> None:
             # Check allowlist FIRST - bypasses both guard and sandbox
             if "socket" in _guard_allowlist.get():
-                return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
+                return cast(None, _SOCKET_CLOSE_ORIGINAL(sock_self))
             try:
                 plugin = _get_socket_plugin()
-            except _GuardPassThrough:
-                return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
+            except GuardPassThrough:
+                return cast(None, _SOCKET_CLOSE_ORIGINAL(sock_self))
             if plugin is None:
-                return _SOCKET_CLOSE_ORIGINAL(sock_self)  # type: ignore[no-any-return]
+                return cast(None, _SOCKET_CLOSE_ORIGINAL(sock_self))
             handle = plugin._lookup_session(sock_self)
             plugin._execute_step(
                 handle, "close", (), {}, _SOURCE_CLOSE,
@@ -228,27 +229,27 @@ class SocketPlugin(StateMachinePlugin):
             )
             plugin._release_session(sock_self)
 
-        socket.socket.connect = _patched_connect  # type: ignore[method-assign, assignment]
-        socket.socket.send = _patched_send  # type: ignore[method-assign, assignment]
-        socket.socket.sendall = _patched_sendall  # type: ignore[method-assign, assignment]
-        socket.socket.recv = _patched_recv  # type: ignore[method-assign, assignment]
-        socket.socket.close = _patched_close  # type: ignore[method-assign, assignment]
+        setattr(socket.socket, "connect", _patched_connect)
+        setattr(socket.socket, "send", _patched_send)
+        setattr(socket.socket, "sendall", _patched_sendall)
+        setattr(socket.socket, "recv", _patched_recv)
+        setattr(socket.socket, "close", _patched_close)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         if SocketPlugin._original_connect is not None:
-            socket.socket.connect = SocketPlugin._original_connect  # type: ignore[method-assign]
+            setattr(socket.socket, "connect", SocketPlugin._original_connect)
             SocketPlugin._original_connect = None
         if SocketPlugin._original_send is not None:
-            socket.socket.send = SocketPlugin._original_send  # type: ignore[method-assign]
+            setattr(socket.socket, "send", SocketPlugin._original_send)
             SocketPlugin._original_send = None
         if SocketPlugin._original_sendall is not None:
-            socket.socket.sendall = SocketPlugin._original_sendall  # type: ignore[method-assign]
+            setattr(socket.socket, "sendall", SocketPlugin._original_sendall)
             SocketPlugin._original_sendall = None
         if SocketPlugin._original_recv is not None:
-            socket.socket.recv = SocketPlugin._original_recv  # type: ignore[method-assign]
+            setattr(socket.socket, "recv", SocketPlugin._original_recv)
             SocketPlugin._original_recv = None
         if SocketPlugin._original_close is not None:
-            socket.socket.close = SocketPlugin._original_close  # type: ignore[method-assign]
+            setattr(socket.socket, "close", SocketPlugin._original_close)
             SocketPlugin._original_close = None
 
     # ------------------------------------------------------------------

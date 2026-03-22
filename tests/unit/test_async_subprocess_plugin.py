@@ -42,7 +42,7 @@ def _reset_install_count() -> None:
     with AsyncSubprocessPlugin._install_lock:
         AsyncSubprocessPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        AsyncSubprocessPlugin.__new__(AsyncSubprocessPlugin)._restore_patches()
+        AsyncSubprocessPlugin.__new__(AsyncSubprocessPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

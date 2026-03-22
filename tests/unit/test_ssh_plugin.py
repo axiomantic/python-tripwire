@@ -41,7 +41,7 @@ def _reset_install_count() -> None:
     with SshPlugin._install_lock:
         SshPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        SshPlugin.__new__(SshPlugin)._restore_patches()
+        SshPlugin.__new__(SshPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

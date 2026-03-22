@@ -5,11 +5,12 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -58,7 +59,7 @@ class JwtMockConfig:
 
 
 def _get_jwt_plugin() -> JwtPlugin:
-    verifier = _get_verifier_or_raise("jwt:operation")
+    verifier = get_verifier_or_raise("jwt:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, JwtPlugin):
             return plugin
@@ -177,8 +178,8 @@ class JwtPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _original_encode: ClassVar[Any] = None
-    _original_decode: ClassVar[Any] = None
+    _original_encode: ClassVar[Callable[..., Any] | None] = None
+    _original_decode: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -225,7 +226,7 @@ class JwtPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install jwt.encode and jwt.decode patches."""
         if not _JWT_AVAILABLE:
             raise ImportError(
@@ -233,10 +234,10 @@ class JwtPlugin(BasePlugin):
             )
         JwtPlugin._original_encode = jwt_lib.encode
         JwtPlugin._original_decode = jwt_lib.decode
-        jwt_lib.encode = _patched_encode  # type: ignore[assignment]
-        jwt_lib.decode = _patched_decode  # type: ignore[assignment]
+        setattr(jwt_lib, "encode", _patched_encode)
+        setattr(jwt_lib, "decode", _patched_decode)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original jwt.encode and jwt.decode."""
         if JwtPlugin._original_encode is not None:
             jwt_lib.encode = JwtPlugin._original_encode
@@ -306,7 +307,7 @@ class JwtPlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: JwtMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(JwtMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         tb = getattr(config, "registration_traceback", "")
         return (

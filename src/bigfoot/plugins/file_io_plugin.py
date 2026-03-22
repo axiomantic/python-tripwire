@@ -17,9 +17,10 @@ import shutil
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import get_active_verifier
@@ -483,21 +484,21 @@ class FileIoPlugin(BasePlugin):
     supports_guard: ClassVar[bool] = False
 
     # Saved originals, restored when count reaches 0
-    _original_open: ClassVar[Any] = None
-    _original_read_text: ClassVar[Any] = None
-    _original_read_bytes: ClassVar[Any] = None
-    _original_write_text: ClassVar[Any] = None
-    _original_write_bytes: ClassVar[Any] = None
-    _original_remove: ClassVar[Any] = None
-    _original_unlink: ClassVar[Any] = None
-    _original_rename: ClassVar[Any] = None
-    _original_replace: ClassVar[Any] = None
-    _original_makedirs: ClassVar[Any] = None
-    _original_mkdir: ClassVar[Any] = None
-    _original_copy: ClassVar[Any] = None
-    _original_copy2: ClassVar[Any] = None
-    _original_copytree: ClassVar[Any] = None
-    _original_rmtree: ClassVar[Any] = None
+    _original_open: ClassVar[Callable[..., Any] | None] = None
+    _original_read_text: ClassVar[Callable[..., Any] | None] = None
+    _original_read_bytes: ClassVar[Callable[..., Any] | None] = None
+    _original_write_text: ClassVar[Callable[..., Any] | None] = None
+    _original_write_bytes: ClassVar[Callable[..., Any] | None] = None
+    _original_remove: ClassVar[Callable[..., Any] | None] = None
+    _original_unlink: ClassVar[Callable[..., Any] | None] = None
+    _original_rename: ClassVar[Callable[..., Any] | None] = None
+    _original_replace: ClassVar[Callable[..., Any] | None] = None
+    _original_makedirs: ClassVar[Callable[..., Any] | None] = None
+    _original_mkdir: ClassVar[Callable[..., Any] | None] = None
+    _original_copy: ClassVar[Callable[..., Any] | None] = None
+    _original_copy2: ClassVar[Callable[..., Any] | None] = None
+    _original_copytree: ClassVar[Callable[..., Any] | None] = None
+    _original_rmtree: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -544,7 +545,7 @@ class FileIoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify builtins.open has not been patched by a third party."""
         current_open = builtins.open
         if hasattr(current_open, "__module__") and current_open.__module__ not in (
@@ -562,7 +563,7 @@ class FileIoPlugin(BasePlugin):
                 patcher = "an unknown library"
             raise ConflictError(target="builtins.open", patcher=patcher)
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install file I/O interceptors."""
         # Save originals
         FileIoPlugin._original_open = builtins.open
@@ -583,10 +584,10 @@ class FileIoPlugin(BasePlugin):
 
         # Install interceptors
         builtins.open = _intercepted_open
-        pathlib.Path.read_text = _intercepted_read_text  # type: ignore[assignment, method-assign]
-        pathlib.Path.read_bytes = _intercepted_read_bytes  # type: ignore[assignment, method-assign]
-        pathlib.Path.write_text = _intercepted_write_text  # type: ignore[assignment, method-assign]
-        pathlib.Path.write_bytes = _intercepted_write_bytes  # type: ignore[assignment, method-assign]
+        setattr(pathlib.Path, "read_text", _intercepted_read_text)
+        setattr(pathlib.Path, "read_bytes", _intercepted_read_bytes)
+        setattr(pathlib.Path, "write_text", _intercepted_write_text)
+        setattr(pathlib.Path, "write_bytes", _intercepted_write_bytes)
         os.remove = _intercepted_remove
         os.unlink = _intercepted_unlink
         os.rename = _intercepted_rename
@@ -596,24 +597,24 @@ class FileIoPlugin(BasePlugin):
         shutil.copy = _intercepted_copy
         shutil.copy2 = _intercepted_copy2
         shutil.copytree = _intercepted_copytree
-        shutil.rmtree = _intercepted_rmtree  # type: ignore[assignment]
+        setattr(shutil, "rmtree", _intercepted_rmtree)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original file I/O functions."""
         if FileIoPlugin._original_open is not None:
             builtins.open = FileIoPlugin._original_open
             FileIoPlugin._original_open = None
         if FileIoPlugin._original_read_text is not None:
-            pathlib.Path.read_text = FileIoPlugin._original_read_text  # type: ignore[method-assign]
+            setattr(pathlib.Path, "read_text", FileIoPlugin._original_read_text)
             FileIoPlugin._original_read_text = None
         if FileIoPlugin._original_read_bytes is not None:
-            pathlib.Path.read_bytes = FileIoPlugin._original_read_bytes  # type: ignore[method-assign]
+            setattr(pathlib.Path, "read_bytes", FileIoPlugin._original_read_bytes)
             FileIoPlugin._original_read_bytes = None
         if FileIoPlugin._original_write_text is not None:
-            pathlib.Path.write_text = FileIoPlugin._original_write_text  # type: ignore[method-assign]
+            setattr(pathlib.Path, "write_text", FileIoPlugin._original_write_text)
             FileIoPlugin._original_write_text = None
         if FileIoPlugin._original_write_bytes is not None:
-            pathlib.Path.write_bytes = FileIoPlugin._original_write_bytes  # type: ignore[method-assign]
+            setattr(pathlib.Path, "write_bytes", FileIoPlugin._original_write_bytes)
             FileIoPlugin._original_write_bytes = None
         if FileIoPlugin._original_remove is not None:
             os.remove = FileIoPlugin._original_remove
@@ -643,7 +644,7 @@ class FileIoPlugin(BasePlugin):
             shutil.copytree = FileIoPlugin._original_copytree
             FileIoPlugin._original_copytree = None
         if FileIoPlugin._original_rmtree is not None:
-            shutil.rmtree = FileIoPlugin._original_rmtree
+            setattr(shutil, "rmtree", FileIoPlugin._original_rmtree)
             FileIoPlugin._original_rmtree = None
 
     # ------------------------------------------------------------------
@@ -736,7 +737,7 @@ class FileIoPlugin(BasePlugin):
         return "\n".join(lines)
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: FileIoMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(FileIoMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         path_pattern = getattr(config, "path_pattern", "?")
         tb = getattr(config, "registration_traceback", "")

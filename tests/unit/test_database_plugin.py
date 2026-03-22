@@ -39,7 +39,7 @@ def _reset_install_count() -> None:
     with DatabasePlugin._install_lock:
         DatabasePlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        DatabasePlugin.__new__(DatabasePlugin)._restore_patches()
+        DatabasePlugin.__new__(DatabasePlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

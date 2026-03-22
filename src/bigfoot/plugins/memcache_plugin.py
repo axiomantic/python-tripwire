@@ -9,10 +9,10 @@ import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -53,7 +53,7 @@ class MemcacheMockConfig:
 
 
 def _get_memcache_plugin() -> MemcachePlugin | None:
-    verifier = _get_verifier_or_raise("memcache:command")
+    verifier = get_verifier_or_raise("memcache:command")
     for plugin in verifier._plugins:
         if isinstance(plugin, MemcachePlugin):
             return plugin
@@ -114,7 +114,7 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
                 return original(client_self, *args, **kwargs)
         try:
             plugin = _get_memcache_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             original = MemcachePlugin._originals.get(method_name)
             if original is not None:
                 return original(client_self, *args, **kwargs)
@@ -221,7 +221,7 @@ class MemcachePlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install pymemcache Client method patches."""
         if not _PYMEMCACHE_AVAILABLE:
             raise ImportError(
@@ -233,7 +233,7 @@ class MemcachePlugin(BasePlugin):
             MemcachePlugin._originals[method_name] = getattr(Client, method_name, None)
             setattr(Client, method_name, _make_patched_method(method_name))
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original pymemcache Client methods."""
         from pymemcache.client.base import Client
 
@@ -307,7 +307,7 @@ class MemcachePlugin(BasePlugin):
         return f"    {sm}.{helper}(\n{body}\n    )"
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: MemcacheMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(MemcacheMockConfig, mock_config)
         command = getattr(config, "command", "?")
         tb = getattr(config, "registration_traceback", "")
         return (

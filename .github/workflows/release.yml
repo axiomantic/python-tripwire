@@ -75,4 +75,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
-        run: gh release create "$TAG" dist/* --repo "$REPO" --generate-notes
+        run: gh release create "$TAG" dist/* --repo "$REPO" --generate-notes --clobber

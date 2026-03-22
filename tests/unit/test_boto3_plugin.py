@@ -45,7 +45,7 @@ def _reset_plugin_count() -> None:
     with Boto3Plugin._install_lock:
         Boto3Plugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        Boto3Plugin.__new__(Boto3Plugin)._restore_patches()
+        Boto3Plugin.__new__(Boto3Plugin).restore_patches()
 
 
 pytestmark = pytest.mark.allow("dns", "socket")

@@ -41,7 +41,7 @@ def _reset_install_count() -> None:
     with PikaPlugin._install_lock:
         PikaPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        PikaPlugin.__new__(PikaPlugin)._restore_patches()
+        PikaPlugin.__new__(PikaPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

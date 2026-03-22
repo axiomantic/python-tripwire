@@ -9,8 +9,8 @@ import pytest
 from bigfoot._context import (
     _active_verifier,
     _any_order_depth,
-    _get_verifier_or_raise,
     get_active_verifier,
+    get_verifier_or_raise,
     is_in_any_order,
 )
 from bigfoot._errors import SandboxNotActiveError
@@ -56,11 +56,11 @@ def test_get_active_verifier_returns_set_value() -> None:
 
 
 # ---------------------------------------------------------------------------
-# _get_verifier_or_raise
+# get_verifier_or_raise
 # ---------------------------------------------------------------------------
 
 
-def test_get_verifier_or_raise_raises_when_no_verifier() -> None:
+def testget_verifier_or_raise_raises_when_no_verifier() -> None:
     """With guard mode active (default), raises GuardedCallError instead of
     SandboxNotActiveError. Disable guard to test the original behavior."""
     from bigfoot._context import _guard_active, _guard_patches_installed
@@ -69,18 +69,18 @@ def test_get_verifier_or_raise_raises_when_no_verifier() -> None:
     patches_token = _guard_patches_installed.set(False)
     try:
         with pytest.raises(SandboxNotActiveError) as exc_info:
-            _get_verifier_or_raise(source_id="test_source")
+            get_verifier_or_raise(source_id="test_source")
         assert exc_info.value.source_id == "test_source"
     finally:
         _guard_patches_installed.reset(patches_token)
         _guard_active.reset(guard_token)
 
 
-def test_get_verifier_or_raise_returns_verifier_when_set() -> None:
+def testget_verifier_or_raise_returns_verifier_when_set() -> None:
     sentinel = object()
     token = _active_verifier.set(sentinel)  # type: ignore[arg-type]
     try:
-        result = _get_verifier_or_raise(source_id="test_source")
+        result = get_verifier_or_raise(source_id="test_source")
         assert result is sentinel
     finally:
         _active_verifier.reset(token)

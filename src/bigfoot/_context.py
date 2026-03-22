@@ -41,7 +41,7 @@ _guard_patches_installed: contextvars.ContextVar[bool] = contextvars.ContextVar(
 )
 
 
-class _GuardPassThrough(BaseException):
+class GuardPassThrough(BaseException):
     """Internal sentinel: interceptor should call the original function.
 
     Inherits from BaseException (not Exception) so generic except clauses
@@ -60,7 +60,7 @@ def get_active_verifier() -> StrictVerifier | None:
     return _active_verifier.get()
 
 
-def _get_verifier_or_raise(source_id: str) -> StrictVerifier:
+def get_verifier_or_raise(source_id: str) -> StrictVerifier:
     """Return the active verifier, or handle guard mode, or raise.
 
     Called by interceptors when they fire. Decision tree:
@@ -69,7 +69,7 @@ def _get_verifier_or_raise(source_id: str) -> StrictVerifier:
     2. Guard-eligible plugin (source_id prefix in GUARD_ELIGIBLE_PREFIXES):
        a. Guard active + not in allowlist: raise GuardedCallError (blocked).
        b. Guard active + in allowlist, or guard not active but patches
-          installed: raise _GuardPassThrough (call original).
+          installed: raise GuardPassThrough (call original).
     3. Non-guard-eligible plugin (e.g., "mock:", "logging:"):
        raise SandboxNotActiveError (existing behavior, guard is irrelevant).
     4. No sandbox, no guard: raise SandboxNotActiveError.
@@ -95,11 +95,11 @@ def _get_verifier_or_raise(source_id: str) -> StrictVerifier:
                     source_id=source_id, plugin_name=plugin_name,
                 )
             # In allowlist: pass through to original
-            raise _GuardPassThrough()
+            raise GuardPassThrough()
         if _guard_patches_installed.get():
             # Patches installed but guard not active (fixture teardown).
             # Pass through to original.
-            raise _GuardPassThrough()
+            raise GuardPassThrough()
 
     # Non-guard-eligible plugin, or no guard infrastructure active.
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415

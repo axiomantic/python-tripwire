@@ -5,11 +5,12 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -60,7 +61,7 @@ class CeleryMockConfig:
 
 
 def _get_celery_plugin() -> CeleryPlugin:
-    verifier = _get_verifier_or_raise("celery:dispatch")
+    verifier = get_verifier_or_raise("celery:dispatch")
     for plugin in verifier._plugins:
         if isinstance(plugin, CeleryPlugin):
             return plugin
@@ -206,8 +207,8 @@ class CeleryPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _original_delay: ClassVar[Any] = None
-    _original_apply_async: ClassVar[Any] = None
+    _original_delay: ClassVar[Callable[..., Any] | None] = None
+    _original_apply_async: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -266,7 +267,7 @@ class CeleryPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install Celery Task.delay and Task.apply_async patches."""
         if not _CELERY_AVAILABLE:
             raise ImportError(
@@ -279,7 +280,7 @@ class CeleryPlugin(BasePlugin):
         Task.delay = _patched_delay
         Task.apply_async = _patched_apply_async
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original Celery Task methods."""
         from celery.app.task import Task
 
@@ -350,7 +351,7 @@ class CeleryPlugin(BasePlugin):
         return f"    {sm}.assert_{dispatch}(\n{body}\n    )"
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: CeleryMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(CeleryMockConfig, mock_config)
         task_name = getattr(config, "task_name", "?")
         dispatch = getattr(config, "dispatch_method", "?")
         tb = getattr(config, "registration_traceback", "")

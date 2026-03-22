@@ -39,7 +39,7 @@ def _reset_plugin_count() -> None:
     with DnsPlugin._install_lock:
         DnsPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        DnsPlugin.__new__(DnsPlugin)._restore_patches()
+        DnsPlugin.__new__(DnsPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

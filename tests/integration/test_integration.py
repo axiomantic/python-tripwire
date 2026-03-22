@@ -16,7 +16,7 @@ from bigfoot import (
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from bigfoot._context import _active_verifier, _get_verifier_or_raise
+from bigfoot._context import _active_verifier, get_verifier_or_raise
 
 pytestmark = pytest.mark.integration
 
@@ -54,9 +54,9 @@ def test_mock_happy_path() -> None:
 
 
 def test_sandbox_not_active_error_raised_outside_sandbox() -> None:
-    """Calling _get_verifier_or_raise with no active verifier raises SandboxNotActiveError."""
+    """Calling get_verifier_or_raise with no active verifier raises SandboxNotActiveError."""
     with pytest.raises(SandboxNotActiveError) as exc_info:
-        _get_verifier_or_raise("test:source")
+        get_verifier_or_raise("test:source")
 
     assert exc_info.value.source_id == "test:source"
 
@@ -211,14 +211,14 @@ def test_multiple_returns_consumed_in_fifo_order() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Scenario 9: SandboxNotActiveError from direct _get_verifier_or_raise call
+# Scenario 9: SandboxNotActiveError from direct get_verifier_or_raise call
 # ---------------------------------------------------------------------------
 
 
-def test_get_verifier_or_raise_raises_sandbox_not_active_error() -> None:
-    """_get_verifier_or_raise raises SandboxNotActiveError when no active verifier."""
+def testget_verifier_or_raise_raises_sandbox_not_active_error() -> None:
+    """get_verifier_or_raise raises SandboxNotActiveError when no active verifier."""
     with pytest.raises(SandboxNotActiveError) as exc_info:
-        _get_verifier_or_raise("test:source")
+        get_verifier_or_raise("test:source")
 
     # Verify exact source_id is preserved
     assert exc_info.value.source_id == "test:source"

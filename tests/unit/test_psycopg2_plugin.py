@@ -37,7 +37,7 @@ def _reset_install_count() -> None:
     with Psycopg2Plugin._install_lock:
         Psycopg2Plugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        Psycopg2Plugin.__new__(Psycopg2Plugin)._restore_patches()
+        Psycopg2Plugin.__new__(Psycopg2Plugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

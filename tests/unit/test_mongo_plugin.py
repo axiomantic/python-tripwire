@@ -62,7 +62,7 @@ def _reset_plugin_count() -> None:
     with MongoPlugin._install_lock:
         MongoPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        MongoPlugin.__new__(MongoPlugin)._restore_patches()
+        MongoPlugin.__new__(MongoPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

@@ -1,5 +1,8 @@
 # pytest Integration
 
+> **Writing a custom plugin?** See [Writing Plugins](writing-plugins.md) for the plugin authoring guide.
+> **Configuring plugins?** See [Configuration](configuration.md) for `[tool.bigfoot]` settings.
+
 bigfoot integrates with pytest automatically via the `pytest11` entry point. No `conftest.py` changes are required. Install bigfoot and every test gets a fresh verifier with automatic teardown verification.
 
 ## Module-level API (preferred)

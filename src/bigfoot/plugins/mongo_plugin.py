@@ -6,10 +6,10 @@ import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -60,7 +60,7 @@ class MongoMockConfig:
 
 
 def _get_mongo_plugin() -> MongoPlugin | None:
-    verifier = _get_verifier_or_raise("mongo:operation")
+    verifier = get_verifier_or_raise("mongo:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, MongoPlugin):
             return plugin
@@ -166,7 +166,7 @@ def _make_patched_method(operation: str) -> Any:  # noqa: ANN401
                 return original[operation](collection_self, *args, **kwargs)
         try:
             plugin = _get_mongo_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             original = MongoPlugin._original_methods
             if original is not None and operation in original:
                 return original[operation](collection_self, *args, **kwargs)
@@ -282,7 +282,7 @@ class MongoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install pymongo Collection method patches."""
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
@@ -299,7 +299,7 @@ class MongoPlugin(BasePlugin):
                 _make_patched_method(op),
             )
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original pymongo Collection methods."""
         if MongoPlugin._original_methods is not None:
             for method_name, original in MongoPlugin._original_methods.items():
@@ -382,7 +382,7 @@ class MongoPlugin(BasePlugin):
         return "".join(lines)
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: MongoMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(MongoMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         tb = getattr(config, "registration_traceback", "")
         return (

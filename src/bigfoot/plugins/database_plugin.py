@@ -1,9 +1,10 @@
 """DatabasePlugin: intercepts sqlite3.connect() and returns _FakeConnection."""
 
 import sqlite3
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -27,7 +28,7 @@ _SOURCE_CLOSE = "db:close"
 
 
 def _get_database_plugin() -> "DatabasePlugin":
-    verifier = _get_verifier_or_raise(_SOURCE_CONNECT)
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
     for plugin in verifier._plugins:
         if isinstance(plugin, DatabasePlugin):
             return plugin
@@ -149,13 +150,15 @@ class _FakeConnection:
 
 
 def _patched_connect(database: str, **_kwargs: object) -> _FakeConnection:
+    _original = DatabasePlugin._original_connect
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "database" in _guard_allowlist.get() or "db" in _guard_allowlist.get():
-        return DatabasePlugin._original_connect(database, **_kwargs)  # type: ignore[no-any-return]
+        return cast(_FakeConnection, _original(database, **_kwargs))
     try:
         plugin = _get_database_plugin()
-    except _GuardPassThrough:
-        return DatabasePlugin._original_connect(database, **_kwargs)  # type: ignore[no-any-return]
+    except GuardPassThrough:
+        return cast(_FakeConnection, _original(database, **_kwargs))
     fake_conn = _FakeConnection(plugin)
     plugin._bind_connection(fake_conn)
     handle = plugin._lookup_session(fake_conn)
@@ -176,7 +179,7 @@ class DatabasePlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_connect: ClassVar[Any] = None  # noqa: ANN401
+    _original_connect: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -233,11 +236,11 @@ class DatabasePlugin(StateMachinePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         DatabasePlugin._original_connect = sqlite3.connect
-        sqlite3.connect = _patched_connect  # type: ignore[assignment]
+        setattr(sqlite3, "connect", _patched_connect)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         if DatabasePlugin._original_connect is not None:
             sqlite3.connect = DatabasePlugin._original_connect
             DatabasePlugin._original_connect = None

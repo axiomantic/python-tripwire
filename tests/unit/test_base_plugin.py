@@ -816,7 +816,7 @@ def test_default_activate_calls_install_patches_on_first() -> None:
     call_count = 0
 
     class _TrackingPlugin(_RefCountPlugin):
-        def _install_patches(self) -> None:
+        def install_patches(self) -> None:
             nonlocal call_count
             call_count += 1
 
@@ -837,7 +837,7 @@ def test_default_deactivate_calls_restore_patches_on_last() -> None:
     call_count = 0
 
     class _TrackingPlugin(_RefCountPlugin):
-        def _restore_patches(self) -> None:
+        def restore_patches(self) -> None:
             nonlocal call_count
             call_count += 1
 
@@ -858,10 +858,10 @@ def test_default_activate_calls_check_conflicts_before_install() -> None:
     call_order: list[str] = []
 
     class _OrderPlugin(_RefCountPlugin):
-        def _check_conflicts(self) -> None:
+        def check_conflicts(self) -> None:
             call_order.append("check_conflicts")
 
-        def _install_patches(self) -> None:
+        def install_patches(self) -> None:
             call_order.append("install_patches")
 
     v = StrictVerifier()

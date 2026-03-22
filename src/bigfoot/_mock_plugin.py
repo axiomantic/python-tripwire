@@ -184,10 +184,10 @@ class MethodProxy:
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         """Called when the mock is invoked. Routes through bigfoot interceptor."""
-        from bigfoot._context import _get_verifier_or_raise
+        from bigfoot._context import get_verifier_or_raise
 
         # Step 1: Verify sandbox is active (raises SandboxNotActiveError if not)
-        _get_verifier_or_raise(self.source_id)
+        get_verifier_or_raise(self.source_id)
 
         # Step 2: Check side-effect queue; fall back to spy delegation if empty
         is_spy = self._get_spy_flag()

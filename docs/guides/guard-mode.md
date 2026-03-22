@@ -16,12 +16,12 @@ bigfoot's pytest plugin installs two layers of guard infrastructure:
 
 ### Decision tree
 
-When an interceptor fires, `_get_verifier_or_raise()` follows this precedence:
+When an interceptor fires, `get_verifier_or_raise()` follows this precedence:
 
 1. **Sandbox active**: Return the verifier. The call is mocked and recorded as usual.
-2. **Guard active, plugin in allowlist**: Raise `_GuardPassThrough` internally. The interceptor catches this and delegates to the original function. The call is invisible to bigfoot.
+2. **Guard active, plugin in allowlist**: Raise `GuardPassThrough` internally. The interceptor catches this and delegates to the original function. The call is invisible to bigfoot.
 3. **Guard active, plugin not in allowlist**: Raise `GuardedCallError`. The test fails immediately with a clear error message.
-4. **Guard patches installed but guard not active** (fixture setup/teardown): Raise `_GuardPassThrough`. Calls pass through to originals.
+4. **Guard patches installed but guard not active** (fixture setup/teardown): Raise `GuardPassThrough`. Calls pass through to originals.
 5. **No sandbox, no guard**: Raise `SandboxNotActiveError` (existing behavior for non-guard-eligible plugins).
 
 In short: **sandbox > allow/deny > guard**.

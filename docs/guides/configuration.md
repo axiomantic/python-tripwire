@@ -121,6 +121,17 @@ class MyPlugin(BasePlugin):
 
 The `load_config()` method is called as the last step of the plugin's `__init__()`, after all instance attributes have been set. The default implementation in `BasePlugin` is a no-op.
 
+## Disabling Built-in Plugins
+
+If built-in plugins interfere with your custom plugin's tests, disable them:
+
+```toml
+[tool.bigfoot]
+disabled_plugins = ["socket", "subprocess"]
+```
+
+See [Writing Plugins](writing-plugins.md) for the plugin authoring guide.
+
 ## Example pyproject.toml
 
 ```toml

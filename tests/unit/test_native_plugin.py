@@ -45,7 +45,7 @@ def _reset_plugin_count() -> None:
     with NativePlugin._install_lock:
         NativePlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        NativePlugin.__new__(NativePlugin)._restore_patches()
+        NativePlugin.__new__(NativePlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

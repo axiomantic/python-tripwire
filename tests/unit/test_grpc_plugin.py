@@ -43,7 +43,7 @@ def _reset_plugin_count() -> None:
     with GrpcPlugin._install_lock:
         GrpcPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        GrpcPlugin.__new__(GrpcPlugin)._restore_patches()
+        GrpcPlugin.__new__(GrpcPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

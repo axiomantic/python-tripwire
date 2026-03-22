@@ -6,10 +6,10 @@ import threading
 import traceback
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -77,7 +77,7 @@ class ElasticsearchMockConfig:
 
 
 def _get_elasticsearch_plugin() -> ElasticsearchPlugin | None:
-    verifier = _get_verifier_or_raise("elasticsearch:operation")
+    verifier = get_verifier_or_raise("elasticsearch:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, ElasticsearchPlugin):
             return plugin
@@ -113,7 +113,7 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
                 return original(es_self, *args, **kwargs)
         try:
             plugin = _get_elasticsearch_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             original = ElasticsearchPlugin._originals.get(operation)
             if original is not None:
                 return original(es_self, *args, **kwargs)
@@ -207,7 +207,7 @@ class ElasticsearchPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install Elasticsearch method patches."""
         if not _ELASTICSEARCH_AVAILABLE:
             raise ImportError(
@@ -219,7 +219,7 @@ class ElasticsearchPlugin(BasePlugin):
             ElasticsearchPlugin._originals[method_name] = getattr(es_cls, method_name)
             setattr(es_cls, method_name, _make_interceptor(method_name))
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original Elasticsearch methods."""
         es_cls = es_lib.Elasticsearch
         for method_name, original in ElasticsearchPlugin._originals.items():
@@ -290,7 +290,7 @@ class ElasticsearchPlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: ElasticsearchMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(ElasticsearchMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         tb = getattr(config, "registration_traceback", "")
         return (

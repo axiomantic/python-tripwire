@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from bigfoot._context import (
+    GuardPassThrough,
     _guard_active,
     _guard_allowlist,
-    _GuardPassThrough,
 )
 
 
@@ -53,17 +53,17 @@ class TestGuardContextVars:
 
 
 class TestGuardPassThrough:
-    """Test _GuardPassThrough sentinel exception."""
+    """Test GuardPassThrough sentinel exception."""
 
     def test_inherits_from_base_exception(self) -> None:
-        assert issubclass(_GuardPassThrough, BaseException)
+        assert issubclass(GuardPassThrough, BaseException)
 
     def test_not_caught_by_generic_except_exception(self) -> None:
-        with pytest.raises(_GuardPassThrough):
+        with pytest.raises(GuardPassThrough):
             try:
-                raise _GuardPassThrough()
+                raise GuardPassThrough()
             except Exception:
-                pass  # Should NOT catch _GuardPassThrough
+                pass  # Should NOT catch GuardPassThrough
 
 
 from bigfoot._errors import GuardedCallError
@@ -106,8 +106,8 @@ class TestGuardedCallError:
             "  FOR CONTRIBUTORS:",
             "    To add guard support to a new I/O plugin:",
             "    1. Keep supports_guard = True (the default)",
-            "    2. Add try/except _GuardPassThrough to each interceptor",
-            "    3. On _GuardPassThrough, call the original function",
+            "    2. Add try/except GuardPassThrough to each interceptor",
+            "    3. On GuardPassThrough, call the original function",
         ])
         assert str(err) == expected
 
@@ -136,8 +136,8 @@ class TestGuardedCallError:
             "  FOR CONTRIBUTORS:",
             "    To add guard support to a new I/O plugin:",
             "    1. Keep supports_guard = True (the default)",
-            "    2. Add try/except _GuardPassThrough to each interceptor",
-            "    3. On _GuardPassThrough, call the original function",
+            "    2. Add try/except GuardPassThrough to each interceptor",
+            "    3. On GuardPassThrough, call the original function",
         ])
 
 
@@ -316,12 +316,12 @@ class TestPublicExports:
         assert "GuardedCallError" in bigfoot.__all__
 
 
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import GuardedCallError, SandboxNotActiveError
 
 
 class TestGetVerifierOrRaiseGuardBranching:
-    """Test the modified _get_verifier_or_raise with guard mode logic."""
+    """Test the modified get_verifier_or_raise with guard mode logic."""
 
     def test_no_sandbox_no_guard_raises_sandbox_not_active(self) -> None:
         """Without sandbox or guard, raises SandboxNotActiveError (existing behavior).
@@ -335,7 +335,7 @@ class TestGetVerifierOrRaiseGuardBranching:
         patches_token = _guard_patches_installed.set(False)
         try:
             with pytest.raises(SandboxNotActiveError):
-                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+                get_verifier_or_raise("dns:getaddrinfo:example.com")
         finally:
             _guard_patches_installed.reset(patches_token)
             _guard_active.reset(guard_token)
@@ -345,19 +345,19 @@ class TestGetVerifierOrRaiseGuardBranching:
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
-                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+                get_verifier_or_raise("dns:getaddrinfo:example.com")
             assert exc_info.value.plugin_name == "dns"
             assert exc_info.value.source_id == "dns:getaddrinfo:example.com"
         finally:
             _guard_active.reset(token)
 
     def test_guard_active_in_allowlist_raises_guard_pass_through(self) -> None:
-        """Guard active + allowed = _GuardPassThrough (interceptor should call original)."""
+        """Guard active + allowed = GuardPassThrough (interceptor should call original)."""
         guard_token = _guard_active.set(True)
         allow_token = _guard_allowlist.set(frozenset({"dns"}))
         try:
-            with pytest.raises(_GuardPassThrough):
-                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+            with pytest.raises(GuardPassThrough):
+                get_verifier_or_raise("dns:getaddrinfo:example.com")
         finally:
             _guard_allowlist.reset(allow_token)
             _guard_active.reset(guard_token)
@@ -367,7 +367,7 @@ class TestGetVerifierOrRaiseGuardBranching:
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
-                _get_verifier_or_raise("http:request")
+                get_verifier_or_raise("http:request")
             assert exc_info.value.plugin_name == "http"
         finally:
             _guard_active.reset(token)
@@ -377,17 +377,17 @@ class TestGetVerifierOrRaiseGuardBranching:
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
-                _get_verifier_or_raise("dns:getaddrinfo:example.com")
+                get_verifier_or_raise("dns:getaddrinfo:example.com")
             assert exc_info.value.plugin_name == "dns"
         finally:
             _guard_active.reset(token)
 
 
 class TestGuardPassThroughInDirectPlugins:
-    """Test that _GuardPassThrough is caught correctly in direct-helper plugins.
+    """Test that GuardPassThrough is caught correctly in direct-helper plugins.
 
     These tests verify the interceptor pattern by activating guard mode,
-    installing plugin patches, and confirming _GuardPassThrough results
+    installing plugin patches, and confirming GuardPassThrough results
     in calling the original function (not raising).
 
     DNS is used as the representative case since it has no external deps.
@@ -485,7 +485,7 @@ class TestGuardPassThroughInDirectPlugins:
 
 
 class TestGuardPassThroughInStateMachinePlugins:
-    """Test _GuardPassThrough in StateMachine plugin interceptors.
+    """Test GuardPassThrough in StateMachine plugin interceptors.
 
     Socket is the representative case (no external deps, easy to test).
     Database (sqlite3) is also tested since it is always available.
@@ -535,7 +535,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 try:
                     # connect to a port that should refuse -- the point is that it
                     # reaches the REAL connect (ConnectionRefusedError or similar)
-                    # rather than raising _GuardPassThrough or GuardedCallError
+                    # rather than raising GuardPassThrough or GuardedCallError
                     with pytest.raises((ConnectionRefusedError, OSError)):
                         sock.connect(("127.0.0.1", 1))
                 finally:
@@ -691,7 +691,7 @@ class TestGuardPassThroughInStateMachinePlugins:
 
 
 class TestGuardPassThroughInRemainingPlugins:
-    """Test _GuardPassThrough in remaining plugin interceptors (Task 9).
+    """Test GuardPassThrough in remaining plugin interceptors (Task 9).
 
     Subprocess is used as the representative case since it has no external
     deps beyond the stdlib and exercises both the block and allow paths.

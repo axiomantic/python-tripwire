@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -46,7 +46,7 @@ _SOURCE_CLOSE = "pika:close"
 
 
 def _find_pika_plugin() -> PikaPlugin:
-    verifier = _get_verifier_or_raise("pika:connect")
+    verifier = get_verifier_or_raise("pika:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, PikaPlugin):
             return plugin
@@ -136,7 +136,7 @@ class _FakeBlockingConnection:
             return _ORIGINAL_BLOCKING_CONNECTION(*args, **kwargs)
         try:
             _find_pika_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             return _ORIGINAL_BLOCKING_CONNECTION(*args, **kwargs)
         return super().__new__(cls)
 
@@ -197,7 +197,7 @@ class PikaPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_blocking_connection: ClassVar[Any] = None
+    _original_blocking_connection: ClassVar[type[Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -265,14 +265,14 @@ class PikaPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install pika.BlockingConnection patch."""
         if not _PIKA_AVAILABLE:  # pragma: no cover
             return
         PikaPlugin._original_blocking_connection = pika_lib.BlockingConnection
         pika_lib.BlockingConnection = _FakeBlockingConnection
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original pika.BlockingConnection."""
         if not _PIKA_AVAILABLE:  # pragma: no cover
             return

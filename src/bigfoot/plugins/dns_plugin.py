@@ -6,11 +6,12 @@ import socket
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -61,7 +62,7 @@ class DnsMockConfig:
 
 
 def _get_dns_plugin() -> DnsPlugin | None:
-    verifier = _get_verifier_or_raise("dns:lookup")
+    verifier = get_verifier_or_raise("dns:lookup")
     for plugin in verifier._plugins:
         if isinstance(plugin, DnsPlugin):
             return plugin
@@ -73,7 +74,7 @@ def _resolve_dns_plugin() -> DnsPlugin | None:
 
     Centralises the guard-mode / allowlist check shared by all DNS interceptors:
     1. If ``"dns"`` is on the context-local allowlist, return ``None``.
-    2. If ``_get_dns_plugin`` raises ``_GuardPassThrough``, return ``None``.
+    2. If ``_get_dns_plugin`` raises ``GuardPassThrough``, return ``None``.
     3. If no ``DnsPlugin`` is registered on the active verifier, return ``None``.
     4. Otherwise return the plugin instance.
     """
@@ -81,7 +82,7 @@ def _resolve_dns_plugin() -> DnsPlugin | None:
         return None
     try:
         return _get_dns_plugin()
-    except _GuardPassThrough:
+    except GuardPassThrough:
         return None
 
 
@@ -155,7 +156,9 @@ def _patched_getaddrinfo(
 ) -> Any:  # noqa: ANN401
     plugin = _resolve_dns_plugin()
     if plugin is None:
-        return DnsPlugin._original_getaddrinfo(host, port, family, type, proto, flags)
+        _orig = DnsPlugin._original_getaddrinfo
+        assert _orig is not None
+        return _orig(host, port, family, type, proto, flags)
     return _consume_mock(
         plugin,
         operation="getaddrinfo",
@@ -169,7 +172,9 @@ def _patched_getaddrinfo(
 def _patched_gethostbyname(hostname: str) -> Any:  # noqa: ANN401
     plugin = _resolve_dns_plugin()
     if plugin is None:
-        return DnsPlugin._original_gethostbyname(hostname)
+        _orig = DnsPlugin._original_gethostbyname
+        assert _orig is not None
+        return _orig(hostname)
     return _consume_mock(
         plugin,
         operation="gethostbyname",
@@ -190,7 +195,9 @@ def _patched_resolver_resolve(
     """Instance method: Resolver().resolve(qname, rdtype)."""
     plugin = _resolve_dns_plugin()
     if plugin is None:
-        return DnsPlugin._original_resolver_resolve(self, qname, rdtype, *args, **kwargs)
+        _orig = DnsPlugin._original_resolver_resolve
+        assert _orig is not None
+        return _orig(self, qname, rdtype, *args, **kwargs)
     actual_qname = str(qname)
     actual_rdtype = str(rdtype)
     return _consume_mock(
@@ -212,7 +219,9 @@ def _patched_module_resolve(
     """Module-level: dns.resolver.resolve(qname, rdtype)."""
     plugin = _resolve_dns_plugin()
     if plugin is None:
-        return DnsPlugin._original_resolve(qname, rdtype, *args, **kwargs)
+        _orig = DnsPlugin._original_resolve
+        assert _orig is not None
+        return _orig(qname, rdtype, *args, **kwargs)
     actual_qname = str(qname)
     actual_rdtype = str(rdtype)
     return _consume_mock(
@@ -240,10 +249,10 @@ class DnsPlugin(BasePlugin):
     Uses reference counting so nested sandboxes work correctly.
     """
 
-    _original_getaddrinfo: ClassVar[Any] = None
-    _original_gethostbyname: ClassVar[Any] = None
-    _original_resolve: ClassVar[Any] = None
-    _original_resolver_resolve: ClassVar[Any] = None
+    _original_getaddrinfo: ClassVar[Callable[..., Any] | None] = None
+    _original_gethostbyname: ClassVar[Callable[..., Any] | None] = None
+    _original_resolve: ClassVar[Callable[..., Any] | None] = None
+    _original_resolver_resolve: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -328,20 +337,20 @@ class DnsPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install DNS interception patches."""
         DnsPlugin._original_getaddrinfo = socket.getaddrinfo
         DnsPlugin._original_gethostbyname = socket.gethostbyname
-        socket.getaddrinfo = _patched_getaddrinfo  # type: ignore[assignment]
+        setattr(socket, "getaddrinfo", _patched_getaddrinfo)
         socket.gethostbyname = _patched_gethostbyname
 
         if _DNSPYTHON_AVAILABLE:
             DnsPlugin._original_resolve = dns.resolver.resolve
             DnsPlugin._original_resolver_resolve = dns.resolver.Resolver.resolve
-            dns.resolver.resolve = _patched_module_resolve  # type: ignore[assignment]
-            dns.resolver.Resolver.resolve = _patched_resolver_resolve  # type: ignore[assignment, method-assign]
+            setattr(dns.resolver, "resolve", _patched_module_resolve)
+            setattr(dns.resolver.Resolver, "resolve", _patched_resolver_resolve)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original DNS functions."""
         if DnsPlugin._original_getaddrinfo is not None:
             socket.getaddrinfo = DnsPlugin._original_getaddrinfo
@@ -353,7 +362,7 @@ class DnsPlugin(BasePlugin):
             dns.resolver.resolve = DnsPlugin._original_resolve
             DnsPlugin._original_resolve = None
         if DnsPlugin._original_resolver_resolve is not None and _DNSPYTHON_AVAILABLE:
-            dns.resolver.Resolver.resolve = DnsPlugin._original_resolver_resolve  # type: ignore[method-assign]
+            setattr(dns.resolver.Resolver, "resolve", DnsPlugin._original_resolver_resolve)
             DnsPlugin._original_resolver_resolve = None
 
     # ------------------------------------------------------------------
@@ -487,7 +496,7 @@ class DnsPlugin(BasePlugin):
         return f"    {sm}.assert_interaction(...)"
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: DnsMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(DnsMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         hostname = getattr(config, "hostname", "?")
         tb = getattr(config, "registration_traceback", "")

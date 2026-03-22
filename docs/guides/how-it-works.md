@@ -67,15 +67,15 @@ class HttpPlugin(BasePlugin):
     def activate(self) -> None:
         with HttpPlugin._install_lock:
             if HttpPlugin._install_count == 0:
-                self._check_conflicts()
-                self._install_patches()
+                self.check_conflicts()
+                self.install_patches()
             HttpPlugin._install_count += 1
 
     def deactivate(self) -> None:
         with HttpPlugin._install_lock:
             HttpPlugin._install_count = max(0, HttpPlugin._install_count - 1)
             if HttpPlugin._install_count == 0:
-                self._restore_patches()
+                self.restore_patches()
 ```
 
 This means patches are shared across all verifier instances. The reference count is class-level (not instance-level), so two concurrent sandboxes both using `HttpPlugin` share the same interceptors. The ContextVar routing (described next) ensures each intercepted call reaches the correct verifier.
@@ -90,7 +90,7 @@ _active_verifier: contextvars.ContextVar[StrictVerifier | None] = contextvars.Co
 )
 ```
 
-When an interceptor fires, it calls `_get_verifier_or_raise(source_id)`, which reads the ContextVar and returns the active verifier. If no sandbox is active (the ContextVar is `None`), it raises `SandboxNotActiveError`.
+When an interceptor fires, it calls `get_verifier_or_raise(source_id)`, which reads the ContextVar and returns the active verifier. If no sandbox is active (the ContextVar is `None`), it raises `SandboxNotActiveError`.
 
 ### Why ContextVar?
 

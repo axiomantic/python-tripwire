@@ -37,7 +37,11 @@ def _bigfoot_auto_verifier() -> Generator[StrictVerifier, None, None]:
     verify_all() is called at teardown automatically. The sandbox is NOT automatically
     activated -- the test (or module-level bigfoot.sandbox()) controls sandbox lifetime.
     """
-    verifier = StrictVerifier()
+    StrictVerifier._suppress_direct_warning = True
+    try:
+        verifier = StrictVerifier()
+    finally:
+        StrictVerifier._suppress_direct_warning = False
     token = _current_test_verifier.set(verifier)
     yield verifier
     _current_test_verifier.reset(token)

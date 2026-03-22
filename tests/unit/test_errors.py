@@ -107,9 +107,13 @@ def test_unmocked_interaction_error_str() -> None:
     )
     result = str(err)
     assert result == (
-        "Unexpected call: source_id='http.post', "
-        "args=('/api/v1/submit',), kwargs={'json': {'key': 'val'}}\n\n"
-        "Add mock for http.post"
+        "Unmocked call to 'http.post'.\n\n"
+        "Add a mock before entering the sandbox:\n"
+        "Add mock for http.post\n\n"
+        "Then assert it after the sandbox closes:\n"
+        "    with bigfoot:\n"
+        "        # ... your code that triggers the call\n"
+        "    # assert_* call here (REQUIRED)"
     )
 
 
@@ -152,7 +156,15 @@ def test_unasserted_interactions_error_str() -> None:
         hint="Assert all recorded interactions before teardown.",
     )
     result = str(err)
-    assert result == "Assert all recorded interactions before teardown."
+    assert result == (
+        "2 interactions were not asserted. "
+        "Every intercepted call must be verified with an assert_* call "
+        "after the sandbox closes:\n\n"
+        "    with bigfoot:\n"
+        "        result = do_something()\n"
+        "    plugin.assert_*(...)  # <-- required for each interaction\n\n"
+        "Assert all recorded interactions before teardown."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -257,9 +269,17 @@ def test_verification_error_str_both_set() -> None:
     )
     err = VerificationError(unasserted=unasserted, unused=unused)
     result = str(err)
+    unasserted_preamble = (
+        "1 interaction was not asserted. "
+        "Every intercepted call must be verified with an assert_* call "
+        "after the sandbox closes:\n\n"
+        "    with bigfoot:\n"
+        "        result = do_something()\n"
+        "    plugin.assert_*(...)  # <-- required for each interaction\n\n"
+    )
     assert result == (
         "VerificationError:\n"
-        "  [UnassertedInteractions] Assert each interaction.\n"
+        f"  [UnassertedInteractions] {unasserted_preamble}Assert each interaction.\n"
         "  [UnusedMocks] Remove or set required=False."
     )
 
@@ -272,9 +292,17 @@ def test_verification_error_str_only_unasserted() -> None:
     )
     err = VerificationError(unasserted=unasserted, unused=None)
     result = str(err)
+    unasserted_preamble = (
+        "0 interaction was not asserted. "
+        "Every intercepted call must be verified with an assert_* call "
+        "after the sandbox closes:\n\n"
+        "    with bigfoot:\n"
+        "        result = do_something()\n"
+        "    plugin.assert_*(...)  # <-- required for each interaction\n\n"
+    )
     assert result == (
         "VerificationError:\n"
-        "  [UnassertedInteractions] Nothing to assert."
+        f"  [UnassertedInteractions] {unasserted_preamble}Nothing to assert."
     )
 
 

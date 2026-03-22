@@ -62,7 +62,7 @@ def _reset_async_plugin_count() -> None:
     with AsyncWebSocketPlugin._install_lock:
         AsyncWebSocketPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        AsyncWebSocketPlugin.__new__(AsyncWebSocketPlugin)._restore_patches()
+        AsyncWebSocketPlugin.__new__(AsyncWebSocketPlugin).restore_patches()
 
 
 def _reset_sync_plugin_count() -> None:
@@ -70,7 +70,7 @@ def _reset_sync_plugin_count() -> None:
     with SyncWebSocketPlugin._install_lock:
         SyncWebSocketPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        SyncWebSocketPlugin.__new__(SyncWebSocketPlugin)._restore_patches()
+        SyncWebSocketPlugin.__new__(SyncWebSocketPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

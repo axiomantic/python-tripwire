@@ -6,11 +6,12 @@ import ctypes
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -32,7 +33,7 @@ except ImportError:  # pragma: no cover
 # Capture originals at module-load time for conflict detection
 # ---------------------------------------------------------------------------
 
-_CDLL_INIT_ORIGINAL: Any = ctypes.CDLL.__init__
+_CDLL_INIT_ORIGINAL: Callable[..., Any] = ctypes.CDLL.__init__
 
 # ---------------------------------------------------------------------------
 # NativeMockConfig
@@ -66,7 +67,7 @@ class NativeMockConfig:
 
 
 def _get_native_plugin() -> NativePlugin:
-    verifier = _get_verifier_or_raise("native:call")
+    verifier = get_verifier_or_raise("native:call")
     for plugin in verifier._plugins:
         if isinstance(plugin, NativePlugin):
             return plugin
@@ -107,7 +108,7 @@ def _serialize_arg(value: Any) -> Any:  # noqa: ANN401
         return _serialize_struct(value)
     if isinstance(value, ctypes._SimpleCData):
         return value.value
-    if isinstance(value, ctypes._CFuncPtr):  # type: ignore[attr-defined]
+    if isinstance(value, getattr(ctypes, "_CFuncPtr", type(None))):
         return "<callback>"
     if callable(value) and hasattr(value, "_type_"):
         return "<callback>"
@@ -261,8 +262,8 @@ class NativePlugin(BasePlugin):
     supports_guard: ClassVar[bool] = False
 
     # Saved originals, restored when count reaches 0
-    _original_cdll_init: ClassVar[Any] = None
-    _original_ffi_dlopen: ClassVar[Any] = None
+    _original_cdll_init: ClassVar[Callable[..., Any] | None] = None
+    _original_ffi_dlopen: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -308,7 +309,7 @@ class NativePlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify ctypes.CDLL.__init__ has not been patched by a third party."""
         current_init = ctypes.CDLL.__init__
         if (
@@ -321,20 +322,20 @@ class NativePlugin(BasePlugin):
                 patcher=patcher,
             )
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install ctypes.CDLL and optionally cffi.FFI patches."""
         NativePlugin._original_cdll_init = ctypes.CDLL.__init__
-        ctypes.CDLL.__init__ = _patched_cdll_init  # type: ignore[assignment]
+        setattr(ctypes.CDLL, "__init__", _patched_cdll_init)
 
         # Optionally patch cffi if available
         if _CFFI_AVAILABLE:
             NativePlugin._original_ffi_dlopen = cffi_lib.FFI.dlopen
             cffi_lib.FFI.dlopen = _patched_ffi_dlopen
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original ctypes.CDLL and cffi.FFI functions."""
         if NativePlugin._original_cdll_init is not None:
-            ctypes.CDLL.__init__ = NativePlugin._original_cdll_init  # type: ignore[method-assign]
+            setattr(ctypes.CDLL, "__init__", NativePlugin._original_cdll_init)
             NativePlugin._original_cdll_init = None
         if NativePlugin._original_ffi_dlopen is not None and _CFFI_AVAILABLE:
             cffi_lib.FFI.dlopen = NativePlugin._original_ffi_dlopen
@@ -407,7 +408,7 @@ class NativePlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: NativeMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(NativeMockConfig, mock_config)
         library = getattr(config, "library", "?")
         function = getattr(config, "function", "?")
         tb = getattr(config, "registration_traceback", "")

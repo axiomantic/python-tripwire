@@ -46,7 +46,7 @@ def _reset_install_count() -> None:
     with LoggingPlugin._install_lock:
         LoggingPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        LoggingPlugin.__new__(LoggingPlugin)._restore_patches()
+        LoggingPlugin.__new__(LoggingPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)
@@ -549,7 +549,7 @@ def test_conflict_error_logger_log_already_patched() -> None:
     try:
         logging.Logger._log = foreign_patch  # type: ignore[assignment]
         with pytest.raises(ConflictError):
-            p._check_conflicts()
+            p.check_conflicts()
     finally:
         logging.Logger._log = original  # type: ignore[assignment]
 

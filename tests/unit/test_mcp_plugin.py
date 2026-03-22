@@ -43,7 +43,7 @@ def _reset_plugin_count() -> None:
     with McpPlugin._install_lock:
         McpPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        McpPlugin.__new__(McpPlugin)._restore_patches()
+        McpPlugin.__new__(McpPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

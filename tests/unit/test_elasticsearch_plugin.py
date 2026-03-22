@@ -37,7 +37,7 @@ def _reset_plugin_count() -> None:
     with ElasticsearchPlugin._install_lock:
         ElasticsearchPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        ElasticsearchPlugin.__new__(ElasticsearchPlugin)._restore_patches()
+        ElasticsearchPlugin.__new__(ElasticsearchPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

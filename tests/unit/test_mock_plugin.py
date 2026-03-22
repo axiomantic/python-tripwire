@@ -284,9 +284,9 @@ def test_method_proxy_raises_sandbox_not_active_outside_sandbox() -> None:
     """Calling a MethodProxy outside a sandbox raises SandboxNotActiveError."""
     # ESCAPE:
     # CLAIM: Without an active sandbox (ContextVar unset), SandboxNotActiveError is raised.
-    # PATH: MethodProxy.__call__ -> _get_verifier_or_raise(source_id) -> raises SandboxNotActiveError.
+    # PATH: MethodProxy.__call__ -> get_verifier_or_raise(source_id) -> raises SandboxNotActiveError.
     # CHECK: pytest.raises(SandboxNotActiveError) catches the exact type.
-    # MUTATION: Skipping _get_verifier_or_raise call means it proceeds to UnmockedInteractionError.
+    # MUTATION: Skipping get_verifier_or_raise call means it proceeds to UnmockedInteractionError.
     # ESCAPE: A different exception type would not be caught by SandboxNotActiveError.
     # IMPACT: Mocks could silently fire without a sandbox, ignoring interaction recording.
     v = StrictVerifier()
@@ -302,7 +302,7 @@ def test_method_proxy_sandbox_not_active_error_has_source_id() -> None:
     """SandboxNotActiveError raised outside sandbox contains the correct source_id."""
     # ESCAPE:
     # CLAIM: The SandboxNotActiveError carries the method's source_id.
-    # PATH: _get_verifier_or_raise(source_id) -> SandboxNotActiveError(source_id=source_id).
+    # PATH: get_verifier_or_raise(source_id) -> SandboxNotActiveError(source_id=source_id).
     # CHECK: exc.source_id == "mock:Service.charge" (exact equality).
     # MUTATION: Passing wrong source_id (e.g., "") to SandboxNotActiveError would fail.
     # ESCAPE: Nothing reasonable passes exact equality with wrong value.

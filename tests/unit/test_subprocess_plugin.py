@@ -50,7 +50,7 @@ def _reset_install_count() -> None:
     with SubprocessPlugin._install_lock:
         SubprocessPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        SubprocessPlugin.__new__(SubprocessPlugin)._restore_patches()
+        SubprocessPlugin.__new__(SubprocessPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)
@@ -479,7 +479,7 @@ def test_conflict_error_subprocess_run_already_patched() -> None:
     try:
         subprocess.run = foreign_patch  # type: ignore[assignment]
         with pytest.raises(ConflictError):
-            p._check_conflicts()
+            p.check_conflicts()
     finally:
         subprocess.run = original  # type: ignore[assignment]
 
@@ -498,7 +498,7 @@ def test_conflict_error_shutil_which_already_patched() -> None:
     try:
         shutil.which = foreign_patch  # type: ignore[assignment]
         with pytest.raises(ConflictError):
-            p._check_conflicts()
+            p.check_conflicts()
     finally:
         shutil.which = original  # type: ignore[assignment]
 

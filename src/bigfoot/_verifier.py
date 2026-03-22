@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from bigfoot._config import load_bigfoot_config
 from bigfoot._context import _active_verifier, _any_order_depth
 from bigfoot._errors import (
+    AllWildcardAssertionError,
     AssertionInsideSandboxError,
     InteractionMismatchError,
     MissingAssertionFieldsError,
@@ -32,9 +33,38 @@ class _HasSourceId(Protocol):
 
 
 class StrictVerifier:
-    """Central orchestrator: owns timeline, plugin registry, ContextVar routing."""
+    """Manages plugin lifecycle, sandbox context, and assertion verification.
+
+    Do NOT instantiate directly. Use bigfoot's pytest integration:
+
+        # In your test:
+        bigfoot.http.mock_response("GET", "/api", json={"ok": True})
+        with bigfoot:
+            response = requests.get("/api")
+        bigfoot.http.assert_request("GET", "/api", status=200)
+
+    Direct instantiation bypasses forced assertion checking and will
+    silently produce tests that pass without verifying anything.
+
+    To access the verifier in a fixture or helper:
+        verifier = bigfoot.current_verifier()
+    """
+
+    _suppress_direct_warning: bool = False
 
     def __init__(self) -> None:
+        # Detect direct instantiation outside pytest
+        if not StrictVerifier._suppress_direct_warning:
+            from bigfoot._context import _current_test_verifier  # noqa: PLC0415
+
+            if _current_test_verifier.get(None) is None:
+                warnings.warn(
+                    "StrictVerifier instantiated directly. "
+                    "Use `with bigfoot:` for proper assertion enforcement. "
+                    "Direct instantiation bypasses the pytest fixture that "
+                    "enforces verify_all() at teardown.",
+                    stacklevel=2,
+                )
         self._plugins: list[BasePlugin] = []
         self._timeline: Timeline = Timeline()
         self._bigfoot_config: dict[str, Any] = load_bigfoot_config()
@@ -169,6 +199,10 @@ class StrictVerifier:
             missing = required_fields - set(expected.keys())
             if missing:
                 raise MissingAssertionFieldsError(missing_fields=frozenset(missing))
+            # Detect all-wildcard assertions
+            if expected and self._all_wildcards(expected):
+                hint = candidate.plugin.format_assert_hint(candidate)
+                raise AllWildcardAssertionError(interaction=candidate, hint=hint)
             # Pass 2 — full field-value match (searching all unasserted, not just candidate)
             interaction = self._timeline.find_any_unasserted(
                 lambda i: i.source_id == source_id and i.plugin.matches(i, expected)
@@ -200,6 +234,10 @@ class StrictVerifier:
             missing = required_fields - set(expected.keys())
             if missing:
                 raise MissingAssertionFieldsError(missing_fields=frozenset(missing))
+            # Detect all-wildcard assertions
+            if expected and self._all_wildcards(expected):
+                hint = interaction.plugin.format_assert_hint(interaction)
+                raise AllWildcardAssertionError(interaction=interaction, hint=hint)
             if not interaction.plugin.matches(interaction, expected):
                 remaining = self._timeline.all_unasserted()
                 hint = self._format_mismatch_error(
@@ -301,11 +339,22 @@ class StrictVerifier:
         lines.append("  Hint: Did you forget an in_any_order() block?")
         return "\n".join(lines)
 
+    @staticmethod
+    def _all_wildcards(expected: dict[str, object]) -> bool:
+        """Return True if ALL expected values are always-true matchers."""
+        try:
+            from dirty_equals import AnyThing  # noqa: PLC0415
+        except ImportError:
+            return False
+        return all(isinstance(v, AnyThing) for v in expected.values())
+
     def _format_unasserted_error(self, unasserted: list[Interaction]) -> str:
         lines = [f"{len(unasserted)} interaction(s) were not asserted", ""]
         for i in unasserted:
             lines.append(f"  [sequence={i.sequence}] {i.plugin.format_interaction(i)}")
-            lines.append("    To assert this interaction:")
+            lines.append("")
+            lines.append("    Copy this assertion into your test:")
+            lines.append("")
             lines.append(f"      {i.plugin.format_assert_hint(i)}")
             lines.append("")
         return "\n".join(lines)

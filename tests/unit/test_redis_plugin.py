@@ -40,7 +40,7 @@ def _reset_plugin_count() -> None:
     with RedisPlugin._install_lock:
         RedisPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        RedisPlugin.__new__(RedisPlugin)._restore_patches()
+        RedisPlugin.__new__(RedisPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

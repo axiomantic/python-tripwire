@@ -162,7 +162,8 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     import importlib
 
     module = importlib.import_module(entry.import_path)
-    return getattr(module, entry.class_name)  # type: ignore[no-any-return]
+    cls: type[BasePlugin] = getattr(module, entry.class_name)
+    return cls
 
 
 def resolve_enabled_plugins(

@@ -49,7 +49,7 @@ def _reset_install_count() -> None:
     with HttpPlugin._install_lock:
         HttpPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        HttpPlugin.__new__(HttpPlugin)._restore_patches()
+        HttpPlugin.__new__(HttpPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)
@@ -183,7 +183,7 @@ def test_deactivate_restores_patches_on_last_call() -> None:
 #           We verify patch identity is unchanged (same object, not re-set) by counting calls.
 def test_second_activate_increments_but_does_not_reinstall() -> None:
     v, p = _make_verifier_with_plugin()
-    with patch.object(p, "_install_patches", wraps=p._install_patches) as mock_install:
+    with patch.object(p, "install_patches", wraps=p.install_patches) as mock_install:
         p.activate()
         assert HttpPlugin._install_count == 1
         assert mock_install.call_count == 1
@@ -238,7 +238,7 @@ def test_check_conflicts_raises_when_httpx_sync_patched_by_foreign() -> None:
     try:
         httpx.HTTPTransport.handle_request = foreign_patch
         with pytest.raises(ConflictError):
-            p._check_conflicts()
+            p.check_conflicts()
     finally:
         httpx.HTTPTransport.handle_request = original
 
@@ -258,7 +258,7 @@ def test_check_conflicts_raises_when_httpx_async_patched_by_foreign() -> None:
     try:
         httpx.AsyncHTTPTransport.handle_async_request = foreign_patch
         with pytest.raises(ConflictError):
-            p._check_conflicts()
+            p.check_conflicts()
     finally:
         httpx.AsyncHTTPTransport.handle_async_request = original
 
@@ -278,7 +278,7 @@ def test_check_conflicts_raises_when_requests_patched_by_foreign() -> None:
     try:
         requests.adapters.HTTPAdapter.send = foreign_patch
         with pytest.raises(ConflictError):
-            p._check_conflicts()
+            p.check_conflicts()
     finally:
         requests.adapters.HTTPAdapter.send = original
 
@@ -292,7 +292,7 @@ def test_check_conflicts_raises_when_requests_patched_by_foreign() -> None:
 def test_check_conflicts_does_not_raise_when_no_foreign_patch() -> None:
     v, p = _make_verifier_with_plugin()
     # All methods are at import-time originals -- must not raise
-    p._check_conflicts()  # No assertion needed; would raise if broken
+    p.check_conflicts()  # No assertion needed; would raise if broken
 
 
 # ---------------------------------------------------------------------------
@@ -303,7 +303,7 @@ def test_check_conflicts_does_not_raise_when_no_foreign_patch() -> None:
 # ESCAPE: test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox
 #   CLAIM: When patches are installed but _active_verifier is None, httpx request
 #          raises SandboxNotActiveError.
-#   PATH:  interceptor -> _get_verifier_or_raise -> raises SandboxNotActiveError.
+#   PATH:  interceptor -> get_verifier_or_raise -> raises SandboxNotActiveError.
 #   CHECK: SandboxNotActiveError raised when making httpx.get call with patches active
 #          but no sandbox ContextVar set.
 #   MUTATION: Calling real network instead of raising lets calls through silently.
@@ -329,7 +329,7 @@ def test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
 
 # ESCAPE: test_requests_interceptor_raises_sandbox_not_active_when_no_sandbox
 #   CLAIM: requests interceptor raises SandboxNotActiveError when no sandbox active.
-#   PATH:  requests interceptor -> _get_verifier_or_raise -> SandboxNotActiveError.
+#   PATH:  requests interceptor -> get_verifier_or_raise -> SandboxNotActiveError.
 #   CHECK: SandboxNotActiveError raised on requests.get with no sandbox.
 #   MUTATION: Letting request proceed to real network skips the error entirely.
 #   ESCAPE: Nothing reasonable -- exact exception type.
@@ -1111,7 +1111,7 @@ def test_restore_patches_is_idempotent_when_originals_are_none() -> None:
     assert HttpPlugin._original_httpx_async_transport_handle is None
     assert HttpPlugin._original_requests_adapter_send is None
     # Calling _restore_patches() with everything at None must not raise
-    p._restore_patches()
+    p.restore_patches()
 
 
 # ---------------------------------------------------------------------------

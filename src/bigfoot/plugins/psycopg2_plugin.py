@@ -1,8 +1,9 @@
 """Psycopg2Plugin: intercepts psycopg2.connect() and returns _FakePsycopg2Connection."""
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -37,7 +38,7 @@ _SOURCE_CLOSE = "psycopg2:close"
 
 
 def _get_psycopg2_plugin() -> "Psycopg2Plugin":
-    verifier = _get_verifier_or_raise(_SOURCE_CONNECT)
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
     for plugin in verifier._plugins:
         if isinstance(plugin, Psycopg2Plugin):
             return plugin
@@ -160,13 +161,15 @@ class _FakePsycopg2Connection:
 def _patched_psycopg2_connect(
     dsn: str = "", **kwargs: object
 ) -> _FakePsycopg2Connection:
+    _original = Psycopg2Plugin._original_connect
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "psycopg2" in _guard_allowlist.get():
-        return Psycopg2Plugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
+        return cast(_FakePsycopg2Connection, _original(dsn, **kwargs))
     try:
         plugin = _get_psycopg2_plugin()
-    except _GuardPassThrough:
-        return Psycopg2Plugin._original_connect(dsn, **kwargs)  # type: ignore[no-any-return]
+    except GuardPassThrough:
+        return cast(_FakePsycopg2Connection, _original(dsn, **kwargs))
     fake_conn = _FakePsycopg2Connection(plugin)
     plugin._bind_connection(fake_conn)
     handle = plugin._lookup_session(fake_conn)
@@ -199,7 +202,7 @@ class Psycopg2Plugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_connect: ClassVar[Any] = None  # noqa: ANN401
+    _original_connect: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -256,13 +259,13 @@ class Psycopg2Plugin(StateMachinePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         if not _PSYCOPG2_AVAILABLE:  # pragma: no cover
             return
         Psycopg2Plugin._original_connect = psycopg2.connect
         psycopg2.connect = _patched_psycopg2_connect
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         if not _PSYCOPG2_AVAILABLE:  # pragma: no cover
             return
         if Psycopg2Plugin._original_connect is not None:

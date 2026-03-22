@@ -39,7 +39,7 @@ def _reset_plugin_count() -> None:
     with MemcachePlugin._install_lock:
         MemcachePlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        MemcachePlugin.__new__(MemcachePlugin)._restore_patches()
+        MemcachePlugin.__new__(MemcachePlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

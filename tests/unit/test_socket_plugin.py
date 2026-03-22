@@ -44,7 +44,7 @@ def _reset_install_count() -> None:
     with SocketPlugin._install_lock:
         SocketPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        SocketPlugin.__new__(SocketPlugin)._restore_patches()
+        SocketPlugin.__new__(SocketPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

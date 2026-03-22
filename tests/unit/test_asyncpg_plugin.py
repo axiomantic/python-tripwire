@@ -37,7 +37,7 @@ def _reset_install_count() -> None:
     with AsyncpgPlugin._install_lock:
         AsyncpgPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        AsyncpgPlugin.__new__(AsyncpgPlugin)._restore_patches()
+        AsyncpgPlugin.__new__(AsyncpgPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

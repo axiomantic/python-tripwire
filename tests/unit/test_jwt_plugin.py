@@ -37,7 +37,7 @@ def _reset_plugin_count() -> None:
     with JwtPlugin._install_lock:
         JwtPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        JwtPlugin.__new__(JwtPlugin)._restore_patches()
+        JwtPlugin.__new__(JwtPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

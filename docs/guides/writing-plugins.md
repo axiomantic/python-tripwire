@@ -1,5 +1,9 @@
 # Writing Plugins
 
+> **Using pytest?** See [pytest integration](pytest-integration.md) for the standard `with bigfoot:` pattern. The manual `StrictVerifier()` pattern below is for use outside pytest only.
+
+> **Do not use `bigfoot_verifier` fixture in your plugin fixtures.** Use `bigfoot.current_verifier()` instead.
+
 bigfoot's plugin system allows you to add interception for any type of interaction, not just HTTP or method calls. Custom plugins follow the `BasePlugin` abstract base class.
 
 ## BasePlugin contract
@@ -545,26 +549,26 @@ class MyComputePlugin(BasePlugin):
     # ...
 ```
 
-### Handling `_GuardPassThrough` in interceptors
+### Handling `GuardPassThrough` in interceptors
 
-When guard mode is active and a call is allowed (via `allow()` or `@pytest.mark.allow`), `_get_verifier_or_raise()` raises `_GuardPassThrough` instead of returning a verifier. The allowlist can also be narrowed with `deny()` or `@pytest.mark.deny`, which re-guards specific plugins. Guard-eligible interceptors must catch `_GuardPassThrough` and delegate to the original function:
+When guard mode is active and a call is allowed (via `allow()` or `@pytest.mark.allow`), `get_verifier_or_raise()` raises `GuardPassThrough` instead of returning a verifier. The allowlist can also be narrowed with `deny()` or `@pytest.mark.deny`, which re-guards specific plugins. Guard-eligible interceptors must catch `GuardPassThrough` and delegate to the original function:
 
 ```python
-from bigfoot._context import _get_verifier_or_raise, _GuardPassThrough
+from bigfoot import get_verifier_or_raise, GuardPassThrough
 
 def _my_interceptor(original_self, *args, **kwargs):
     try:
-        verifier = _get_verifier_or_raise("myplugin:call")
-    except _GuardPassThrough:
+        verifier = get_verifier_or_raise("myplugin:call")
+    except GuardPassThrough:
         return MyPlugin._original_function(original_self, *args, **kwargs)
     # Normal interception logic follows...
     plugin = _find_my_plugin(verifier)
     return plugin._handle_call(original_self, *args, **kwargs)
 ```
 
-`_GuardPassThrough` inherits from `BaseException` (not `Exception`) so that generic `except Exception` clauses in user code do not accidentally swallow it. Only interceptors should catch it.
+`GuardPassThrough` inherits from `BaseException` (not `Exception`) so that generic `except Exception` clauses in user code do not accidentally swallow it. Only interceptors should catch it.
 
-If your plugin has `supports_guard = False`, you do not need `_GuardPassThrough` handling because guard mode will never activate your plugin's interceptors.
+If your plugin has `supports_guard = False`, you do not need `GuardPassThrough` handling because guard mode will never activate your plugin's interceptors.
 
 ---
 

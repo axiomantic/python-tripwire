@@ -53,7 +53,7 @@ def _reset_plugin_count() -> None:
     with CeleryPlugin._install_lock:
         CeleryPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        CeleryPlugin.__new__(CeleryPlugin)._restore_patches()
+        CeleryPlugin.__new__(CeleryPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

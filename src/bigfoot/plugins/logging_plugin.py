@@ -3,11 +3,12 @@
 import logging
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ _SOURCE_LOG = "logging:log"
 # Used by _check_conflicts() to detect foreign patchers.
 # ---------------------------------------------------------------------------
 
-_LOGGER_LOG_ORIGINAL: Any = logging.Logger._log
+_LOGGER_LOG_ORIGINAL: Callable[..., Any] = logging.Logger._log
 
 # ---------------------------------------------------------------------------
 # Module-level reference to our own interceptor.
@@ -32,7 +33,7 @@ _LOGGER_LOG_ORIGINAL: Any = logging.Logger._log
 # patches from foreign patches during nested sandbox activations.
 # ---------------------------------------------------------------------------
 
-_bigfoot_logger_log: Any = None
+_bigfoot_logger_log: Callable[..., Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +116,7 @@ class LoggingPlugin(BasePlugin):
     supports_guard: ClassVar[bool] = False
 
     # Saved original, restored when count reaches 0.
-    _original_logger_log: Any = None
+    _original_logger_log: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -211,7 +212,7 @@ class LoggingPlugin(BasePlugin):
     # Conflict detection
     # ------------------------------------------------------------------
 
-    def _check_conflicts(self) -> None:
+    def check_conflicts(self) -> None:
         """Verify logging.Logger._log has not been patched by a third party."""
         from bigfoot._errors import ConflictError
 
@@ -230,7 +231,7 @@ class LoggingPlugin(BasePlugin):
     # Patch installation / restoration
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         global _bigfoot_logger_log
 
         LoggingPlugin._original_logger_log = logging.Logger._log
@@ -242,19 +243,19 @@ class LoggingPlugin(BasePlugin):
             args: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
         ) -> None:
-            verifier = _get_verifier_or_raise(_SOURCE_LOG)
+            verifier = get_verifier_or_raise(_SOURCE_LOG)
             plugin = _find_logging_plugin(verifier)
             plugin._handle_log(logger_self, level, msg, args)
 
         _bigfoot_logger_log = _log_interceptor
 
-        logging.Logger._log = _log_interceptor  # type: ignore[assignment]
+        setattr(logging.Logger, "_log", _log_interceptor)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         global _bigfoot_logger_log
 
         if LoggingPlugin._original_logger_log is not None:
-            logging.Logger._log = LoggingPlugin._original_logger_log  # type: ignore[method-assign]
+            setattr(logging.Logger, "_log", LoggingPlugin._original_logger_log)
             LoggingPlugin._original_logger_log = None
 
         _bigfoot_logger_log = None

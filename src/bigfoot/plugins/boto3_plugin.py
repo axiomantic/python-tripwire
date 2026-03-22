@@ -8,11 +8,12 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -63,7 +64,7 @@ class Boto3MockConfig:
 
 
 def _get_boto3_plugin() -> Boto3Plugin | None:
-    verifier = _get_verifier_or_raise("boto3:_make_api_call")
+    verifier = get_verifier_or_raise("boto3:_make_api_call")
     for plugin in verifier._plugins:
         if isinstance(plugin, Boto3Plugin):
             return plugin
@@ -106,16 +107,22 @@ class _ServiceProxy:
 def _patched_make_api_call(
     client_self: object, operation_name: str, api_params: dict[str, Any],
 ) -> Any:  # noqa: ANN401
+    _original = Boto3Plugin._original_make_api_call
+    assert _original is not None
     # Check allowlist FIRST - bypasses both guard and sandbox
     if "boto3" in _guard_allowlist.get():
-        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
+        return _original(client_self, operation_name, api_params)
     try:
         plugin = _get_boto3_plugin()
-    except _GuardPassThrough:
-        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
+    except GuardPassThrough:
+        return _original(client_self, operation_name, api_params)
     if plugin is None:
-        return Boto3Plugin._original_make_api_call(client_self, operation_name, api_params)
-    service_name = client_self.meta.service_model.service_name  # type: ignore[attr-defined]
+        return _original(client_self, operation_name, api_params)
+    meta = getattr(client_self, "meta", None)
+    service_model = getattr(meta, "service_model", None) if meta else None
+    service_name: str = (
+        getattr(service_model, "service_name", "unknown") if service_model else "unknown"
+    )
     queue_key = f"{service_name}:{operation_name}"
     source_id = f"boto3:{queue_key}"
 
@@ -163,7 +170,7 @@ class Boto3Plugin(BasePlugin):
     Each service:operation pair has its own FIFO deque of Boto3MockConfig objects.
     """
 
-    _original_make_api_call: ClassVar[Any] = None
+    _original_make_api_call: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -227,7 +234,7 @@ class Boto3Plugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install botocore._make_api_call patch."""
         if not _BOTO3_AVAILABLE:
             raise ImportError(
@@ -236,7 +243,7 @@ class Boto3Plugin(BasePlugin):
         Boto3Plugin._original_make_api_call = botocore.client.BaseClient._make_api_call
         botocore.client.BaseClient._make_api_call = _patched_make_api_call
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original botocore._make_api_call."""
         if Boto3Plugin._original_make_api_call is not None:
             botocore.client.BaseClient._make_api_call = Boto3Plugin._original_make_api_call
@@ -305,7 +312,7 @@ class Boto3Plugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: Boto3MockConfig = mock_config  # type: ignore[assignment]
+        config = cast(Boto3MockConfig, mock_config)
         service = getattr(config, "service", "?")
         operation = getattr(config, "operation", "?")
         tb = getattr(config, "registration_traceback", "")

@@ -1,9 +1,9 @@
 """SmtpPlugin: intercepts smtplib.SMTP via class replacement."""
 
 import smtplib
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 # Import-time constant -- captured BEFORE any patches are installed.
 # ---------------------------------------------------------------------------
 
-_ORIGINAL_SMTP: Any = smtplib.SMTP
+_ORIGINAL_SMTP: type[smtplib.SMTP] = smtplib.SMTP
 
 # ---------------------------------------------------------------------------
 # Source ID constants
@@ -35,7 +35,7 @@ _SOURCE_QUIT = "smtp:quit"
 
 
 def _find_smtp_plugin() -> "SmtpPlugin":
-    verifier = _get_verifier_or_raise("smtp:connect")
+    verifier = get_verifier_or_raise("smtp:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, SmtpPlugin):
             return plugin
@@ -59,7 +59,7 @@ class _FakeSMTP:
             return _ORIGINAL_SMTP(*args, **kwargs)
         try:
             _find_smtp_plugin()
-        except _GuardPassThrough:
+        except GuardPassThrough:
             return _ORIGINAL_SMTP(*args, **kwargs)
         return super().__new__(cls)
 
@@ -76,26 +76,46 @@ class _FakeSMTP:
     def ehlo(self, name: str = "") -> tuple[int, bytes]:
         plugin = _find_smtp_plugin()
         handle = plugin._lookup_session(self)
-        return plugin._execute_step(handle, "ehlo", (name,), {}, _SOURCE_EHLO,  # type: ignore[no-any-return]
-            details={"name": name})
+        return cast(
+            tuple[int, bytes],
+            plugin._execute_step(
+                handle, "ehlo", (name,), {}, _SOURCE_EHLO,
+                details={"name": name},
+            ),
+        )
 
     def helo(self, name: str = "") -> tuple[int, bytes]:
         plugin = _find_smtp_plugin()
         handle = plugin._lookup_session(self)
-        return plugin._execute_step(handle, "helo", (name,), {}, _SOURCE_HELO,  # type: ignore[no-any-return]
-            details={"name": name})
+        return cast(
+            tuple[int, bytes],
+            plugin._execute_step(
+                handle, "helo", (name,), {}, _SOURCE_HELO,
+                details={"name": name},
+            ),
+        )
 
     def starttls(self, **kwargs: Any) -> tuple[int, bytes]:  # noqa: ANN401
         plugin = _find_smtp_plugin()
         handle = plugin._lookup_session(self)
-        return plugin._execute_step(handle, "starttls", (), kwargs, _SOURCE_STARTTLS,  # type: ignore[no-any-return]
-            details={})
+        return cast(
+            tuple[int, bytes],
+            plugin._execute_step(
+                handle, "starttls", (), kwargs, _SOURCE_STARTTLS,
+                details={},
+            ),
+        )
 
     def login(self, user: str, password: str) -> tuple[int, bytes]:
         plugin = _find_smtp_plugin()
         handle = plugin._lookup_session(self)
-        return plugin._execute_step(handle, "login", (user, password), {}, _SOURCE_LOGIN,  # type: ignore[no-any-return]
-            details={"user": user, "password": password})
+        return cast(
+            tuple[int, bytes],
+            plugin._execute_step(
+                handle, "login", (user, password), {}, _SOURCE_LOGIN,
+                details={"user": user, "password": password},
+            ),
+        )
 
     def sendmail(
         self,
@@ -107,10 +127,10 @@ class _FakeSMTP:
     ) -> dict[str, tuple[int, bytes]]:
         plugin = _find_smtp_plugin()
         handle = plugin._lookup_session(self)
-        return plugin._execute_step(  # type: ignore[no-any-return]
+        return cast(dict[str, tuple[int, bytes]], plugin._execute_step(
             handle, "sendmail", (from_addr, to_addrs, msg), {}, _SOURCE_SENDMAIL,
             details={"from_addr": from_addr, "to_addrs": to_addrs, "msg": msg},
-        )
+        ))
 
     def send_message(
         self,
@@ -122,8 +142,13 @@ class _FakeSMTP:
     ) -> dict[str, tuple[int, bytes]]:
         plugin = _find_smtp_plugin()
         handle = plugin._lookup_session(self)
-        return plugin._execute_step(handle, "send_message", (msg,), {}, _SOURCE_SEND_MESSAGE,  # type: ignore[no-any-return]
-            details={"msg": msg})
+        return cast(
+            dict[str, tuple[int, bytes]],
+            plugin._execute_step(
+                handle, "send_message", (msg,), {}, _SOURCE_SEND_MESSAGE,
+                details={"msg": msg},
+            ),
+        )
 
     def quit(self) -> tuple[int, bytes]:
         plugin = _find_smtp_plugin()
@@ -131,7 +156,7 @@ class _FakeSMTP:
         result = plugin._execute_step(handle, "quit", (), {}, _SOURCE_QUIT,
             details={})
         plugin._release_session(self)
-        return result  # type: ignore[no-any-return]
+        return cast(tuple[int, bytes], result)
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +177,7 @@ class SmtpPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_smtp: ClassVar[Any] = None
+    _original_smtp: ClassVar[type[smtplib.SMTP] | None] = None
 
     def __init__(self, verifier: "StrictVerifier") -> None:
         super().__init__(verifier)
@@ -235,15 +260,15 @@ class SmtpPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install smtplib.SMTP patch."""
         SmtpPlugin._original_smtp = smtplib.SMTP
-        smtplib.SMTP = _FakeSMTP  # type: ignore[assignment, misc]
+        setattr(smtplib, "SMTP", _FakeSMTP)
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original smtplib.SMTP."""
         if SmtpPlugin._original_smtp is not None:
-            smtplib.SMTP = SmtpPlugin._original_smtp  # type: ignore[misc]
+            setattr(smtplib, "SMTP", SmtpPlugin._original_smtp)
             SmtpPlugin._original_smtp = None
 
     # ------------------------------------------------------------------

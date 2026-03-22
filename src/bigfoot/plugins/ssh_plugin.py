@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import _get_verifier_or_raise, _guard_allowlist, _GuardPassThrough
+from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -49,7 +49,7 @@ _SOURCE_CLOSE = "ssh:close"
 
 
 def _find_ssh_plugin() -> SshPlugin:
-    verifier = _get_verifier_or_raise("ssh:connect")
+    verifier = get_verifier_or_raise("ssh:connect")
     for plugin in verifier._plugins:
         if isinstance(plugin, SshPlugin):
             return plugin
@@ -181,16 +181,18 @@ class _FakeSSHClient:
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
         # Check allowlist FIRST - bypasses both guard and sandbox
+        _orig_cls = SshPlugin._original_ssh_client
+        assert _orig_cls is not None
         if "ssh" in _guard_allowlist.get():
-            self._real_client = SshPlugin._original_ssh_client()
+            self._real_client = _orig_cls()
             return self._real_client.connect(
                 hostname, port=port, username=username, password=password,
                 pkey=pkey, key_filename=key_filename, **kwargs,
             )
         try:
             plugin = _find_ssh_plugin()
-        except _GuardPassThrough:
-            self._real_client = SshPlugin._original_ssh_client()
+        except GuardPassThrough:
+            self._real_client = _orig_cls()
             return self._real_client.connect(
                 hostname, port=port, username=username, password=password,
                 pkey=pkey, key_filename=key_filename, **kwargs,
@@ -267,7 +269,7 @@ class SshPlugin(StateMachinePlugin):
     """
 
     # Saved original, restored when count reaches 0.
-    _original_ssh_client: ClassVar[Any] = None
+    _original_ssh_client: ClassVar[type[Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -350,14 +352,14 @@ class SshPlugin(StateMachinePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install paramiko.SSHClient patch."""
         if not _PARAMIKO_AVAILABLE:  # pragma: no cover
             return
         SshPlugin._original_ssh_client = paramiko_lib.SSHClient
         paramiko_lib.SSHClient = _FakeSSHClient
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original paramiko.SSHClient."""
         if not _PARAMIKO_AVAILABLE:  # pragma: no cover
             return

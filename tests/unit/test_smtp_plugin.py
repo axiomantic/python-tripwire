@@ -41,7 +41,7 @@ def _reset_install_count() -> None:
     with SmtpPlugin._install_lock:
         SmtpPlugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
-        SmtpPlugin.__new__(SmtpPlugin)._restore_patches()
+        SmtpPlugin.__new__(SmtpPlugin).restore_patches()
 
 
 @pytest.fixture(autouse=True)

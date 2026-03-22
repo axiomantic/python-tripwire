@@ -5,11 +5,12 @@ from __future__ import annotations
 import threading
 import traceback
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
 from bigfoot._timeline import Interaction
 
@@ -66,7 +67,7 @@ class CryptoMockConfig:
 
 
 def _get_crypto_plugin() -> CryptoPlugin:
-    verifier = _get_verifier_or_raise("crypto:operation")
+    verifier = get_verifier_or_raise("crypto:operation")
     for plugin in verifier._plugins:
         if isinstance(plugin, CryptoPlugin):
             return plugin
@@ -213,9 +214,9 @@ class CryptoPlugin(BasePlugin):
 
     supports_guard: ClassVar[bool] = False
 
-    _original_encrypt: ClassVar[Any] = None
-    _original_decrypt: ClassVar[Any] = None
-    _original_generate_private_key: ClassVar[Any] = None
+    _original_encrypt: ClassVar[Callable[..., Any] | None] = None
+    _original_decrypt: ClassVar[Callable[..., Any] | None] = None
+    _original_generate_private_key: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -278,7 +279,7 @@ class CryptoPlugin(BasePlugin):
     # BasePlugin lifecycle
     # ------------------------------------------------------------------
 
-    def _install_patches(self) -> None:
+    def install_patches(self) -> None:
         """Install cryptography Fernet and RSA patches."""
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
@@ -287,17 +288,17 @@ class CryptoPlugin(BasePlugin):
         CryptoPlugin._original_encrypt = _Fernet.encrypt
         CryptoPlugin._original_decrypt = _Fernet.decrypt
         CryptoPlugin._original_generate_private_key = _rsa_mod.generate_private_key
-        _Fernet.encrypt = _patched_fernet_encrypt  # type: ignore[assignment]
-        _Fernet.decrypt = _patched_fernet_decrypt  # type: ignore[assignment]
+        setattr(_Fernet, "encrypt", _patched_fernet_encrypt)
+        setattr(_Fernet, "decrypt", _patched_fernet_decrypt)
         _rsa_mod.generate_private_key = _patched_generate_private_key
 
-    def _restore_patches(self) -> None:
+    def restore_patches(self) -> None:
         """Restore original cryptography functions."""
         if CryptoPlugin._original_encrypt is not None:
-            _Fernet.encrypt = CryptoPlugin._original_encrypt  # type: ignore[method-assign]
+            setattr(_Fernet, "encrypt", CryptoPlugin._original_encrypt)
             CryptoPlugin._original_encrypt = None
         if CryptoPlugin._original_decrypt is not None:
-            _Fernet.decrypt = CryptoPlugin._original_decrypt  # type: ignore[method-assign]
+            setattr(_Fernet, "decrypt", CryptoPlugin._original_decrypt)
             CryptoPlugin._original_decrypt = None
         if CryptoPlugin._original_generate_private_key is not None:
             _rsa_mod.generate_private_key = CryptoPlugin._original_generate_private_key
@@ -371,7 +372,7 @@ class CryptoPlugin(BasePlugin):
         )
 
     def format_unused_mock_hint(self, mock_config: object) -> str:
-        config: CryptoMockConfig = mock_config  # type: ignore[assignment]
+        config = cast(CryptoMockConfig, mock_config)
         operation = getattr(config, "operation", "?")
         tb = getattr(config, "registration_traceback", "")
         return (
