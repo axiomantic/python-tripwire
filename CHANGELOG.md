@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-03-22
+
+### Added
+
+- **Public plugin authoring API:** `BasePlugin`, `Interaction`, `Timeline`, `GuardPassThrough`, `get_verifier_or_raise`, `GUARD_ELIGIBLE_PREFIXES`, and `PluginEntry` are now exported from `bigfoot` directly. Plugin authors no longer need private module imports.
+- **`AllWildcardAssertionError`:** raised when all fields in an `assert_*` call are `AnyThing()` wildcards. The error message includes copy-pasteable assertions with the actual recorded values.
+- **Pyright/mypy stub file:** `__init__.pyi` declares the module-level context manager protocol (`with bigfoot:`), `current_verifier()`, plugin proxy attributes, and all public exports. Fixes Pyright `reportGeneralTypeIssues` and `reportAttributeAccessIssue` errors.
+- **Docs cross-linking:** `writing-plugins.md`, `pytest-integration.md`, and `configuration.md` now cross-reference each other. `configuration.md` documents `disabled_plugins`.
+- **Copy-pasteable assertions in error messages:** `UnassertedInteractionsError` now includes "Copy this assertion into your test:" framing with actual recorded values.
+
+### Changed
+
+- **Breaking:** `_GuardPassThrough` renamed to `GuardPassThrough`.
+- **Breaking:** `_get_verifier_or_raise` renamed to `get_verifier_or_raise`.
+- **Breaking:** `BasePlugin` methods `_check_conflicts`, `_install_patches`, `_restore_patches` renamed to `check_conflicts`, `install_patches`, `restore_patches`.
+- `StrictVerifier` class docstring now warns against direct instantiation. A `warnings.warn()` fires when `StrictVerifier()` is created outside pytest context.
+- `BasePlugin` class docstring expanded with a 5-step plugin authoring guide.
+- `UnmockedInteractionError` message now includes teaching content showing how to add a mock and assert it.
+- `UnassertedInteractionsError` message now includes a count and teaching preamble with the assertion pattern.
+- Module-level docstring in `bigfoot/__init__.py` expanded with quick start, anti-patterns, and plugin authoring guidance.
+
+### Fixed
+
+- **Release workflow:** `gh release create` now uses `--clobber` for idempotent releases (fixes failure on existing tags).
+- **Type safety:** eliminated ~140 `# type: ignore` comments across 24 plugin files with proper `Callable` typing, `cast()`, and `setattr()`. Only 2 unavoidable `[import-untyped]` remain (psycopg2, asyncpg). `mypy --strict` passes with 0 errors.
+
 ## [0.14.0] - 2026-03-20
 
 ### Added
@@ -266,6 +292,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.15.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.15.0
 [0.14.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.14.0
 [0.13.2]: https://github.com/axiomantic/bigfoot/releases/tag/v0.13.2
 [0.13.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.13.1
