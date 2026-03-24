@@ -36,6 +36,10 @@ _guard_allowlist: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVa
     "bigfoot_guard_allowlist", default=frozenset()
 )
 
+_guard_level: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "bigfoot_guard_level", default="warn"
+)
+
 _guard_patches_installed: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "bigfoot_guard_patches_installed", default=False
 )
@@ -89,6 +93,21 @@ def get_verifier_or_raise(source_id: str) -> StrictVerifier:
             # Guard active: check allowlist
             allowlist = _guard_allowlist.get()
             if plugin_name not in allowlist:
+                level = _guard_level.get()
+                if level == "warn":
+                    import warnings  # noqa: PLC0415
+
+                    from bigfoot._errors import GuardedCallWarning  # noqa: PLC0415
+
+                    warnings.warn(
+                        f"{source_id!r} called outside sandbox. "
+                        f'Silence with @pytest.mark.allow("{plugin_name}") or '
+                        f'set guard = "error" in [tool.bigfoot] to make this an error.',
+                        GuardedCallWarning,
+                        stacklevel=4,
+                    )
+                    raise GuardPassThrough()
+                # level == "error"
                 from bigfoot._errors import GuardedCallError  # noqa: PLC0415
 
                 raise GuardedCallError(

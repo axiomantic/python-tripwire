@@ -51,6 +51,7 @@ def test_all_contains_expected_names() -> None:
         "allow",
         "deny",
         "GuardedCallError",
+        "GuardedCallWarning",
         # Errors
         "AllWildcardAssertionError",
         "BigfootConfigError",

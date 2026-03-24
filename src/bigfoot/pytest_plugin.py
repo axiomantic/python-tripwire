@@ -12,9 +12,48 @@ from bigfoot._context import (
     _current_test_verifier,
     _guard_active,
     _guard_allowlist,
+    _guard_level,
     _guard_patches_installed,
 )
 from bigfoot._verifier import StrictVerifier
+
+_VALID_GUARD_LEVELS = frozenset({"warn", "error", "strict"})
+
+
+def _resolve_guard_level(config: dict[str, object]) -> str:
+    """Parse the guard config value into a normalized level string.
+
+    Returns one of: "warn", "error", "off".
+    Raises BigfootConfigError for invalid values.
+    """
+    from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
+
+    raw = config.get("guard", "warn")  # default changed from True to "warn"
+
+    if raw is True:
+        raise BigfootConfigError(
+            'guard = true is ambiguous. '
+            'Use guard = "warn", guard = "error", or guard = false.\n'
+            'Valid values: "warn", "error", "strict", false'
+        )
+
+    if raw is False:
+        return "off"
+
+    if isinstance(raw, str):
+        normalized = raw.lower()
+        if normalized in ("error", "strict"):
+            return "error"
+        if normalized == "warn":
+            return "warn"
+        raise BigfootConfigError(
+            f'Invalid guard value: {raw!r}. '
+            f'Valid values: "warn", "error", "strict", false'
+        )
+
+    raise BigfootConfigError(
+        f"guard must be a string or false, got {type(raw).__name__}: {raw!r}"
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -80,7 +119,8 @@ def _bigfoot_guard_patches() -> Generator[None, None, None]:
     during fixture setup/teardown).
     """
     config = load_bigfoot_config()
-    if not config.get("guard", True):
+    guard_level = _resolve_guard_level(config)
+    if guard_level == "off":
         yield
         return
 
@@ -145,26 +185,27 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     installed (e.g., via sandbox activation within the test).
     """
     config = load_bigfoot_config()
-    if not config.get("guard", True):
+    guard_level = _resolve_guard_level(config)
+    if guard_level == "off":
         yield
         return
 
     # Process @pytest.mark.allow and @pytest.mark.deny
-    allowlist: frozenset[str] = frozenset()
+    marker_allowlist: frozenset[str] = frozenset()
     for mark in item.iter_markers("allow"):
-        allowlist = allowlist | frozenset(mark.args)
+        marker_allowlist = marker_allowlist | frozenset(mark.args)
 
     denylist: frozenset[str] = frozenset()
     for mark in item.iter_markers("deny"):
         denylist = denylist | frozenset(mark.args)
 
     # Validate names
-    if allowlist or denylist:
+    if marker_allowlist or denylist:
         from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
         from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
 
         valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
-        unknown = (allowlist | denylist) - valid
+        unknown = (marker_allowlist | denylist) - valid
         if unknown:
             raise BigfootConfigError(
                 f"Unknown plugin name(s) in @pytest.mark.allow/deny: "
@@ -172,9 +213,11 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
                 f"Valid names: {sorted(valid)}"
             )
 
-    # deny narrows allow
-    allowlist = allowlist - denylist
+    # Merge existing fixture-set allowlist with marker allowlist, then subtract deny
+    existing = _guard_allowlist.get()
+    allowlist = (existing | marker_allowlist) - denylist
 
+    level_token = _guard_level.set(guard_level)
     allowlist_token = _guard_allowlist.set(allowlist)
     guard_token = _guard_active.set(True)
     try:
@@ -182,3 +225,4 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     finally:
         _guard_active.reset(guard_token)
         _guard_allowlist.reset(allowlist_token)
+        _guard_level.reset(level_token)

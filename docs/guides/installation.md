@@ -66,3 +66,22 @@ def test_example():
     with bigfoot:
         ...  # all enabled plugins active
 ```
+
+## Guard Mode
+
+bigfoot activates guard mode by default. When your tests make real I/O calls
+(HTTP requests, database queries, subprocess calls, etc.) outside a bigfoot
+sandbox, you will see warnings like:
+
+```
+GuardedCallWarning: 'http:request' called outside sandbox.
+```
+
+This is expected and does not break your tests. The warnings show you which
+calls are unguarded so you can decide how to handle them:
+
+- **Silence a specific plugin:** `@pytest.mark.allow("http")` on the test
+- **Silence all warnings:** `warnings.filterwarnings("ignore", category=GuardedCallWarning)`
+- **Enforce strict mode:** Set `guard = "error"` in `[tool.bigfoot]` in `pyproject.toml`
+
+See the [Guard Mode guide](guard-mode.md) for full details.

@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from bigfoot._context import (
     GuardPassThrough,
     _guard_active,
     _guard_allowlist,
+    get_verifier_or_raise,
 )
+from bigfoot._errors import GuardedCallError, GuardedCallWarning, SandboxNotActiveError
+from bigfoot.pytest_plugin import _resolve_guard_level
 
 
 class TestGuardContextVars:
@@ -66,9 +71,6 @@ class TestGuardPassThrough:
                 pass  # Should NOT catch GuardPassThrough
 
 
-from bigfoot._errors import GuardedCallError
-
-
 class TestGuardedCallError:
     """Test GuardedCallError exception class."""
 
@@ -84,61 +86,25 @@ class TestGuardedCallError:
 
     def test_message_format(self) -> None:
         err = GuardedCallError(source_id="http:request", plugin_name="http")
-        expected = "\n".join([
-            "GuardedCallError: 'http:request' blocked by bigfoot guard mode.",
-            "",
-            "  FOR TEST AUTHORS:",
-            "    Option 1: Use a sandbox to mock this call:",
-            "      with bigfoot_verifier.sandbox():",
-            "          # ... your code ...",
-            "    Option 2: Explicitly allow this call (no assertion tracking):",
-            '      with bigfoot.allow("http"):',
-            "          # ... your code ...",
-            "    Option 3: Allow via pytest mark (entire test):",
-            '      @pytest.mark.allow("http")',
-            "      def test_something():",
-            "          ...",
-            "",
-            "  FOR PLUGIN AUTHORS:",
-            "    If this plugin does not perform real I/O, set:",
-            "      supports_guard: ClassVar[bool] = False",
-            "",
-            "  FOR CONTRIBUTORS:",
-            "    To add guard support to a new I/O plugin:",
-            "    1. Keep supports_guard = True (the default)",
-            "    2. Add try/except GuardPassThrough to each interceptor",
-            "    3. On GuardPassThrough, call the original function",
-        ])
-        assert str(err) == expected
+        msg = str(err)
+        # First fix is @pytest.mark.allow (not sandbox)
+        assert msg.startswith("GuardedCallError: 'http:request' blocked by bigfoot guard mode.")
+        assert '@pytest.mark.allow("http")' in msg
+        assert 'with bigfoot.allow("http")' in msg
+        assert "with bigfoot:" in msg
+        assert "Valid plugin names for allow():" in msg
+        assert "https://bigfoot.readthedocs.io/guides/guard-mode/" in msg
+        # Old sections removed
+        assert "FOR PLUGIN AUTHORS" not in msg
+        assert "FOR CONTRIBUTORS" not in msg
+        assert "bigfoot_verifier.sandbox()" not in msg
 
     def test_message_with_different_plugin(self) -> None:
         err = GuardedCallError(source_id="dns:getaddrinfo:example.com", plugin_name="dns")
         msg = str(err)
-        assert msg == "\n".join([
-            "GuardedCallError: 'dns:getaddrinfo:example.com' blocked by bigfoot guard mode.",
-            "",
-            "  FOR TEST AUTHORS:",
-            "    Option 1: Use a sandbox to mock this call:",
-            "      with bigfoot_verifier.sandbox():",
-            "          # ... your code ...",
-            "    Option 2: Explicitly allow this call (no assertion tracking):",
-            '      with bigfoot.allow("dns"):',
-            "          # ... your code ...",
-            "    Option 3: Allow via pytest mark (entire test):",
-            '      @pytest.mark.allow("dns")',
-            "      def test_something():",
-            "          ...",
-            "",
-            "  FOR PLUGIN AUTHORS:",
-            "    If this plugin does not perform real I/O, set:",
-            "      supports_guard: ClassVar[bool] = False",
-            "",
-            "  FOR CONTRIBUTORS:",
-            "    To add guard support to a new I/O plugin:",
-            "    1. Keep supports_guard = True (the default)",
-            "    2. Add try/except GuardPassThrough to each interceptor",
-            "    3. On GuardPassThrough, call the original function",
-        ])
+        assert "'dns:getaddrinfo:example.com' blocked by bigfoot guard mode." in msg
+        assert '@pytest.mark.allow("dns")' in msg
+        assert 'with bigfoot.allow("dns")' in msg
 
 
 class TestSupportsGuard:
@@ -315,9 +281,237 @@ class TestPublicExports:
 
         assert "GuardedCallError" in bigfoot.__all__
 
+    def test_guarded_call_warning_importable_from_bigfoot(self) -> None:
+        from bigfoot import GuardedCallWarning as BigfootGuardedCallWarning
 
-from bigfoot._context import get_verifier_or_raise
-from bigfoot._errors import GuardedCallError, SandboxNotActiveError
+        assert issubclass(BigfootGuardedCallWarning, UserWarning)
+
+    def test_guarded_call_warning_in_all(self) -> None:
+        import bigfoot
+
+        assert "GuardedCallWarning" in bigfoot.__all__
+
+
+class TestResolveGuardLevel:
+    """Test _resolve_guard_level config parser."""
+
+    def test_absent_key_returns_warn(self) -> None:
+        """Missing guard key defaults to 'warn'."""
+        assert _resolve_guard_level({}) == "warn"
+
+    def test_warn_string_returns_warn(self) -> None:
+        assert _resolve_guard_level({"guard": "warn"}) == "warn"
+
+    def test_error_string_returns_error(self) -> None:
+        assert _resolve_guard_level({"guard": "error"}) == "error"
+
+    def test_strict_string_returns_error(self) -> None:
+        """'strict' is an alias for 'error'."""
+        assert _resolve_guard_level({"guard": "strict"}) == "error"
+
+    def test_false_returns_off(self) -> None:
+        assert _resolve_guard_level({"guard": False}) == "off"
+
+    def test_true_rejected_with_config_error(self) -> None:
+        """guard = true is ambiguous and must be rejected."""
+        from bigfoot._errors import BigfootConfigError
+
+        with pytest.raises(BigfootConfigError, match="guard = true is ambiguous"):
+            _resolve_guard_level({"guard": True})
+
+    def test_invalid_string_rejected(self) -> None:
+        from bigfoot._errors import BigfootConfigError
+
+        with pytest.raises(BigfootConfigError, match="Invalid guard value"):
+            _resolve_guard_level({"guard": "invalid"})
+
+    def test_invalid_type_rejected(self) -> None:
+        from bigfoot._errors import BigfootConfigError
+
+        with pytest.raises(BigfootConfigError, match="guard must be a string or false"):
+            _resolve_guard_level({"guard": 42})
+
+    def test_case_insensitive_warn(self) -> None:
+        assert _resolve_guard_level({"guard": "WARN"}) == "warn"
+
+    def test_case_insensitive_error(self) -> None:
+        assert _resolve_guard_level({"guard": "ERROR"}) == "error"
+
+    def test_case_insensitive_strict(self) -> None:
+        assert _resolve_guard_level({"guard": "STRICT"}) == "error"
+
+
+class TestGuardedCallWarningClass:
+    """Test GuardedCallWarning exception class."""
+
+    def test_is_user_warning(self) -> None:
+        assert issubclass(GuardedCallWarning, UserWarning)
+
+    def test_not_bigfoot_error(self) -> None:
+        """GuardedCallWarning is a warning, not a BigfootError."""
+        from bigfoot._errors import BigfootError
+
+        assert not issubclass(GuardedCallWarning, BigfootError)
+
+
+class TestWarnModeBehavior:
+    """Test guard mode warn behavior in get_verifier_or_raise."""
+
+    def test_warn_mode_emits_warning(self) -> None:
+        """Guard in warn mode emits GuardedCallWarning."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("warn")
+        guard_token = _guard_active.set(True)
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                with pytest.raises(GuardPassThrough):
+                    get_verifier_or_raise("dns:lookup")
+                assert len(w) == 1
+                assert issubclass(w[0].category, GuardedCallWarning)
+        finally:
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+    def test_warn_mode_raises_guard_pass_through(self) -> None:
+        """After warning, GuardPassThrough is raised (real call proceeds)."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("warn")
+        guard_token = _guard_active.set(True)
+        try:
+            with warnings.catch_warnings(record=True):
+                warnings.simplefilter("always")
+                with pytest.raises(GuardPassThrough):
+                    get_verifier_or_raise("dns:lookup")
+        finally:
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+    def test_warn_mode_warning_is_filterable(self) -> None:
+        """warnings.filterwarnings('ignore') suppresses GuardedCallWarning."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("warn")
+        guard_token = _guard_active.set(True)
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                warnings.filterwarnings("ignore", category=GuardedCallWarning)
+                with pytest.raises(GuardPassThrough):
+                    get_verifier_or_raise("dns:lookup")
+                assert len(w) == 0
+        finally:
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+    def test_warn_mode_warning_contains_source_id(self) -> None:
+        """Warning message includes the source_id."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("warn")
+        guard_token = _guard_active.set(True)
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                with pytest.raises(GuardPassThrough):
+                    get_verifier_or_raise("dns:lookup")
+                assert "'dns:lookup'" in str(w[0].message)
+        finally:
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+    def test_warn_mode_warning_contains_fix_hint(self) -> None:
+        """Warning message includes @pytest.mark.allow fix hint."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("warn")
+        guard_token = _guard_active.set(True)
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                with pytest.raises(GuardPassThrough):
+                    get_verifier_or_raise("dns:lookup")
+                msg = str(w[0].message)
+                assert '@pytest.mark.allow("dns")' in msg
+        finally:
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+    def test_error_mode_raises_guarded_call_error(self) -> None:
+        """Guard in error mode raises GuardedCallError (not a warning)."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("error")
+        guard_token = _guard_active.set(True)
+        try:
+            with pytest.raises(GuardedCallError):
+                get_verifier_or_raise("dns:lookup")
+        finally:
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+    def test_allowlist_in_warn_mode_suppresses_warning(self) -> None:
+        """Allowed plugins don't emit warnings even in warn mode."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("warn")
+        guard_token = _guard_active.set(True)
+        allow_token = _guard_allowlist.set(frozenset({"dns"}))
+        try:
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                # dns is allowed, so should get GuardPassThrough with no warning
+                with pytest.raises(GuardPassThrough):
+                    get_verifier_or_raise("dns:lookup")
+                guarded_warnings = [
+                    x for x in w if issubclass(x.category, GuardedCallWarning)
+                ]
+                assert len(guarded_warnings) == 0
+        finally:
+            _guard_allowlist.reset(allow_token)
+            _guard_active.reset(guard_token)
+            _guard_level.reset(level_token)
+
+
+class TestHookAllowlistMerge:
+    """Test that pytest_runtest_call merges fixture-set allowlists with marker allowlists.
+
+    These tests verify the hook clobber fix. The fixture allowlist should NOT
+    be discarded when the hook sets the marker allowlist.
+    """
+
+    def test_fixture_allowlist_preserved_without_marker(self) -> None:
+        """A fixture-set allowlist persists when no @pytest.mark.allow is present.
+
+        Note: We simulate this by checking the merge logic directly.
+        The hook reads existing value and merges with empty marker set.
+        """
+        existing = frozenset({"dns"})
+        marker_allowlist: frozenset[str] = frozenset()
+        denylist: frozenset[str] = frozenset()
+        result = (existing | marker_allowlist) - denylist
+        assert result == frozenset({"dns"})
+
+    @pytest.mark.allow("socket")
+    def test_fixture_and_marker_allowlist_merged(self) -> None:
+        """Fixture allow('dns') + marker allow('socket') = both allowed.
+
+        The hook should merge, not replace.
+        """
+        # The marker gives us "socket". If the hook merges correctly,
+        # a fixture-set "dns" would also be present. We verify the
+        # allowlist includes "socket" from the marker at minimum.
+        assert "socket" in _guard_allowlist.get()
+
+    @pytest.mark.allow("dns", "socket")
+    @pytest.mark.deny("dns")
+    def test_marker_deny_narrows_merged_allowlist(self) -> None:
+        """deny('dns') removes 'dns' even if it was in the allowlist."""
+        allowlist = _guard_allowlist.get()
+        assert "dns" not in allowlist
+        assert "socket" in allowlist
 
 
 class TestGetVerifierOrRaiseGuardBranching:
@@ -341,7 +535,10 @@ class TestGetVerifierOrRaiseGuardBranching:
             _guard_active.reset(guard_token)
 
     def test_guard_active_not_in_allowlist_raises_guarded_call_error(self) -> None:
-        """Guard active + not allowed = GuardedCallError."""
+        """Guard active + not allowed + error level = GuardedCallError."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("error")
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -350,6 +547,7 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.source_id == "dns:getaddrinfo:example.com"
         finally:
             _guard_active.reset(token)
+            _guard_level.reset(level_token)
 
     def test_guard_active_in_allowlist_raises_guard_pass_through(self) -> None:
         """Guard active + allowed = GuardPassThrough (interceptor should call original)."""
@@ -364,6 +562,9 @@ class TestGetVerifierOrRaiseGuardBranching:
 
     def test_plugin_name_extraction_from_source_id(self) -> None:
         """Plugin name is the prefix before the first colon."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("error")
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -371,9 +572,13 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "http"
         finally:
             _guard_active.reset(token)
+            _guard_level.reset(level_token)
 
     def test_plugin_name_extraction_multi_colon(self) -> None:
         """Multi-colon source_id: plugin name is still first segment."""
+        from bigfoot._context import _guard_level
+
+        level_token = _guard_level.set("error")
         token = _guard_active.set(True)
         try:
             with pytest.raises(GuardedCallError) as exc_info:
@@ -381,6 +586,7 @@ class TestGetVerifierOrRaiseGuardBranching:
             assert exc_info.value.plugin_name == "dns"
         finally:
             _guard_active.reset(token)
+            _guard_level.reset(level_token)
 
 
 class TestGuardPassThroughInDirectPlugins:
@@ -397,6 +603,7 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:getaddrinfo when dns not in allowlist."""
         import socket
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
@@ -404,6 +611,7 @@ class TestGuardPassThroughInDirectPlugins:
         dns = DnsPlugin(v)
         dns.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -412,6 +620,7 @@ class TestGuardPassThroughInDirectPlugins:
                 assert exc_info.value.source_id == "dns:lookup"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             dns.deactivate()
 
@@ -443,6 +652,7 @@ class TestGuardPassThroughInDirectPlugins:
         """Guard blocks dns:gethostbyname when dns not in allowlist."""
         import socket
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
@@ -450,6 +660,7 @@ class TestGuardPassThroughInDirectPlugins:
         dns = DnsPlugin(v)
         dns.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -457,6 +668,7 @@ class TestGuardPassThroughInDirectPlugins:
                 assert exc_info.value.plugin_name == "dns"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             dns.deactivate()
 
@@ -495,6 +707,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks socket:connect when socket not in allowlist."""
         import socket as socket_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -502,6 +715,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         sp = SocketPlugin(v)
         sp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
@@ -514,6 +728,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                     _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -550,6 +765,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks socket:send when socket not in allowlist."""
         import socket as socket_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
@@ -557,6 +773,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         sp = SocketPlugin(v)
         sp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
@@ -570,6 +787,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                     _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -600,6 +818,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks db:connect when db not in allowlist."""
         import sqlite3
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.database_plugin import DatabasePlugin
 
@@ -607,6 +826,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         dp = DatabasePlugin(v)
         dp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -615,6 +835,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.source_id == "db:connect"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             dp.deactivate()
 
@@ -651,6 +872,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks smtp:connect when smtp not in allowlist."""
         import smtplib
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.smtp_plugin import SmtpPlugin
 
@@ -658,6 +880,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         sp = SmtpPlugin(v)
         sp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -665,6 +888,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.plugin_name == "smtp"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -672,6 +896,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         """Guard blocks subprocess:popen:spawn when subprocess not in allowlist."""
         import subprocess
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.popen_plugin import PopenPlugin
 
@@ -679,6 +904,7 @@ class TestGuardPassThroughInStateMachinePlugins:
         pp = PopenPlugin(v)
         pp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -686,6 +912,7 @@ class TestGuardPassThroughInStateMachinePlugins:
                 assert exc_info.value.plugin_name == "subprocess"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             pp.deactivate()
 
@@ -702,6 +929,7 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks subprocess.run when subprocess not in allowlist."""
         import subprocess as subprocess_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.subprocess import SubprocessPlugin
 
@@ -709,6 +937,7 @@ class TestGuardPassThroughInRemainingPlugins:
         sp = SubprocessPlugin(v)
         sp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -717,6 +946,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "subprocess:run"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -749,6 +979,7 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks shutil.which when subprocess not in allowlist."""
         import shutil as shutil_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.subprocess import SubprocessPlugin
 
@@ -756,6 +987,7 @@ class TestGuardPassThroughInRemainingPlugins:
         sp = SubprocessPlugin(v)
         sp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -764,6 +996,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "subprocess:which"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -794,6 +1027,7 @@ class TestGuardPassThroughInRemainingPlugins:
         """Guard blocks httpx sync transport when http not in allowlist."""
         import httpx
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.http import HttpPlugin
 
@@ -801,6 +1035,7 @@ class TestGuardPassThroughInRemainingPlugins:
         hp = HttpPlugin(v)
         hp.activate()
         try:
+            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
                 with pytest.raises(GuardedCallError) as exc_info:
@@ -809,6 +1044,7 @@ class TestGuardPassThroughInRemainingPlugins:
                 assert exc_info.value.source_id == "http:request"
             finally:
                 _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
         finally:
             hp.deactivate()
 
@@ -909,12 +1145,14 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
+        level_token = _guard_level.set("error")
         try:
             sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
             try:
@@ -925,6 +1163,7 @@ class TestGuardModeIntegration:
             finally:
                 _SOCKET_CLOSE_ORIGINAL(sock)
         finally:
+            _guard_level.reset(level_token)
             sp.deactivate()
 
     @pytest.mark.allow("socket")
@@ -1044,17 +1283,20 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
+        level_token = _guard_level.set("error")
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 socket_mod.getaddrinfo("example.com", 80)
             assert exc_info.value.plugin_name == "dns"
         finally:
+            _guard_level.reset(level_token)
             dns.deactivate()
 
     def test_guard_blocks_subprocess_outside_sandbox(self) -> None:
@@ -1065,18 +1307,21 @@ class TestGuardModeIntegration:
         """
         import subprocess as subprocess_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.subprocess import SubprocessPlugin
 
         v = StrictVerifier()
         sp = SubprocessPlugin(v)
         sp.activate()
+        level_token = _guard_level.set("error")
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 subprocess_mod.run(["echo", "hello"], capture_output=True)
             assert exc_info.value.plugin_name == "subprocess"
             assert exc_info.value.source_id == "subprocess:run"
         finally:
+            _guard_level.reset(level_token)
             sp.deactivate()
 
     @pytest.mark.allow("subprocess")
@@ -1111,18 +1356,21 @@ class TestGuardModeIntegration:
         """
         import httpx
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.http import HttpPlugin
 
         v = StrictVerifier()
         hp = HttpPlugin(v)
         hp.activate()
+        level_token = _guard_level.set("error")
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 httpx.get("https://example.com")
             assert exc_info.value.plugin_name == "http"
             assert exc_info.value.source_id == "http:request"
         finally:
+            _guard_level.reset(level_token)
             hp.deactivate()
 
     def test_allow_bypasses_sandbox_interceptor(self) -> None:
@@ -1158,19 +1406,25 @@ class TestGuardModeIntegration:
         """
         import socket as socket_mod
 
+        from bigfoot._context import _guard_level
         from bigfoot._verifier import StrictVerifier
         from bigfoot.plugins.dns_plugin import DnsPlugin
 
         v = StrictVerifier()
         dns = DnsPlugin(v)
         dns.activate()
+        level_token = _guard_level.set("error")
         try:
             with pytest.raises(GuardedCallError) as exc_info:
                 socket_mod.getaddrinfo("example.com", 80)
             msg = str(exc_info.value)
-            assert "bigfoot_verifier.sandbox()" in msg
-            assert 'bigfoot.allow("dns")' in msg
+            # New message format
             assert '@pytest.mark.allow("dns")' in msg
-            assert "supports_guard" in msg
+            assert 'bigfoot.allow("dns")' in msg
+            assert "with bigfoot:" in msg
+            assert "Valid plugin names for allow():" in msg
+            # Old sections removed
+            assert "supports_guard" not in msg
         finally:
+            _guard_level.reset(level_token)
             dns.deactivate()

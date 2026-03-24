@@ -245,32 +245,43 @@ class GuardedCallError(BigfootError):
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
+        from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES  # noqa: PLC0415
+
+        valid_names = ", ".join(sorted(GUARD_ELIGIBLE_PREFIXES))
         lines = [
             f"GuardedCallError: {self.source_id!r} blocked by bigfoot guard mode.",
             "",
-            "  FOR TEST AUTHORS:",
-            "    Option 1: Use a sandbox to mock this call:",
-            "      with bigfoot_verifier.sandbox():",
-            "          # ... your code ...",
-            "    Option 2: Explicitly allow this call (no assertion tracking):",
-            f'      with bigfoot.allow("{self.plugin_name}"):',
-            "          # ... your code ...",
-            "    Option 3: Allow via pytest mark (entire test):",
-            f'      @pytest.mark.allow("{self.plugin_name}")',
-            "      def test_something():",
-            "          ...",
+            "  Fix: allow this plugin to make real calls:",
             "",
-            "  FOR PLUGIN AUTHORS:",
-            "    If this plugin does not perform real I/O, set:",
-            "      supports_guard: ClassVar[bool] = False",
+            f'    @pytest.mark.allow("{self.plugin_name}")',
+            "    def test_something():",
+            "        ...",
             "",
-            "  FOR CONTRIBUTORS:",
-            "    To add guard support to a new I/O plugin:",
-            "    1. Keep supports_guard = True (the default)",
-            "    2. Add try/except GuardPassThrough to each interceptor",
-            "    3. On GuardPassThrough, call the original function",
+            "  Or use a context manager (scoped to a block):",
+            "",
+            f'    with bigfoot.allow("{self.plugin_name}"):',
+            "        ...",
+            "",
+            "  Or mock the call with a sandbox:",
+            "",
+            "    with bigfoot:",
+            "        ...",
+            "",
+            "  Valid plugin names for allow():",
+            f"    {valid_names}",
+            "",
+            "  Docs: https://bigfoot.readthedocs.io/guides/guard-mode/",
         ]
         return "\n".join(lines)
+
+
+class GuardedCallWarning(UserWarning):
+    """Emitted when guard mode is set to 'warn' and an I/O call fires
+    outside a sandbox without allow() permission.
+
+    Filter with:
+        warnings.filterwarnings("ignore", category=GuardedCallWarning)
+    """
 
 
 class InvalidStateError(BigfootError):

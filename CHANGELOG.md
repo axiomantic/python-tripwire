@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-03-24
+
+### Added
+
+- **Guard mode warn level (new default):** Guard mode now defaults to `warn` instead of `error`. Tests that trigger guarded calls emit `GuardedCallWarning` and continue rather than failing outright. Use `bigfoot_guard = "error"` (or `"strict"`) in `pyproject.toml` to restore the blocking behavior. `"strict"` is accepted as an alias for `"error"`.
+- **`GuardedCallWarning`:** New `UserWarning` subclass exported from `bigfoot`. Allows filtering with `warnings.filterwarnings("error", category=bigfoot.GuardedCallWarning)` to make specific test suites fail on guard violations.
+- **`bigfoot_guard` config key:** Guard level is now configurable via `pyproject.toml` `[tool.pytest.ini_options]` or `pytest.ini`. Accepted values: `"warn"` (default), `"error"`, `"strict"` (alias for error), `false` (disable entirely). Boolean `true` is rejected with a descriptive error.
+
+### Fixed
+
+- **`@pytest.mark.allow` hook clobber:** `pytest_runtest_call` previously overwrote the allowlist on each test, causing `bigfoot.allow()` fixture calls made before the test to be lost. The hook now merges the marker-derived allowlist with the existing context instead of replacing it.
+
+### Changed
+
+- **Guard mode docs rewritten** for first-time users encountering `GuardedCallError` or `GuardedCallWarning`. New focus on the `@pytest.mark.allow` fix-it workflow and common pitfalls.
+- **`GuardedCallError` message** now leads with the `@pytest.mark.allow` fix and lists all valid plugin names rather than addressing plugin authors.
+
 ## [0.16.0] - 2026-03-24
 
 ### Added

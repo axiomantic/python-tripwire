@@ -23,6 +23,7 @@ from bigfoot._errors import BigfootConfigError as BigfootConfigError
 from bigfoot._errors import BigfootError as BigfootError
 from bigfoot._errors import ConflictError as ConflictError
 from bigfoot._errors import GuardedCallError as GuardedCallError
+from bigfoot._errors import GuardedCallWarning as GuardedCallWarning
 from bigfoot._errors import InteractionMismatchError as InteractionMismatchError
 from bigfoot._errors import InvalidStateError as InvalidStateError
 from bigfoot._errors import MissingAssertionFieldsError as MissingAssertionFieldsError

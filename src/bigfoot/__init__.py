@@ -3,7 +3,7 @@
 Quick start:
     # 1. Configure in pyproject.toml:
     #    [tool.bigfoot]
-    #    guard = true
+    #    guard = "error"  # or "warn" (default), or false
     #
     # 2. Mock, execute, assert:
     bigfoot.http.mock_response("GET", "/api", json={"ok": True})
@@ -48,6 +48,7 @@ from bigfoot._errors import (
     BigfootError,
     ConflictError,
     GuardedCallError,
+    GuardedCallWarning,
     InteractionMismatchError,
     InvalidStateError,
     MissingAssertionFieldsError,
@@ -267,6 +268,7 @@ __all__ = [
     "allow",
     "deny",
     "GuardedCallError",
+    "GuardedCallWarning",
     # Errors
     "AllWildcardAssertionError",
     "BigfootConfigError",
