@@ -1,8 +1,9 @@
 """Config loading for bigfoot: reads [tool.bigfoot] from pyproject.toml."""
 
-import tomllib
 from pathlib import Path
 from typing import Any
+
+from bigfoot._compat import tomllib
 
 
 def load_bigfoot_config(start: Path | None = None) -> dict[str, Any]:

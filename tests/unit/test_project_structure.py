@@ -4,7 +4,12 @@ Verifies that the required directories, files, and pyproject.toml
 content are present and correct.
 """
 
-import tomllib
+import sys
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 from pathlib import Path
 
 # Project root is two levels up from this test file:
@@ -71,6 +76,6 @@ def test_pyproject_toml_python_requirement() -> None:
     pyproject = PROJECT_ROOT / "pyproject.toml"
     data = tomllib.loads(pyproject.read_bytes().decode())
     requires_python = data.get("project", {}).get("requires-python")
-    assert requires_python == ">=3.11", (
-        f"[project].requires-python must be '>=3.11', got {requires_python!r}"
+    assert requires_python == ">=3.10", (
+        f"[project].requires-python must be '>=3.10', got {requires_python!r}"
     )

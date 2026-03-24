@@ -6,6 +6,7 @@ from importlib.metadata import entry_points
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
+from bigfoot._compat import BaseExceptionGroup
 from bigfoot._config import load_bigfoot_config
 from bigfoot._context import _active_verifier, _any_order_depth
 from bigfoot._errors import (
