@@ -1,6 +1,7 @@
 """Test Redis cache using bigfoot redis_mock."""
 
 import bigfoot
+from dirty_equals import IsInstance
 
 from .app import get_user
 
@@ -14,7 +15,7 @@ def test_get_user_cache_hit():
         result = get_user(1)
 
     assert result == {"id": 1, "name": "Alice"}
-    bigfoot.redis_mock.assert_command("GET", args=("user:1",), kwargs={})
+    bigfoot.redis_mock.assert_command("GET", args=("user:1",), kwargs=IsInstance(dict))
 
 
 def test_get_user_cache_miss():
@@ -24,4 +25,4 @@ def test_get_user_cache_miss():
         result = get_user(42)
 
     assert result is None
-    bigfoot.redis_mock.assert_command("GET", args=("user:42",), kwargs={})
+    bigfoot.redis_mock.assert_command("GET", args=("user:42",), kwargs=IsInstance(dict))
