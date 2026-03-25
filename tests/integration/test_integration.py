@@ -16,7 +16,7 @@ from bigfoot import (
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from bigfoot._context import _active_verifier, get_verifier_or_raise
+from bigfoot._context import get_verifier_or_raise
 
 pytestmark = pytest.mark.integration
 
@@ -308,32 +308,34 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Scenario 12: run_in_executor propagates ContextVars via HttpPlugin
+# Scenario 12: run_in_executor propagates ContextVars via centralized patching
 # ---------------------------------------------------------------------------
 
 
-async def test_run_in_executor_propagates_context_var_via_http_plugin() -> None:
-    """When HttpPlugin is active, run_in_executor propagates ContextVars to thread pool workers."""
-    pytest.importorskip("httpx")
-    from bigfoot.plugins.http import HttpPlugin
+async def test_run_in_executor_propagates_context_var() -> None:
+    """run_in_executor propagates ContextVars via centralized context propagation.
 
-    sentinel = object()
-    token = _active_verifier.set(sentinel)  # type: ignore[arg-type]
+    Previously this was handled by HttpPlugin._patch_run_in_executor.
+    Now handled by bigfoot._context_propagation (installed at pytest_configure).
 
-    verifier = StrictVerifier()
-    plugin = HttpPlugin(verifier)
-    plugin.activate()
+    Uses a dedicated test ContextVar instead of _active_verifier to avoid
+    triggering interceptor side effects (socket/http interceptors inspect
+    _active_verifier and expect a real verifier object).
+    """
+    from contextvars import ContextVar
+
+    test_var: ContextVar[str] = ContextVar("test_var", default="unset")
+    token = test_var.set("parent_value")
     try:
-        captured: list[object] = []
+        captured: list[str] = []
 
         def worker() -> None:
-            captured.append(_active_verifier.get())
+            captured.append(test_var.get())
 
         loop = asyncio.get_event_loop()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             await loop.run_in_executor(pool, worker)
 
-        assert captured == [sentinel]
+        assert captured == ["parent_value"]
     finally:
-        plugin.deactivate()
-        _active_verifier.reset(token)
+        test_var.reset(token)

@@ -1,6 +1,5 @@
 """HttpPlugin: intercepts httpx, requests, urllib, and aiohttp HTTP calls."""
 
-import functools
 import io
 import json as json_module
 import traceback
@@ -286,8 +285,8 @@ class HttpPlugin(BasePlugin):
     """HTTP interception plugin. Requires bigfoot[http] extra.
 
     Patches httpx sync/async transports, requests HTTPAdapter, urllib openers,
-    aiohttp ClientSession (if installed), and asyncio.BaseEventLoop.run_in_executor
-    at the class level. Uses reference counting so nested sandboxes work correctly.
+    and aiohttp ClientSession (if installed) at the class level. Uses reference
+    counting so nested sandboxes work correctly.
     """
 
     # Saved originals, restored when count reaches 0.
@@ -295,7 +294,6 @@ class HttpPlugin(BasePlugin):
     _original_httpx_async_transport_handle: Callable[..., Any] | None = None
     _original_requests_adapter_send: Callable[..., Any] | None = None
     _original_urllib_opener: Any = None
-    _original_run_in_executor: Callable[..., Any] | None = None
     _original_aiohttp_request: Callable[..., Any] | None = None
 
     def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
@@ -625,7 +623,6 @@ class HttpPlugin(BasePlugin):
         setattr(requests.adapters.HTTPAdapter, "send", _requests_interceptor)
 
         self._install_urllib()
-        self._patch_run_in_executor()
         self._install_aiohttp()
 
     def restore_patches(self) -> None:
@@ -661,13 +658,6 @@ class HttpPlugin(BasePlugin):
         if _AIOHTTP_AVAILABLE and HttpPlugin._original_aiohttp_request is not None:
             setattr(aiohttp.ClientSession, "_request", HttpPlugin._original_aiohttp_request)
             HttpPlugin._original_aiohttp_request = None
-
-        # run_in_executor
-        import asyncio
-
-        if HttpPlugin._original_run_in_executor is not None:
-            setattr(asyncio.BaseEventLoop, "run_in_executor", HttpPlugin._original_run_in_executor)
-            HttpPlugin._original_run_in_executor = None
 
         _bigfoot_httpx_handle = None
         _bigfoot_httpx_async_handle = None
@@ -711,25 +701,6 @@ class HttpPlugin(BasePlugin):
 
         opener = urllib.request.build_opener(_BigfootHandler)
         urllib.request.install_opener(opener)
-
-    def _patch_run_in_executor(self) -> None:
-        import asyncio
-        import contextvars
-
-        _original = asyncio.BaseEventLoop.run_in_executor
-        HttpPlugin._original_run_in_executor = _original
-
-        def _patched_run_in_executor(
-            loop: asyncio.BaseEventLoop,
-            executor: Any,  # noqa: ANN401
-            func: Any,  # noqa: ANN401
-            *args: Any,  # noqa: ANN401
-        ) -> Any:  # noqa: ANN401
-            ctx = contextvars.copy_context()
-            wrapped = functools.partial(ctx.run, func, *args)
-            return _original(loop, executor, wrapped)
-
-        setattr(asyncio.BaseEventLoop, "run_in_executor", _patched_run_in_executor)
 
     def _install_aiohttp(self) -> None:
         global _bigfoot_aiohttp_request
