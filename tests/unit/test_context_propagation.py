@@ -357,3 +357,48 @@ class TestGuardModePropagation:
 
         assert len(errors) == 1
         assert isinstance(errors[0], GuardPassThrough)
+
+
+# ---------------------------------------------------------------------------
+# Python 3.14 thread_inherit_context detection
+# ---------------------------------------------------------------------------
+
+
+class TestPython314Detection:
+    """Verify behavior when sys.flags.thread_inherit_context is True."""
+
+    def test_start_new_thread_not_patched_when_runtime_handles_it(self) -> None:
+        """When sys.flags.thread_inherit_context is True, _thread.start_new_thread is not patched."""
+        import bigfoot._context_propagation as cp
+
+        # Ensure clean state
+        uninstall_context_propagation()
+
+        original_start = _thread.start_new_thread
+
+        # Mock sys.flags to have thread_inherit_context=True
+        mock_flags = type("MockFlags", (), {"thread_inherit_context": True})()
+        with patch.object(sys, "flags", mock_flags):
+            install_context_propagation()
+
+        # _thread.start_new_thread should NOT have been patched
+        assert _thread.start_new_thread is original_start
+        # But TPE.submit SHOULD still be patched
+        assert cp._saved_tpe_submit is not None
+
+    def test_tpe_submit_still_patched_when_runtime_handles_threads(self) -> None:
+        """TPE.submit is always patched, even when sys.flags.thread_inherit_context is True."""
+        uninstall_context_propagation()
+
+        mock_flags = type("MockFlags", (), {"thread_inherit_context": True})()
+        with patch.object(sys, "flags", mock_flags):
+            install_context_propagation()
+
+        token = _test_var.set("tpe_with_314")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_test_var.get)
+            result = future.result(timeout=5)
+
+        _test_var.reset(token)
+        assert result == "tpe_with_314"
