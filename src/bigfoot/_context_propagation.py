@@ -68,7 +68,7 @@ def install_context_propagation() -> None:
 
             return _original_start(_context_wrapper, args, kwargs or {})
 
-        _thread.start_new_thread = _patched_start_new_thread  # type: ignore[assignment]
+        _thread.start_new_thread = _patched_start_new_thread
 
         # threading caches _thread.start_new_thread as a module-level
         # _start_new_thread at import time. We must also patch that cached
@@ -106,7 +106,7 @@ def uninstall_context_propagation() -> None:
         return
 
     if _saved_start_new_thread is not None:
-        _thread.start_new_thread = _saved_start_new_thread  # type: ignore[assignment]
+        _thread.start_new_thread = _saved_start_new_thread
         _saved_start_new_thread = None
 
     if _saved_threading_start_new_thread is not None:
@@ -114,7 +114,7 @@ def uninstall_context_propagation() -> None:
         _saved_threading_start_new_thread = None
 
     if _saved_tpe_submit is not None:
-        ThreadPoolExecutor.submit = _saved_tpe_submit  # type: ignore[assignment]
+        ThreadPoolExecutor.submit = _saved_tpe_submit  # type: ignore[method-assign]
         _saved_tpe_submit = None
 
     _installed = False
