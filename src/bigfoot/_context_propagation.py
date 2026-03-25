@@ -21,10 +21,12 @@ import _thread
 import contextvars
 import sys
 import threading
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable
+from typing import Any
 
 _installed = False
+_lock = threading.Lock()
 
 # Capture whatever _thread.start_new_thread and TPE.submit are at install
 # time, NOT at import time. This respects other libraries (e.g., OTel) that
@@ -46,53 +48,54 @@ def install_context_propagation() -> None:
     """
     global _installed, _saved_start_new_thread, _saved_threading_start_new_thread, _saved_tpe_submit
 
-    if _installed:
-        return
+    with _lock:
+        if _installed:
+            return
 
-    skip_thread_patch = getattr(getattr(sys, "flags", None), "thread_inherit_context", False)
+        skip_thread_patch = getattr(getattr(sys, "flags", None), "thread_inherit_context", False)
 
-    if not skip_thread_patch:
-        _saved_start_new_thread = _thread.start_new_thread
+        if not skip_thread_patch:
+            _saved_start_new_thread = _thread.start_new_thread
 
-        _original_start = _saved_start_new_thread
+            _original_start = _saved_start_new_thread
 
-        def _patched_start_new_thread(
-            function: Callable[..., Any],
-            args: tuple[Any, ...],
-            kwargs: dict[str, Any] | None = None,
-        ) -> int:
+            def _patched_start_new_thread(
+                function: Callable[..., Any],
+                args: tuple[Any, ...],
+                kwargs: dict[str, Any] | None = None,
+            ) -> int:
+                ctx = contextvars.copy_context()
+
+                def _context_wrapper(*a: Any, **kw: Any) -> None:  # noqa: ANN401
+                    ctx.run(function, *a, **kw)
+
+                return _original_start(_context_wrapper, args, kwargs or {})
+
+            _thread.start_new_thread = _patched_start_new_thread
+
+            # threading caches _thread.start_new_thread as a module-level
+            # _start_new_thread at import time. We must also patch that cached
+            # reference so threading.Thread.start() uses our wrapper.
+            _saved_threading_start_new_thread = threading._start_new_thread  # type: ignore[attr-defined]
+            threading._start_new_thread = _patched_start_new_thread  # type: ignore[attr-defined]
+
+        _saved_tpe_submit = ThreadPoolExecutor.submit
+
+        _original_submit = _saved_tpe_submit
+
+        def _patched_submit(
+            self: ThreadPoolExecutor,
+            fn: Callable[..., Any],
+            /,
+            *args: Any,  # noqa: ANN401
+            **kwargs: Any,  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
             ctx = contextvars.copy_context()
+            return _original_submit(self, ctx.run, fn, *args, **kwargs)
 
-            def _context_wrapper(*a: Any, **kw: Any) -> None:
-                ctx.run(function, *a, **kw)
+        ThreadPoolExecutor.submit = _patched_submit  # type: ignore[assignment]
 
-            return _original_start(_context_wrapper, args, kwargs or {})
-
-        _thread.start_new_thread = _patched_start_new_thread
-
-        # threading caches _thread.start_new_thread as a module-level
-        # _start_new_thread at import time. We must also patch that cached
-        # reference so threading.Thread.start() uses our wrapper.
-        _saved_threading_start_new_thread = threading._start_new_thread  # type: ignore[attr-defined]
-        threading._start_new_thread = _patched_start_new_thread  # type: ignore[attr-defined]
-
-    _saved_tpe_submit = ThreadPoolExecutor.submit
-
-    _original_submit = _saved_tpe_submit
-
-    def _patched_submit(
-        self: ThreadPoolExecutor,
-        fn: Callable[..., Any],
-        /,
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any:
-        ctx = contextvars.copy_context()
-        return _original_submit(self, ctx.run, fn, *args, **kwargs)
-
-    ThreadPoolExecutor.submit = _patched_submit  # type: ignore[assignment]
-
-    _installed = True
+        _installed = True
 
 
 def uninstall_context_propagation() -> None:
@@ -102,19 +105,20 @@ def uninstall_context_propagation() -> None:
     """
     global _installed, _saved_start_new_thread, _saved_threading_start_new_thread, _saved_tpe_submit
 
-    if not _installed:
-        return
+    with _lock:
+        if not _installed:
+            return
 
-    if _saved_start_new_thread is not None:
-        _thread.start_new_thread = _saved_start_new_thread
-        _saved_start_new_thread = None
+        if _saved_start_new_thread is not None:
+            _thread.start_new_thread = _saved_start_new_thread
+            _saved_start_new_thread = None
 
-    if _saved_threading_start_new_thread is not None:
-        threading._start_new_thread = _saved_threading_start_new_thread  # type: ignore[attr-defined]
-        _saved_threading_start_new_thread = None
+        if _saved_threading_start_new_thread is not None:
+            threading._start_new_thread = _saved_threading_start_new_thread  # type: ignore[attr-defined]
+            _saved_threading_start_new_thread = None
 
-    if _saved_tpe_submit is not None:
-        ThreadPoolExecutor.submit = _saved_tpe_submit  # type: ignore[method-assign]
-        _saved_tpe_submit = None
+        if _saved_tpe_submit is not None:
+            ThreadPoolExecutor.submit = _saved_tpe_submit  # type: ignore[method-assign]
+            _saved_tpe_submit = None
 
-    _installed = False
+        _installed = False

@@ -8,16 +8,16 @@ from collections.abc import Generator
 import pytest
 
 from bigfoot._config import load_bigfoot_config
-from bigfoot._context_propagation import (
-    install_context_propagation,
-    uninstall_context_propagation,
-)
 from bigfoot._context import (
     _current_test_verifier,
     _guard_active,
     _guard_allowlist,
     _guard_level,
     _guard_patches_installed,
+)
+from bigfoot._context_propagation import (
+    install_context_propagation,
+    uninstall_context_propagation,
 )
 from bigfoot._verifier import StrictVerifier
 

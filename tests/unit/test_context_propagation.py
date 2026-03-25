@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import _thread
 import concurrent.futures
+import contextlib
 import contextvars
 import sys
 import threading
+from collections.abc import Generator
 from unittest.mock import patch
 
 import pytest
@@ -21,12 +23,12 @@ _test_var: contextvars.ContextVar[str] = contextvars.ContextVar("_test_var", def
 
 
 @pytest.fixture(autouse=True)
-def _ensure_uninstalled() -> None:
+def _ensure_uninstalled() -> Generator[None, None, None]:
     """Ensure context propagation is uninstalled for each test, then restore prior state."""
     import bigfoot._context_propagation as cp
     was_installed = cp._installed
     uninstall_context_propagation()
-    yield  # type: ignore[misc]
+    yield
     uninstall_context_propagation()
     if was_installed:
         install_context_propagation()
@@ -295,7 +297,7 @@ class TestBigfootContextVarsPropagation:
 # Guard mode propagation
 # ---------------------------------------------------------------------------
 
-from bigfoot._context import get_verifier_or_raise, GuardPassThrough
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import GuardedCallError
 
 
@@ -306,26 +308,22 @@ class TestGuardModePropagation:
         """When guard is active with level=error, child thread sees it."""
         install_context_propagation()
 
-        guard_token = _guard_active.set(True)
-        level_token = _guard_level.set("error")
-        patches_token = _guard_patches_installed.set(True)
-        allowlist_token = _guard_allowlist.set(frozenset())
-        errors: list[BaseException] = []
+        with contextlib.ExitStack() as stack:
+            stack.callback(_guard_active.reset, _guard_active.set(True))
+            stack.callback(_guard_level.reset, _guard_level.set("error"))
+            stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
+            stack.callback(_guard_allowlist.reset, _guard_allowlist.set(frozenset()))
+            errors: list[BaseException] = []
 
-        def worker() -> None:
-            try:
-                get_verifier_or_raise("http:request")
-            except (GuardedCallError, GuardPassThrough) as exc:
-                errors.append(exc)
+            def worker() -> None:
+                try:
+                    get_verifier_or_raise("http:request")
+                except (GuardedCallError, GuardPassThrough) as exc:
+                    errors.append(exc)
 
-        t = threading.Thread(target=worker)
-        t.start()
-        t.join()
-
-        _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
-        _guard_patches_installed.reset(patches_token)
-        _guard_allowlist.reset(allowlist_token)
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join()
 
         assert len(errors) == 1
         assert isinstance(errors[0], GuardedCallError)
@@ -334,26 +332,22 @@ class TestGuardModePropagation:
         """When a plugin is in the allowlist, child thread passes through."""
         install_context_propagation()
 
-        guard_token = _guard_active.set(True)
-        level_token = _guard_level.set("error")
-        patches_token = _guard_patches_installed.set(True)
-        allowlist_token = _guard_allowlist.set(frozenset({"http"}))
-        errors: list[BaseException] = []
+        with contextlib.ExitStack() as stack:
+            stack.callback(_guard_active.reset, _guard_active.set(True))
+            stack.callback(_guard_level.reset, _guard_level.set("error"))
+            stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
+            stack.callback(_guard_allowlist.reset, _guard_allowlist.set(frozenset({"http"})))
+            errors: list[BaseException] = []
 
-        def worker() -> None:
-            try:
-                get_verifier_or_raise("http:request")
-            except GuardPassThrough as exc:
-                errors.append(exc)
+            def worker() -> None:
+                try:
+                    get_verifier_or_raise("http:request")
+                except GuardPassThrough as exc:
+                    errors.append(exc)
 
-        t = threading.Thread(target=worker)
-        t.start()
-        t.join()
-
-        _guard_active.reset(guard_token)
-        _guard_level.reset(level_token)
-        _guard_patches_installed.reset(patches_token)
-        _guard_allowlist.reset(allowlist_token)
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join()
 
         assert len(errors) == 1
         assert isinstance(errors[0], GuardPassThrough)
