@@ -33,7 +33,15 @@ _lock = threading.Lock()
 # may have already patched these before bigfoot installs.
 _saved_start_new_thread: Callable[..., Any] | None = None
 _saved_threading_start_new_thread: Callable[..., Any] | None = None
+_saved_threading_start_joinable_thread: Callable[..., Any] | None = None
 _saved_tpe_submit: Callable[..., Any] | None = None
+
+# Python 3.13 renamed threading._start_new_thread to
+# threading._start_joinable_thread (a cached reference to
+# _thread.start_joinable_thread). Thread.start() on 3.13+ calls
+# _start_joinable_thread instead of _start_new_thread, so we must
+# detect which attribute exists and patch accordingly.
+_HAS_START_JOINABLE_THREAD = hasattr(threading, "_start_joinable_thread")
 
 
 def install_context_propagation() -> None:
@@ -46,7 +54,9 @@ def install_context_propagation() -> None:
     patching is skipped (the runtime handles it natively). TPE.submit is
     still patched because the runtime flag only affects Thread, not executors.
     """
-    global _installed, _saved_start_new_thread, _saved_threading_start_new_thread, _saved_tpe_submit
+    global _installed, _saved_start_new_thread
+    global _saved_threading_start_new_thread
+    global _saved_threading_start_joinable_thread, _saved_tpe_submit
 
     with _lock:
         if _installed:
@@ -73,11 +83,37 @@ def install_context_propagation() -> None:
 
             _thread.start_new_thread = _patched_start_new_thread
 
-            # threading caches _thread.start_new_thread as a module-level
-            # _start_new_thread at import time. We must also patch that cached
-            # reference so threading.Thread.start() uses our wrapper.
-            _saved_threading_start_new_thread = threading._start_new_thread  # type: ignore[attr-defined]
-            threading._start_new_thread = _patched_start_new_thread  # type: ignore[attr-defined]
+            # threading caches the low-level thread starter as a module-level
+            # attribute at import time. We must also patch that cached reference
+            # so threading.Thread.start() uses our wrapper.
+            #
+            # Python <3.13: threading._start_new_thread (cached from
+            #     _thread.start_new_thread)
+            # Python 3.13+: threading._start_joinable_thread (cached from
+            #     _thread.start_joinable_thread) with a different signature:
+            #     (function, handle=None, daemon=True) instead of
+            #     (function, args, kwargs)
+            if _HAS_START_JOINABLE_THREAD:
+                _saved_threading_start_joinable_thread = threading._start_joinable_thread  # type: ignore[attr-defined]
+
+                _original_start_joinable = _saved_threading_start_joinable_thread
+
+                def _patched_start_joinable_thread(
+                    function: Callable[..., Any],
+                    handle: Any = None,  # noqa: ANN401
+                    daemon: bool = True,
+                ) -> Any:  # noqa: ANN401
+                    ctx = contextvars.copy_context()
+
+                    def _context_wrapper() -> None:
+                        ctx.run(function)
+
+                    return _original_start_joinable(_context_wrapper, handle=handle, daemon=daemon)
+
+                threading._start_joinable_thread = _patched_start_joinable_thread  # type: ignore[attr-defined]
+            else:
+                _saved_threading_start_new_thread = threading._start_new_thread  # type: ignore[attr-defined]
+                threading._start_new_thread = _patched_start_new_thread  # type: ignore[attr-defined]
 
         _saved_tpe_submit = ThreadPoolExecutor.submit
 
@@ -103,7 +139,9 @@ def uninstall_context_propagation() -> None:
 
     Idempotent: calling when not installed is a no-op.
     """
-    global _installed, _saved_start_new_thread, _saved_threading_start_new_thread, _saved_tpe_submit
+    global _installed, _saved_start_new_thread
+    global _saved_threading_start_new_thread
+    global _saved_threading_start_joinable_thread, _saved_tpe_submit
 
     with _lock:
         if not _installed:
@@ -116,6 +154,10 @@ def uninstall_context_propagation() -> None:
         if _saved_threading_start_new_thread is not None:
             threading._start_new_thread = _saved_threading_start_new_thread  # type: ignore[attr-defined]
             _saved_threading_start_new_thread = None
+
+        if _saved_threading_start_joinable_thread is not None:
+            threading._start_joinable_thread = _saved_threading_start_joinable_thread  # type: ignore[attr-defined]
+            _saved_threading_start_joinable_thread = None
 
         if _saved_tpe_submit is not None:
             ThreadPoolExecutor.submit = _saved_tpe_submit  # type: ignore[method-assign]
