@@ -396,3 +396,98 @@ class TestPython314Detection:
 
         _test_var.reset(token)
         assert result == "tpe_with_314"
+
+
+# ---------------------------------------------------------------------------
+# Python 3.13 _start_joinable_thread compatibility
+# ---------------------------------------------------------------------------
+
+
+class TestThreadingModuleCompat:
+    """Verify correct threading module attribute is patched for 3.12 vs 3.13+."""
+
+    def test_patches_correct_threading_attribute_for_current_python(self) -> None:
+        """After install, the threading module's cached thread-starter is patched;
+        after uninstall it is restored to the original."""
+        import bigfoot._context_propagation as cp
+
+        has_joinable = hasattr(threading, "_start_joinable_thread")
+
+        if has_joinable:
+            original = threading._start_joinable_thread  # type: ignore[attr-defined]
+        else:
+            original = threading._start_new_thread  # type: ignore[attr-defined]
+
+        install_context_propagation()
+
+        if has_joinable:
+            assert threading._start_joinable_thread is not original  # type: ignore[attr-defined]
+            assert cp._saved_threading_start_joinable_thread is original
+        else:
+            assert threading._start_new_thread is not original  # type: ignore[attr-defined]
+            assert cp._saved_threading_start_new_thread is original
+
+        uninstall_context_propagation()
+
+        if has_joinable:
+            assert threading._start_joinable_thread is original  # type: ignore[attr-defined]
+        else:
+            assert threading._start_new_thread is original  # type: ignore[attr-defined]
+
+    def test_start_joinable_thread_patched_when_present(self) -> None:
+        """When threading._start_joinable_thread exists (3.13+), it is patched
+        and _start_new_thread on the threading module is left alone."""
+        import bigfoot._context_propagation as cp
+
+        fake_joinable = lambda func, handle=None, daemon=True: None  # noqa: ARG005, E731
+        fake_start = lambda func, args, kwargs=None: None  # noqa: ARG005, E731
+
+        with (
+            patch.object(cp, "_HAS_START_JOINABLE_THREAD", True),
+            patch.object(threading, "_start_joinable_thread", fake_joinable, create=True),
+            patch.object(threading, "_start_new_thread", fake_start, create=True),
+        ):
+            install_context_propagation()
+
+            # _start_joinable_thread should be patched (different from fake)
+            assert threading._start_joinable_thread is not fake_joinable  # type: ignore[attr-defined]
+            assert cp._saved_threading_start_joinable_thread is fake_joinable
+            # _start_new_thread on threading module should NOT have been saved
+            assert cp._saved_threading_start_new_thread is None
+
+    def test_start_new_thread_patched_when_no_joinable(self) -> None:
+        """When threading._start_joinable_thread does not exist (3.12-),
+        threading._start_new_thread is patched instead."""
+        import bigfoot._context_propagation as cp
+
+        fake_start = threading._start_new_thread  # type: ignore[attr-defined]
+
+        # Temporarily remove _start_joinable_thread if it exists
+        had_joinable = hasattr(threading, "_start_joinable_thread")
+        saved_joinable = getattr(threading, "_start_joinable_thread", None)
+
+        with patch.object(cp, "_HAS_START_JOINABLE_THREAD", False):
+            if had_joinable:
+                delattr(threading, "_start_joinable_thread")
+            try:
+                install_context_propagation()
+
+                assert threading._start_new_thread is not fake_start  # type: ignore[attr-defined]
+                assert cp._saved_threading_start_new_thread is fake_start
+                assert cp._saved_threading_start_joinable_thread is None
+            finally:
+                if had_joinable:
+                    threading._start_joinable_thread = saved_joinable  # type: ignore[attr-defined]
+
+    def test_context_propagates_via_patched_threading_attribute(self) -> None:
+        """Regardless of which threading attribute is patched, context propagation works."""
+        install_context_propagation()
+        token = _test_var.set("compat_check")
+        captured: list[str] = []
+
+        t = threading.Thread(target=lambda: captured.append(_test_var.get()))
+        t.start()
+        t.join()
+        _test_var.reset(token)
+
+        assert captured == ["compat_check"]
