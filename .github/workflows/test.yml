@@ -37,3 +37,27 @@ jobs:
 
       - name: Run tests
         run: pytest
+        if: ${{ !endsWith(matrix.python-version, 't') }}
+
+      - name: Run tests (free-threaded)
+        if: endsWith(matrix.python-version, 't')
+        run: >-
+          pytest
+          --ignore=tests/unit/test_celery_plugin.py
+          --ignore=tests/unit/test_crypto_plugin.py
+          --ignore=tests/unit/test_grpc_plugin.py
+          --ignore=tests/unit/test_mongo_plugin.py
+          --ignore=tests/unit/test_pika_plugin.py
+          --ignore=tests/unit/test_ssh_plugin.py
+          --ignore=tests/unit/test_asyncpg_plugin.py
+          --ignore=tests/unit/test_psycopg2_plugin.py
+          --ignore=examples/asyncpg_example
+          --ignore=examples/celery_tasks
+          --ignore=examples/crypto_sign
+          --ignore=examples/grpc_service
+          --ignore=examples/mongo_store
+          --ignore=examples/pika_queue
+          --ignore=examples/psycopg2_example
+          --ignore=examples/ssh_remote
+          --ignore=examples/mcp_tool
+          --ignore=examples/aiohttp_api
