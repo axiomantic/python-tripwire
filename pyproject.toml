@@ -108,7 +108,7 @@ all = [
     "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko,mcp]",
 ]
 all-ft = [
-    "bigfoot[http,matchers,websockets,websocket-client,redis,aiohttp,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko,mcp]",
+    "bigfoot[http,matchers,websockets,websocket-client,redis,boto3,jwt,dnspython,pymemcache,elasticsearch]",
 ]
 docs = [
     "mkdocs>=1.6",
