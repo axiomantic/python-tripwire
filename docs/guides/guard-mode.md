@@ -254,6 +254,22 @@ guard = false
 
 When guard mode is disabled (`guard = false`), bigfoot does not install session-scoped patches and does not activate guard during tests. Plugins only intercept calls inside explicit sandboxes, which is the pre-guard-mode behavior.
 
+## Default Allowlist
+
+Set a project-wide default allowlist in `pyproject.toml`:
+
+```toml
+[tool.bigfoot]
+guard = "error"
+guard_allow = ["socket", "database"]
+```
+
+Every test runs as if marked with `@pytest.mark.allow("socket", "database")`. Individual tests can still use `@pytest.mark.deny(...)` to narrow the default.
+
+This is useful for projects where most tests make real I/O (e.g., web frameworks with TestClient) and you want guard mode to catch only specific categories of unguarded calls.
+
+Invalid names in `guard_allow` raise `BigfootConfigError` at test collection time, just like invalid names in `@pytest.mark.allow`.
+
 ## Supported plugins
 
 Guard mode applies to plugins that perform external I/O. The `supports_guard` class variable controls eligibility.

@@ -200,8 +200,17 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         yield
         return
 
+    # Config-level default allowlist
+    config_allow = config.get("guard_allow", [])
+    if not isinstance(config_allow, list):
+        from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
+
+        raise BigfootConfigError(
+            f"guard_allow must be a list of plugin names, got {type(config_allow).__name__}"
+        )
+    marker_allowlist: frozenset[str] = frozenset(config_allow)
+
     # Process @pytest.mark.allow and @pytest.mark.deny
-    marker_allowlist: frozenset[str] = frozenset()
     for mark in item.iter_markers("allow"):
         marker_allowlist = marker_allowlist | frozenset(mark.args)
 
@@ -218,7 +227,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         unknown = (marker_allowlist | denylist) - valid
         if unknown:
             raise BigfootConfigError(
-                f"Unknown plugin name(s) in @pytest.mark.allow/deny: "
+                f"Unknown plugin name(s) in @pytest.mark.allow/deny or guard_allow: "
                 f"{sorted(unknown)}. "
                 f"Valid names: {sorted(valid)}"
             )

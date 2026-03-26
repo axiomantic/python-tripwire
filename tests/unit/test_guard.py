@@ -1428,3 +1428,158 @@ class TestGuardModeIntegration:
         finally:
             _guard_level.reset(level_token)
             dns.deactivate()
+
+
+class TestGuardAllowConfig:
+    """Test guard_allow config option for project-wide default allowlist."""
+
+    def test_config_allow_seeds_allowlist(self) -> None:
+        """guard_allow = ["socket"] in config seeds the marker allowlist."""
+        from unittest.mock import patch
+
+        from bigfoot.pytest_plugin import pytest_runtest_call
+
+        config = {"guard": "error", "guard_allow": ["socket"]}
+
+        # Create a minimal mock item
+        class FakeItem:
+            def iter_markers(self, name: str):
+                return []
+
+        item = FakeItem()
+
+        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+            hook_gen = pytest_runtest_call(item)
+            next(hook_gen)  # enter the hook
+            # Check that "socket" is in the allowlist
+            assert "socket" in _guard_allowlist.get()
+            # Clean up: send None to advance past yield
+            try:
+                hook_gen.send(None)
+            except StopIteration:
+                pass
+
+    def test_config_allow_invalid_type_raises(self) -> None:
+        """guard_allow = "socket" (string, not list) raises BigfootConfigError."""
+        from unittest.mock import patch
+
+        from bigfoot._errors import BigfootConfigError
+        from bigfoot.pytest_plugin import pytest_runtest_call
+
+        config = {"guard": "error", "guard_allow": "socket"}
+
+        class FakeItem:
+            def iter_markers(self, name: str):
+                return []
+
+        item = FakeItem()
+
+        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+            hook_gen = pytest_runtest_call(item)
+            with pytest.raises(BigfootConfigError, match="guard_allow must be a list"):
+                next(hook_gen)
+
+    def test_config_allow_invalid_names_raises(self) -> None:
+        """guard_allow with unknown plugin names raises BigfootConfigError."""
+        from unittest.mock import patch
+
+        from bigfoot._errors import BigfootConfigError
+        from bigfoot.pytest_plugin import pytest_runtest_call
+
+        config = {"guard": "error", "guard_allow": ["nonexistent_plugin"]}
+
+        class FakeItem:
+            def iter_markers(self, name: str):
+                return []
+
+        item = FakeItem()
+
+        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+            hook_gen = pytest_runtest_call(item)
+            with pytest.raises(BigfootConfigError, match="Unknown plugin name"):
+                next(hook_gen)
+
+    def test_config_allow_merged_with_marker(self) -> None:
+        """guard_allow merges with @pytest.mark.allow markers."""
+        from unittest.mock import patch
+
+        from bigfoot.pytest_plugin import pytest_runtest_call
+
+        config = {"guard": "error", "guard_allow": ["socket"]}
+
+        class FakeMark:
+            def __init__(self, *args: str):
+                self.args = args
+
+        class FakeItem:
+            def iter_markers(self, name: str):
+                if name == "allow":
+                    return [FakeMark("dns")]
+                return []
+
+        item = FakeItem()
+
+        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+            hook_gen = pytest_runtest_call(item)
+            next(hook_gen)
+            allowlist = _guard_allowlist.get()
+            assert "socket" in allowlist
+            assert "dns" in allowlist
+            try:
+                hook_gen.send(None)
+            except StopIteration:
+                pass
+
+    def test_deny_marker_overrides_config_allow(self) -> None:
+        """@pytest.mark.deny can remove config-level allowed plugins."""
+        from unittest.mock import patch
+
+        from bigfoot.pytest_plugin import pytest_runtest_call
+
+        config = {"guard": "error", "guard_allow": ["socket", "dns"]}
+
+        class FakeMark:
+            def __init__(self, *args: str):
+                self.args = args
+
+        class FakeItem:
+            def iter_markers(self, name: str):
+                if name == "deny":
+                    return [FakeMark("socket")]
+                return []
+
+        item = FakeItem()
+
+        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+            hook_gen = pytest_runtest_call(item)
+            next(hook_gen)
+            allowlist = _guard_allowlist.get()
+            assert "socket" not in allowlist
+            assert "dns" in allowlist
+            try:
+                hook_gen.send(None)
+            except StopIteration:
+                pass
+
+    def test_config_allow_empty_list_is_default(self) -> None:
+        """guard_allow defaults to empty list when not specified."""
+        from unittest.mock import patch
+
+        from bigfoot.pytest_plugin import pytest_runtest_call
+
+        config = {"guard": "error"}
+
+        class FakeItem:
+            def iter_markers(self, name: str):
+                return []
+
+        item = FakeItem()
+
+        with patch("bigfoot.pytest_plugin.load_bigfoot_config", return_value=config):
+            hook_gen = pytest_runtest_call(item)
+            next(hook_gen)
+            assert _guard_allowlist.get() == frozenset()
+            try:
+                hook_gen.send(None)
+            except StopIteration:
+                pass
