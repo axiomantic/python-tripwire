@@ -522,6 +522,10 @@ class TestThreadingModuleCompat:
             # then restore the real functions unconditionally.
             uninstall_context_propagation()
 
+    @pytest.mark.skipif(
+        not hasattr(threading, "_start_new_thread"),
+        reason="threading._start_new_thread does not exist on Python 3.13+",
+    )
     def test_start_new_thread_patched_when_no_joinable(self) -> None:
         """When threading._start_joinable_thread does not exist (3.12-),
         threading._start_new_thread is patched instead."""
