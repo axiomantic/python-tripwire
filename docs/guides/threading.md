@@ -10,15 +10,17 @@ bigfoot solves this automatically. At test session startup, it installs context 
 
 The `_context_propagation` module patches two thread-creation mechanisms:
 
-1. **`_thread.start_new_thread`** -- the low-level C function that all Python thread creation flows through. Patching at this level catches `threading.Thread`, libraries that spawn threads internally, and any Python code that calls `_thread` directly. On Python 3.13+, the module also patches `threading._start_joinable_thread` (the renamed cached reference used by `Thread.start()`).
+1. **`threading.Thread.start`** -- patched directly (following the [OpenTelemetry pattern](https://pypi.org/project/opentelemetry-instrumentation-threading/)). This is a stable public API across all Python versions.
 
-2. **`ThreadPoolExecutor.submit`** -- the standard library executor. Submitted callables are wrapped to run inside the copied context.
+2. **`_thread.start_new_thread`** -- the low-level C function. Patching at this level catches code that bypasses `threading.Thread` and calls `_thread` directly.
+
+3. **`ThreadPoolExecutor.submit`** -- the standard library executor. Submitted callables are wrapped to run inside the copied context.
 
 When either path creates a thread, bigfoot calls `contextvars.copy_context()` at creation time. This captures a snapshot of all active `ContextVar` values. The child thread's callable then runs inside that copied context via `Context.run()`.
 
 The patches are installed at `pytest_configure` and removed at `pytest_unconfigure`. They are idempotent and thread-safe (guarded by a module-level lock).
 
-On Python 3.14+ free-threaded builds where `sys.flags.thread_inherit_context` is `True`, the `_thread.start_new_thread` patch is skipped because the runtime handles context inheritance natively. The `ThreadPoolExecutor.submit` patch is still installed because the runtime flag only affects `Thread`, not executors.
+On Python 3.14+ free-threaded builds where `sys.flags.thread_inherit_context` is `True`, the `threading.Thread.start` patch is skipped because the runtime handles context inheritance natively. The `_thread.start_new_thread` and `ThreadPoolExecutor.submit` patches are still installed because the runtime flag only affects `threading.Thread`, not lower-level thread creation or executors.
 
 ## What gets propagated
 
@@ -61,6 +63,18 @@ This means:
 ## Limitations
 
 The only blind spot is C code that calls `PyThread_start_new_thread` directly from C, bypassing the Python-level `_thread` module entirely. This is vanishingly rare in practice. Virtually all thread creation in the Python ecosystem goes through `_thread.start_new_thread` or `ThreadPoolExecutor.submit`, both of which are patched.
+
+## Free-threaded Python (3.14t)
+
+bigfoot supports free-threaded Python (the `t` suffix builds with `Py_GIL_DISABLED`). On these builds, `sys.flags.thread_inherit_context` is `True` and threads natively inherit `ContextVar` values, so bigfoot skips the `Thread.start` patch.
+
+When developing or testing bigfoot on free-threaded Python, use the `dev-ft` extra instead of `dev`:
+
+```bash
+pip install -e ".[dev-ft]"
+```
+
+The `dev-ft` extra excludes `psycopg2-binary`, which does not ship prebuilt wheels for free-threaded Python and fails to build from source without `libpq` development headers. All other bigfoot plugins and test dependencies are included. Tests for `Psycopg2Plugin` will be skipped due to the missing import.
 
 ## Interaction with guard mode
 

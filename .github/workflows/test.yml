@@ -28,11 +28,11 @@ jobs:
         run: echo "PYTHON_GIL=0" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: pip install -e ".[http,matchers,dev]"
+        run: pip install -e ".[dev]"
         if: ${{ !endsWith(matrix.python-version, 't') }}
 
       - name: Install dependencies (free-threaded)
-        run: pip install -e ".[http,matchers]" pytest
+        run: pip install -e ".[dev-ft]"
         if: endsWith(matrix.python-version, 't')
 
       - name: Run tests
