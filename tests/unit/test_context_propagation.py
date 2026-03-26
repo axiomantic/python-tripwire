@@ -239,6 +239,8 @@ class TestInstallUninstall:
 
 from bigfoot._context import (
     _active_verifier,
+    _any_order_depth,
+    _current_test_verifier,
     _guard_active,
     _guard_allowlist,
     _guard_level,
@@ -249,12 +251,14 @@ from bigfoot.plugins.file_io_plugin import _file_io_bypass
 
 
 class TestBigfootContextVarsPropagation:
-    """Verify all 9 bigfoot ContextVars propagate to child threads."""
+    """Verify all bigfoot ContextVars propagate to child threads."""
 
     @pytest.mark.parametrize(
         "var,value",
         [
             (_active_verifier, object()),
+            (_any_order_depth, 3),
+            (_current_test_verifier, object()),
             (_guard_active, True),
             (_guard_allowlist, frozenset({"http", "socket"})),
             (_guard_level, "error"),
@@ -264,6 +268,8 @@ class TestBigfootContextVarsPropagation:
         ],
         ids=[
             "active_verifier",
+            "any_order_depth",
+            "current_test_verifier",
             "guard_active",
             "guard_allowlist",
             "guard_level",
@@ -406,6 +412,38 @@ class TestPython314Detection:
 class TestThreadingModuleCompat:
     """Verify correct threading module attribute is patched for 3.12 vs 3.13+."""
 
+    @pytest.fixture(autouse=True)
+    def _save_threading_state(self) -> Generator[None, None, None]:
+        """Save and restore real threading module state around each compat test.
+
+        The compat tests mock ``_HAS_START_JOINABLE_THREAD`` and manipulate
+        ``threading._start_new_thread`` / ``threading._start_joinable_thread``.
+        If ``uninstall_context_propagation()`` runs while the mock is active it
+        can restore the *wrong* function (e.g. a no-op lambda), leaving the
+        threading module broken and causing subsequent thread creation to
+        deadlock.  We therefore snapshot every relevant attribute before the
+        test and unconditionally restore them afterward, regardless of what
+        install/uninstall did.
+        """
+        saved_thread_start = _thread.start_new_thread
+        saved_threading_start = getattr(threading, "_start_new_thread", None)
+        saved_threading_joinable = getattr(threading, "_start_joinable_thread", None)
+        had_joinable = hasattr(threading, "_start_joinable_thread")
+
+        yield
+
+        # Force-uninstall so the global ``_installed`` flag is cleared, then
+        # restore the real functions unconditionally.
+        uninstall_context_propagation()
+
+        _thread.start_new_thread = saved_thread_start
+        if saved_threading_start is not None:
+            threading._start_new_thread = saved_threading_start  # type: ignore[attr-defined]
+        if had_joinable:
+            threading._start_joinable_thread = saved_threading_joinable  # type: ignore[attr-defined]
+        elif hasattr(threading, "_start_joinable_thread"):
+            delattr(threading, "_start_joinable_thread")
+
     def test_patches_correct_threading_attribute_for_current_python(self) -> None:
         """After install, the threading module's cached thread-starter is patched;
         after uninstall it is restored to the original."""
@@ -455,6 +493,11 @@ class TestThreadingModuleCompat:
             # _start_new_thread on threading module should NOT have been saved
             assert cp._saved_threading_start_new_thread is None
 
+            # Uninstall while mocks are still active so it restores the fakes
+            # (not the real functions).  The _save_threading_state fixture will
+            # then restore the real functions unconditionally.
+            uninstall_context_propagation()
+
     def test_start_new_thread_patched_when_no_joinable(self) -> None:
         """When threading._start_joinable_thread does not exist (3.12-),
         threading._start_new_thread is patched instead."""
@@ -475,6 +518,11 @@ class TestThreadingModuleCompat:
                 assert threading._start_new_thread is not fake_start  # type: ignore[attr-defined]
                 assert cp._saved_threading_start_new_thread is fake_start
                 assert cp._saved_threading_start_joinable_thread is None
+
+                # Uninstall while mocks are still active so it restores
+                # correctly.  The _save_threading_state fixture handles final
+                # cleanup.
+                uninstall_context_propagation()
             finally:
                 if had_joinable:
                     threading._start_joinable_thread = saved_joinable  # type: ignore[attr-defined]
