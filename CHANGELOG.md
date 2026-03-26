@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-03-25
+
+### Added
+
+- **Cross-thread ContextVar propagation:** Bigfoot now propagates all ContextVars (sandbox state, guard mode, recording state) to child threads automatically. Tests using `threading.Thread`, `ThreadPoolExecutor`, Starlette `TestClient`, or anyio portal threads now work correctly inside bigfoot sandboxes. Activated at `pytest_configure` time via the new `_context_propagation` module.
+- **Python 3.14 free-threaded support:** When `sys.flags.thread_inherit_context` is `True` (Python 3.14+ free-threaded builds), bigfoot skips its own thread patching and lets the runtime handle context propagation natively.
+- **Threading and ContextVars guide:** New documentation page explaining how bigfoot handles context propagation across threads.
+
+### Changed
+
+- **HttpPlugin no longer patches `run_in_executor`:** The per-plugin `_patch_run_in_executor` method has been removed in favor of the centralized context propagation module. `run_in_executor` context propagation is now handled by the `ThreadPoolExecutor.submit` patch.
+
+### Fixed
+
+- **Python 3.13 compatibility:** Fixed `AttributeError: module 'threading' has no attribute '_start_new_thread'` caused by Python 3.13 renaming the internal thread creation function to `_start_joinable_thread`.
+
 ## [0.17.0] - 2026-03-24
 
 ### Added

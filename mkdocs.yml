@@ -109,6 +109,7 @@ nav:
     - McpPlugin: guides/mcp-plugin.md
     - Writing Plugins: guides/writing-plugins.md
     - Guard Mode: guides/guard-mode.md
+    - Threading: guides/threading.md
     - How It Works: guides/how-it-works.md
     - Plugin Layers: guides/plugin-layers.md
   - API Reference:
