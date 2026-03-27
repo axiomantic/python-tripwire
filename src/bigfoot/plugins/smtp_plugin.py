@@ -57,8 +57,11 @@ class _FakeSMTP:
     """Fake smtplib.SMTP that routes all operations through SmtpPlugin."""
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        host = args[0] if args else kwargs.get("host", "")
+        port = args[1] if len(args) > 1 else kwargs.get("port", 0)
+        fw_request = SmtpFirewallRequest(host=host, port=port)
         try:
-            _find_smtp_plugin()
+            _find_smtp_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             return _ORIGINAL_SMTP(*args, **kwargs)
         return super().__new__(cls)

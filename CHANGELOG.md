@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-03-26
+
+### Added
+
+- **Firewall mode redesign:** Guard mode has been redesigned as a granular firewall system. The new `M()` pattern object enables matching against protocol-specific fields (host, path, method, command, service, etc.) using glob patterns, CIDR notation, regex, or callable predicates. Example: `@pytest.mark.allow(M(protocol="http", host="*.example.com"))`.
+- **`restrict()` context manager:** Sets a ceiling on allowed calls that inner blocks cannot widen. Useful for enforcing that a code path only makes specific types of calls: `with bigfoot.restrict(M(protocol="http", host="api.stripe.com")): ...`.
+- **`FirewallRequest` protocol-typed dataclasses:** Each protocol (HTTP, Redis, subprocess, boto3, etc.) defines a typed dataclass carrying the request details for firewall matching. Plugin authors construct these objects to provide precise matching fields.
+- **TOML firewall configuration:** New `[tool.bigfoot.firewall]` section replaces the deprecated `guard_allow` key. Supports structured per-protocol rules (`[tool.bigfoot.firewall.allow.http]` with `hosts`, `paths`, `methods` arrays), deny rules, and per-file overrides.
+- **Three-level configuration:** Firewall rules combine from TOML (project-wide), marks (per-test), and context managers (scoped blocks), with `restrict()` enforcing ceilings.
+
+### Changed
+
+- **`guard_allow` deprecated:** The `guard_allow` key in `[tool.bigfoot]` is still accepted but deprecated in favor of `[tool.bigfoot.firewall.allow]` structured config.
+- **Guard mode docs rewritten** as the Firewall Mode guide, covering `M()` patterns, TOML config, `restrict()`, `FirewallRequest`, and per-protocol examples.
+- **README** updated to describe firewall mode with `M()` patterns and `restrict()`.
+
 ## [0.18.0] - 2026-03-25
 
 ### Added
@@ -336,6 +352,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.19.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.19.0
+[0.18.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.18.0
+[0.17.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.17.0
 [0.16.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.16.0
 [0.15.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.15.0
 [0.14.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.14.0

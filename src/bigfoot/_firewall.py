@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import contextvars
 import enum
-from collections.abc import Generator
-from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
