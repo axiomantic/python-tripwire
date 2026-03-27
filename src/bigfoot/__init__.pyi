@@ -37,8 +37,8 @@ from bigfoot._guard import allow as allow
 from bigfoot._guard import deny as deny
 from bigfoot._mock_plugin import ImportSiteMock, ObjectMock
 from bigfoot._mock_plugin import MockPlugin as MockPlugin
-from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES as GUARD_ELIGIBLE_PREFIXES
 from bigfoot._registry import PluginEntry as PluginEntry
+from bigfoot._registry import is_guard_eligible as is_guard_eligible
 from bigfoot._timeline import Interaction as Interaction
 from bigfoot._timeline import Timeline as Timeline
 from bigfoot._verifier import InAnyOrderContext as InAnyOrderContext

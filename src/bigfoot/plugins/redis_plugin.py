@@ -8,10 +8,13 @@ from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
+from weakref import WeakKeyDictionary
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import RedisFirewallRequest
+from bigfoot._normalize import normalize_host
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -27,6 +30,9 @@ try:
     _REDIS_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _REDIS_AVAILABLE = False
+
+# Connection metadata: maps Redis client instance -> (host, port, db)
+_redis_conn_meta: WeakKeyDictionary[object, tuple[str, int, int]] = WeakKeyDictionary()
 
 
 # ---------------------------------------------------------------------------
@@ -60,8 +66,10 @@ class RedisMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_redis_plugin() -> RedisPlugin | None:
-    verifier = get_verifier_or_raise("redis:execute_command")
+def _get_redis_plugin(
+    firewall_request: RedisFirewallRequest | None = None,
+) -> RedisPlugin | None:
+    verifier = get_verifier_or_raise("redis:execute_command", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, RedisPlugin):
             return plugin
@@ -88,16 +96,15 @@ class _RedisSentinel:
 def _patched_execute_command(redis_self: object, command: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
     _original = RedisPlugin._original_execute_command
     assert _original is not None
-    # Check allowlist FIRST - bypasses both guard and sandbox
-    if "redis" in _guard_allowlist.get():
-        return _original(redis_self, command, *args, **kwargs)
+    host, port, db = _redis_conn_meta.get(redis_self, ("unknown", 0, 0))
+    cmd_upper = command.upper() if isinstance(command, str) else str(command)
+    fw_request = RedisFirewallRequest(host=host, port=port, db=db, command=cmd_upper)
     try:
-        plugin = _get_redis_plugin()
+        plugin = _get_redis_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return _original(redis_self, command, *args, **kwargs)
     if plugin is None:
         return _original(redis_self, command, *args, **kwargs)
-    cmd_upper = command.upper()
     with plugin._registry_lock:
         queue = plugin._queues.get(cmd_upper)
         if not queue:
@@ -144,8 +151,9 @@ class RedisPlugin(BasePlugin):
     objects. Calls are stateless -- there are no state transitions.
     """
 
-    # Saved original, restored when count reaches 0.
+    # Saved originals, restored when count reaches 0.
     _original_execute_command: ClassVar[Callable[..., Any] | None] = None
+    _original_init: ClassVar[Callable[..., Any] | None] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -194,6 +202,20 @@ class RedisPlugin(BasePlugin):
             raise ImportError(
                 "Install bigfoot[redis] to use RedisPlugin: pip install bigfoot[redis]"
             )
+        # Patch __init__ to capture connection metadata
+        if RedisPlugin._original_init is None:
+            RedisPlugin._original_init = redis_lib.Redis.__init__
+
+            def _patched_init(self_: object, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+                assert RedisPlugin._original_init is not None
+                RedisPlugin._original_init(self_, *args, **kwargs)
+                host = kwargs.get("host") or (args[0] if args else "localhost")
+                port = kwargs.get("port") or (args[1] if len(args) > 1 else 6379)
+                db = kwargs.get("db") or (args[2] if len(args) > 2 else 0)
+                _redis_conn_meta[self_] = (normalize_host(str(host)), int(port), int(db))
+
+            redis_lib.Redis.__init__ = _patched_init  # type: ignore[assignment,method-assign]
+
         RedisPlugin._original_execute_command = redis_lib.Redis.execute_command
         setattr(redis_lib.Redis, "execute_command", _patched_execute_command)
 
@@ -202,6 +224,9 @@ class RedisPlugin(BasePlugin):
         if RedisPlugin._original_execute_command is not None:
             setattr(redis_lib.Redis, "execute_command", RedisPlugin._original_execute_command)
             RedisPlugin._original_execute_command = None
+        if RedisPlugin._original_init is not None:
+            redis_lib.Redis.__init__ = RedisPlugin._original_init  # type: ignore[method-assign]
+            RedisPlugin._original_init = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

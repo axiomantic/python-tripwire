@@ -8,8 +8,6 @@ import bigfoot
 
 from .app import upload_and_notify
 
-pytestmark = pytest.mark.allow("dns", "socket")
-
 
 @pytest.fixture(autouse=True)
 def _silence_botocore():

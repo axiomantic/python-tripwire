@@ -59,9 +59,12 @@ from bigfoot._errors import (
     UnusedMocksError,
     VerificationError,
 )
-from bigfoot._guard import allow, deny
+from bigfoot._firewall import Disposition
+from bigfoot._firewall_request import FirewallRequest
+from bigfoot._guard import allow, deny, restrict
+from bigfoot._match import M
 from bigfoot._mock_plugin import MockPlugin
-from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, PluginEntry
+from bigfoot._registry import PluginEntry, is_guard_eligible
 from bigfoot._timeline import Interaction, Timeline
 from bigfoot._verifier import InAnyOrderContext, SandboxContext, StrictVerifier
 
@@ -238,7 +241,7 @@ __all__ = [
     "Timeline",
     "GuardPassThrough",
     "get_verifier_or_raise",
-    "GUARD_ELIGIBLE_PREFIXES",
+    "is_guard_eligible",
     "PluginEntry",
     # Classes
     "StrictVerifier",
@@ -267,6 +270,10 @@ __all__ = [
     # Guard mode
     "allow",
     "deny",
+    "restrict",
+    "M",
+    "Disposition",
+    "FirewallRequest",
     "GuardedCallError",
     "GuardedCallWarning",
     # Errors

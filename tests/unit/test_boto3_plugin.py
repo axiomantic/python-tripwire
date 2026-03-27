@@ -29,8 +29,8 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, Boto3Plugin]:
     """Return (verifier, plugin) with Boto3Plugin registered but NOT activated.
 
     DNS and Socket calls from boto3 internals (credential provider hitting
-    169.254.169.254) are handled by the @pytest.mark.allow("dns", "socket")
-    mark which bypasses both guard and sandbox modes.
+    169.254.169.254) are prevented by the plugin's install_patches() which
+    sets dummy env vars so botocore never reaches the metadata service.
     """
     v = StrictVerifier()
     for p in v._plugins:
@@ -46,9 +46,6 @@ def _reset_plugin_count() -> None:
         Boto3Plugin._install_count = 0
         # Use the plugin's own _restore_patches() to avoid duplicating restoration logic.
         Boto3Plugin.__new__(Boto3Plugin).restore_patches()
-
-
-pytestmark = pytest.mark.allow("dns", "socket")
 
 
 @pytest.fixture(autouse=True)

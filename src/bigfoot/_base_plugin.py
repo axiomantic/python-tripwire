@@ -35,6 +35,7 @@ class BasePlugin(ABC):
     """
 
     supports_guard: ClassVar[bool] = True
+    guard_prefixes: ClassVar[tuple[str, ...]] = ()
 
     # Shared patching infrastructure -- each subclass gets its own via __init_subclass__
     _install_count: ClassVar[int] = 0

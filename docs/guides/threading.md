@@ -32,7 +32,7 @@ bigfoot defines nine `ContextVar` instances. All of them are captured by `copy_c
 | `_current_test_verifier` | `_context` | Points module-level API functions to the per-test verifier |
 | `_any_order_depth` | `_context` | Tracks nesting depth of `in_any_order()` blocks |
 | `_guard_active` | `_context` | Whether guard mode is active for the current test |
-| `_guard_allowlist` | `_context` | Set of plugin names allowed to pass through |
+| `_guard_allowlist` | `_context` | Firewall rules (allow/deny/restrict) for the current scope |
 | `_guard_level` | `_context` | Guard level: `"warn"` or `"error"` |
 | `_guard_patches_installed` | `_context` | Whether session-scoped guard patches are installed |
 | `_recording_in_progress` | `_recording` | Auto-assert guard (prevents `mark_asserted` during `record`) |
@@ -78,7 +78,7 @@ The `dev-ft` extra excludes `psycopg2-binary`, which does not ship prebuilt whee
 
 ## Interaction with guard mode
 
-Guard state (`_guard_active`, `_guard_allowlist`, `_guard_level`, `_guard_patches_installed`) propagates to child threads through the same mechanism. This means:
+Firewall state (`_guard_active`, `_guard_allowlist`, `_guard_level`, `_guard_patches_installed`) propagates to child threads through the same mechanism. This means:
 
 - If a test is running with guard mode active, calls in child threads are guarded.
 - If a test uses `@pytest.mark.allow("http")` or `bigfoot.allow("http")`, the allowlist propagates to child threads.

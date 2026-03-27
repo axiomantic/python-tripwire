@@ -1,79 +1,123 @@
-"""Guard mode allow/deny context managers."""
+"""Guard mode allow/deny/restrict context managers."""
 
 from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from bigfoot._context import _guard_allowlist
+from bigfoot._firewall import (
+    Disposition,
+    FirewallRule,
+    RestrictFrame,
+    _firewall_stack,
+)
+from bigfoot._match import M
+
+
+def _coerce_to_m(rule: str | M) -> M:
+    """Convert a bare string to M(protocol=name), pass M through."""
+    if isinstance(rule, str):
+        return M(protocol=rule)
+    return rule
 
 
 @contextmanager
-def allow(*plugin_names: str) -> Generator[None, None, None]:
-    """Permit specific plugin categories to bypass both guard mode and sandbox mode.
+def allow(*rules: str | M) -> Generator[None, None, None]:
+    """Push ALLOW rules onto the firewall stack.
 
-    Usage::
-
+    Usage:
+        # Coarse: allow entire protocol
         with bigfoot.allow("dns", "socket"):
-            boto3.client("s3")  # DNS + socket calls pass through
+            ...
 
-    When a plugin is in the allowlist, its interceptor calls the original
-    function immediately, regardless of whether guard mode or a sandbox is
-    active. No timeline recording: allowed calls are invisible to bigfoot.
+        # Granular: allow specific host pattern
+        with bigfoot.allow(M(protocol="http", host="*.example.com")):
+            ...
 
-    Nestable: inner allow() adds to the outer allowlist.
+        # Mixed:
+        with bigfoot.allow("dns", M(protocol="http", host="*.example.com")):
+            ...
     """
-    from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
-    from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
+    if not rules:
+        raise ValueError("allow() requires at least one rule")
 
-    valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
-    unknown = set(plugin_names) - valid
-    if unknown:
-        raise BigfootConfigError(
-            f"Unknown plugin name(s) in allow(): {sorted(unknown)}. "
-            f"Valid names: {sorted(valid)}"
-        )
+    frames = tuple(
+        FirewallRule(pattern=_coerce_to_m(r), disposition=Disposition.ALLOW)
+        for r in rules
+    )
 
-    current = _guard_allowlist.get()
-    merged = current | frozenset(plugin_names)
-    token = _guard_allowlist.set(merged)
+    current = _firewall_stack.get()
+    new_stack = current.push(*frames)
+    token = _firewall_stack.set(new_stack)
     try:
         yield
     finally:
-        _guard_allowlist.reset(token)
+        _firewall_stack.reset(token)
 
 
 @contextmanager
-def deny(*plugin_names: str) -> Generator[None, None, None]:
-    """Remove specific plugins from the allowlist within a nested context.
+def deny(*rules: str | M) -> Generator[None, None, None]:
+    """Push DENY rules onto the firewall stack.
 
-    Usage::
-
-        with bigfoot.allow("dns", "socket"):
-            # dns and socket pass through
-            with bigfoot.deny("socket"):
-                # only dns passes through; socket is guarded again
-                socket.connect(...)  # raises GuardedCallError
-            # socket is allowed again here
-
-    Nestable: inner deny() narrows the outer allowlist. On exit, the
-    previous allowlist is restored.
+    Usage:
+        with bigfoot.allow("redis"):
+            with bigfoot.deny(M(protocol="redis", command="FLUSHALL")):
+                # Redis allowed except FLUSHALL
+                ...
     """
-    from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
-    from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
+    if not rules:
+        raise ValueError("deny() requires at least one rule")
 
-    valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
-    unknown = set(plugin_names) - valid
-    if unknown:
-        raise BigfootConfigError(
-            f"Unknown plugin name(s) in deny(): {sorted(unknown)}. "
-            f"Valid names: {sorted(valid)}"
-        )
+    frames = tuple(
+        FirewallRule(pattern=_coerce_to_m(r), disposition=Disposition.DENY)
+        for r in rules
+    )
 
-    current = _guard_allowlist.get()
-    narrowed = current - frozenset(plugin_names)
-    token = _guard_allowlist.set(narrowed)
+    current = _firewall_stack.get()
+    new_stack = current.push(*frames)
+    token = _firewall_stack.set(new_stack)
     try:
         yield
     finally:
-        _guard_allowlist.reset(token)
+        _firewall_stack.reset(token)
+
+
+@contextmanager
+def restrict(*rules: str | M) -> Generator[None, None, None]:
+    """Push a restriction ceiling onto the firewall stack.
+
+    Only requests matching the restriction pattern can proceed past this frame.
+    Inner allow() calls work within the restriction's scope but cannot widen it.
+
+    Usage:
+        # Only HTTP allowed; inner allow("redis") is silently blocked
+        with bigfoot.restrict(M(protocol="http")):
+            with bigfoot.allow(M(protocol="http", host="*.example.com")):
+                # Only *.example.com HTTP passes
+                ...
+
+    Multiple rules are OR'd together into a single restriction pattern:
+        with bigfoot.restrict("http", "dns"):
+            # Only HTTP and DNS can pass this ceiling
+            ...
+    """
+    if not rules:
+        raise ValueError("restrict() requires at least one rule")
+
+    if len(rules) == 1:
+        pattern = _coerce_to_m(rules[0])
+    else:
+        # OR them together: restrict("http", "dns") means either HTTP or DNS
+        combined = _coerce_to_m(rules[0])
+        for r in rules[1:]:
+            combined = combined | _coerce_to_m(r)
+        pattern = combined
+
+    frame = RestrictFrame(pattern=pattern)
+    current = _firewall_stack.get()
+    new_stack = current.push(frame)
+    token = _firewall_stack.set(new_stack)
+    try:
+        yield
+    finally:
+        _firewall_stack.reset(token)

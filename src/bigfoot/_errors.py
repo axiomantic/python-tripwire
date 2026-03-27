@@ -5,7 +5,10 @@ This module imports NOTHING from other bigfoot modules to prevent circular impor
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from bigfoot._firewall_request import FirewallRequest
 
 
 class BigfootError(Exception):
@@ -232,47 +235,194 @@ class BigfootConfigError(BigfootError):
 
 
 class GuardedCallError(BigfootError):
-    """Raised when an I/O call is intercepted during guard mode without
-    an active sandbox or allow() permission.
+    """Raised when a call is blocked by the bigfoot firewall.
 
-    This error means your test (or code it calls) made a real external
-    call that bigfoot's guard mode blocked.
+    The error message shows:
+    1. Exactly what was attempted (URL, host, command, path)
+    2. The most specific allow rule to fix it (not blanket allow)
+    3. All three configuration syntaxes (mark, context manager, TOML)
+    4. Link to docs
     """
 
-    def __init__(self, source_id: str, plugin_name: str) -> None:
+    def __init__(
+        self,
+        source_id: str,
+        plugin_name: str,
+        firewall_request: FirewallRequest | None = None,
+    ) -> None:
         self.source_id = source_id
         self.plugin_name = plugin_name
+        self.firewall_request = firewall_request
         super().__init__(self._build_message())
 
     def _build_message(self) -> str:
-        from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES  # noqa: PLC0415
-
-        valid_names = ", ".join(sorted(GUARD_ELIGIBLE_PREFIXES))
+        req = self.firewall_request
         lines = [
-            f"GuardedCallError: {self.source_id!r} blocked by bigfoot guard mode.",
+            f"GuardedCallError: {self.source_id!r} blocked by bigfoot firewall.",
             "",
-            "  Fix: allow this plugin to make real calls:",
-            "",
-            f'    @pytest.mark.allow("{self.plugin_name}")',
-            "    def test_something():",
-            "        ...",
-            "",
-            "  Or use a context manager (scoped to a block):",
-            "",
-            f'    with bigfoot.allow("{self.plugin_name}"):',
-            "        ...",
-            "",
-            "  Or mock the call with a sandbox:",
-            "",
-            "    with bigfoot:",
-            "        ...",
-            "",
-            "  Valid plugin names for allow():",
-            f"    {valid_names}",
-            "",
-            "  Docs: https://bigfoot.readthedocs.io/guides/guard-mode/",
         ]
+
+        # Section 1: What was attempted
+        lines.append("  Attempted:")
+        if req is not None:
+            lines.append(f"    {self._describe_request(req)}")
+        else:
+            lines.append(f"    {self.source_id} (no request details available)")
+        lines.append("")
+
+        # Section 2: Recommended fix (most specific)
+        mark_fix, cm_fix, toml_fix = self._recommend_fix(req)
+
+        lines.append("  Fix with @pytest.mark.allow:")
+        lines.append("")
+        lines.append(f"    {mark_fix}")
+        lines.append("    def test_something():")
+        lines.append("        ...")
+        lines.append("")
+        lines.append("  Fix with context manager (scoped to a block):")
+        lines.append("")
+        lines.append(f"    {cm_fix}")
+        lines.append("        ...")
+        lines.append("")
+        lines.append("  Fix in pyproject.toml:")
+        lines.append("")
+        for toml_line in toml_fix:
+            lines.append(f"    {toml_line}")
+        lines.append("")
+
+        # Section 3: Or mock it
+        lines.append("  Or mock the call with a sandbox:")
+        lines.append("")
+        lines.append("    with bigfoot:")
+        lines.append("        ...")
+        lines.append("")
+        lines.append("  Docs: https://bigfoot.readthedocs.io/guides/guard-mode/")
+
         return "\n".join(lines)
+
+    def _describe_request(self, req: FirewallRequest) -> str:
+        """Human-readable description of what was attempted."""
+        from bigfoot._firewall_request import (  # noqa: PLC0415
+            Boto3FirewallRequest,
+            DatabaseFirewallRequest,
+            FileIoFirewallRequest,
+            HttpFirewallRequest,
+            McpFirewallRequest,
+            NetworkFirewallRequest,
+            RedisFirewallRequest,
+            SubprocessFirewallRequest,
+        )
+
+        if isinstance(req, HttpFirewallRequest):
+            url = f"{req.scheme}://{req.host}:{req.port}{req.path}"
+            return f"{req.method} {url}"
+        if isinstance(req, RedisFirewallRequest):
+            return f"redis://{req.host}:{req.port}/{req.db} {req.command}"
+        if isinstance(req, SubprocessFirewallRequest):
+            return f"subprocess: {req.command}" if req.command else f"subprocess: {req.binary}"
+        if isinstance(req, FileIoFirewallRequest):
+            return f"file_io: {req.operation} {req.path}"
+        if isinstance(req, Boto3FirewallRequest):
+            return f"boto3: {req.service}.{req.operation}"
+        if isinstance(req, DatabaseFirewallRequest):
+            return f"sqlite: {req.database_path}"
+        if isinstance(req, McpFirewallRequest):
+            return f"mcp: tool={req.tool_name} uri={req.uri}"
+        if isinstance(req, NetworkFirewallRequest):
+            return f"{req.protocol}://{req.host}:{req.port}"
+        return f"{req.protocol}: (details unavailable)"
+
+    def _recommend_fix(
+        self, req: FirewallRequest | None,
+    ) -> tuple[str, str, list[str]]:
+        """Generate the most specific fix for mark, context manager, and TOML.
+
+        Returns (mark_str, cm_str, toml_lines).
+        """
+        if req is None:
+            # Fallback: coarse plugin-level fix
+            return (
+                f'@pytest.mark.allow("{self.plugin_name}")',
+                f'with bigfoot.allow("{self.plugin_name}"):',
+                [
+                    "[tool.bigfoot.firewall]",
+                    f'allow = ["{self.plugin_name}:*"]',
+                ],
+            )
+
+        from bigfoot._firewall_request import (  # noqa: PLC0415
+            Boto3FirewallRequest,
+            FileIoFirewallRequest,
+            HttpFirewallRequest,
+            RedisFirewallRequest,
+            SubprocessFirewallRequest,
+        )
+
+        if isinstance(req, HttpFirewallRequest):
+            m_str = f'M(protocol="http", host="{req.host}", path="{req.path}")'
+            return (
+                f"@pytest.mark.allow({m_str})",
+                f"with bigfoot.allow({m_str}):",
+                [
+                    "[tool.bigfoot.firewall]",
+                    f'allow = ["{req.scheme}://{req.host}{req.path}"]',
+                ],
+            )
+
+        if isinstance(req, RedisFirewallRequest):
+            m_str = f'M(protocol="redis", host="{req.host}", port={req.port})'
+            return (
+                f"@pytest.mark.allow({m_str})",
+                f"with bigfoot.allow({m_str}):",
+                [
+                    "[tool.bigfoot.firewall]",
+                    f'allow = ["redis://{req.host}:{req.port}"]',
+                ],
+            )
+
+        if isinstance(req, SubprocessFirewallRequest):
+            m_str = f'M(protocol="subprocess", binary="{req.binary}")'
+            return (
+                f"@pytest.mark.allow({m_str})",
+                f"with bigfoot.allow({m_str}):",
+                [
+                    "[tool.bigfoot.firewall]",
+                    f'allow = ["subprocess:{req.binary}"]',
+                ],
+            )
+
+        if isinstance(req, FileIoFirewallRequest):
+            m_str = f'M(protocol="file_io", path="{req.path}", operation="{req.operation}")'
+            return (
+                f"@pytest.mark.allow({m_str})",
+                f"with bigfoot.allow({m_str}):",
+                [
+                    "[tool.bigfoot.firewall]",
+                    'allow = ["file_io:*"]  # or restrict to specific paths',
+                ],
+            )
+
+        if isinstance(req, Boto3FirewallRequest):
+            m_str = f'M(protocol="boto3", service="{req.service}", operation="{req.operation}")'
+            return (
+                f"@pytest.mark.allow({m_str})",
+                f"with bigfoot.allow({m_str}):",
+                [
+                    "[tool.bigfoot.firewall]",
+                    'allow = ["boto3:*"]  # or restrict to specific services',
+                ],
+            )
+
+        # Generic network protocol
+        m_str = f'M(protocol="{req.protocol}")'
+        return (
+            f"@pytest.mark.allow({m_str})",
+            f"with bigfoot.allow({m_str}):",
+            [
+                "[tool.bigfoot.firewall]",
+                f'allow = ["{req.protocol}:*"]',
+            ],
+        )
 
 
 class GuardedCallWarning(UserWarning):

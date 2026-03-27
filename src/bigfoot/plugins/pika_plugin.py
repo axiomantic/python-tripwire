@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._firewall_request import PikaFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -45,8 +46,10 @@ _SOURCE_CLOSE = "pika:close"
 # ---------------------------------------------------------------------------
 
 
-def _find_pika_plugin() -> PikaPlugin:
-    verifier = get_verifier_or_raise("pika:connect")
+def _find_pika_plugin(
+    firewall_request: PikaFirewallRequest | None = None,
+) -> PikaPlugin:
+    verifier = get_verifier_or_raise("pika:connect", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, PikaPlugin):
             return plugin
@@ -131,20 +134,27 @@ class _FakeBlockingConnection:
     """Fake pika.BlockingConnection that routes all operations through PikaPlugin."""
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        # Check allowlist FIRST - bypasses both guard and sandbox
-        if "pika" in _guard_allowlist.get():
-            return _ORIGINAL_BLOCKING_CONNECTION(*args, **kwargs)
+        # Extract connection parameters for firewall request
+        parameters = args[0] if args else kwargs.get("parameters")
+        if parameters is not None and hasattr(parameters, "host"):
+            _host = parameters.host
+            _port = parameters.port
+            _vhost = parameters.virtual_host
+        else:
+            _host = "localhost"
+            _port = 5672
+            _vhost = "/"
+        _fw = PikaFirewallRequest(
+            host=_host, port=_port, virtual_host=_vhost,
+            exchange="", routing_key="",
+        )
         try:
-            _find_pika_plugin()
+            _find_pika_plugin(firewall_request=_fw)
         except GuardPassThrough:
             return _ORIGINAL_BLOCKING_CONNECTION(*args, **kwargs)
         return super().__new__(cls)
 
     def __init__(self, parameters: Any = None, **kwargs: Any) -> None:  # noqa: ANN401
-        plugin = _find_pika_plugin()
-        plugin._bind_connection(self)
-        handle = plugin._lookup_session(self)
-
         # Extract connection parameters
         if parameters is not None and hasattr(parameters, "host"):
             host = parameters.host
@@ -154,6 +164,14 @@ class _FakeBlockingConnection:
             host = "localhost"
             port = 5672
             virtual_host = "/"
+
+        fw_request = PikaFirewallRequest(
+            host=host, port=port, virtual_host=virtual_host,
+            exchange="", routing_key="",
+        )
+        plugin = _find_pika_plugin(firewall_request=fw_request)
+        plugin._bind_connection(self)
+        handle = plugin._lookup_session(self)
 
         plugin._execute_step(
             handle, "connect", (), {}, _SOURCE_CONNECT,

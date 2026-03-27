@@ -11,7 +11,6 @@ from bigfoot._config import load_bigfoot_config
 from bigfoot._context import (
     _current_test_verifier,
     _guard_active,
-    _guard_allowlist,
     _guard_level,
     _guard_patches_installed,
 )
@@ -64,12 +63,11 @@ def pytest_configure(config: pytest.Config) -> None:
     """Register bigfoot pytest markers and install context propagation."""
     config.addinivalue_line(
         "markers",
-        "allow(*plugin_names): allow plugins to make real calls"
-        " (bypasses guard and sandbox)",
+        "allow(*rules): allow protocols/patterns (str or M()) to bypass guard mode",
     )
     config.addinivalue_line(
         "markers",
-        'deny(*plugin_names): remove plugins from the allowlist (narrows an outer allow)',
+        "deny(*rules): deny protocols/patterns (str or M()) in guard mode",
     )
     install_context_propagation()
 
@@ -200,48 +198,177 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
         yield
         return
 
-    # Config-level default allowlist
-    config_allow = config.get("guard_allow", [])
-    if not isinstance(config_allow, list):
+    # Reject legacy guard_allow config key
+    if "guard_allow" in config:
         from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
 
         raise BigfootConfigError(
-            f"guard_allow must be a list of plugin names, got {type(config_allow).__name__}"
+            "The guard_allow config key has been replaced by [tool.bigfoot.firewall]. "
+            "Migration: guard_allow = [\"http\", \"dns\"] becomes "
+            "[tool.bigfoot.firewall]\\nallow = [\"http:*\", \"dns:*\"]"
         )
-    marker_allowlist: frozenset[str] = frozenset(config_allow)
 
-    # Process @pytest.mark.allow and @pytest.mark.deny
-    for mark in item.iter_markers("allow"):
-        marker_allowlist = marker_allowlist | frozenset(mark.args)
+    from bigfoot._firewall import (  # noqa: PLC0415
+        Disposition,
+        FirewallRule,
+        _firewall_stack,
+    )
+    from bigfoot._match import M  # noqa: PLC0415
 
-    denylist: frozenset[str] = frozenset()
-    for mark in item.iter_markers("deny"):
-        denylist = denylist | frozenset(mark.args)
+    frames: list[FirewallRule] = []
 
-    # Validate names
-    if marker_allowlist or denylist:
+    # ---------------------------------------------------------------
+    # Layer 0: Global TOML rules from [tool.bigfoot.firewall]
+    # ---------------------------------------------------------------
+    firewall_config = config.get("firewall", {})
+    if not isinstance(firewall_config, dict):
         from bigfoot._errors import BigfootConfigError  # noqa: PLC0415
-        from bigfoot._registry import GUARD_ELIGIBLE_PREFIXES, VALID_PLUGIN_NAMES  # noqa: PLC0415
 
-        valid = VALID_PLUGIN_NAMES | GUARD_ELIGIBLE_PREFIXES
-        unknown = (marker_allowlist | denylist) - valid
-        if unknown:
-            raise BigfootConfigError(
-                f"Unknown plugin name(s) in @pytest.mark.allow/deny or guard_allow: "
-                f"{sorted(unknown)}. "
-                f"Valid names: {sorted(valid)}"
+        raise BigfootConfigError(
+            f"firewall config must be a table/dict, got {type(firewall_config).__name__}"
+        )
+
+    # Global allow rules
+    for rule_str in firewall_config.get("allow", []):
+        frames.append(
+            FirewallRule(pattern=_parse_toml_rule(rule_str), disposition=Disposition.ALLOW)
+        )
+
+    # Global deny rules
+    for rule_str in firewall_config.get("deny", []):
+        frames.append(
+            FirewallRule(pattern=_parse_toml_rule(rule_str), disposition=Disposition.DENY)
+        )
+
+    # Structured protocol sections (e.g., [tool.bigfoot.firewall.http])
+    structured_protocols = ("http", "redis", "subprocess", "boto3", "socket", "file_io")
+    for proto in structured_protocols:
+        proto_section = firewall_config.get(proto, {})
+        if not isinstance(proto_section, dict):
+            continue
+        for rule_str in proto_section.get("allow", []):
+            frames.append(
+                FirewallRule(
+                    pattern=_parse_toml_rule(f"{proto}:{rule_str}"),
+                    disposition=Disposition.ALLOW,
+                )
+            )
+        for rule_str in proto_section.get("deny", []):
+            frames.append(
+                FirewallRule(
+                    pattern=_parse_toml_rule(f"{proto}:{rule_str}"),
+                    disposition=Disposition.DENY,
+                )
             )
 
-    # Merge existing fixture-set allowlist with marker allowlist, then subtract deny
-    existing = _guard_allowlist.get()
-    allowlist = (existing | marker_allowlist) - denylist
+    # ---------------------------------------------------------------
+    # Layer 1: Per-file TOML overrides
+    # ---------------------------------------------------------------
+    per_file = firewall_config.get("per-file-allow", {})
+    if isinstance(per_file, dict) and per_file:
+        test_path = str(item.fspath)
+        for glob_pattern, rules in per_file.items():
+            if _path_matches_glob(test_path, glob_pattern):
+                if isinstance(rules, list):
+                    for rule_str in rules:
+                        frames.append(
+                            FirewallRule(
+                                pattern=_parse_toml_rule(rule_str),
+                                disposition=Disposition.ALLOW,
+                            )
+                        )
+
+    # ---------------------------------------------------------------
+    # Layer 2: @pytest.mark.allow / @pytest.mark.deny
+    # ---------------------------------------------------------------
+    for mark in item.iter_markers("deny"):
+        for arg in mark.args:
+            if isinstance(arg, M):
+                frames.append(FirewallRule(pattern=arg, disposition=Disposition.DENY))
+            else:
+                frames.append(
+                    FirewallRule(pattern=M(protocol=str(arg)), disposition=Disposition.DENY)
+                )
+
+    for mark in item.iter_markers("allow"):
+        for arg in mark.args:
+            if isinstance(arg, M):
+                frames.append(FirewallRule(pattern=arg, disposition=Disposition.ALLOW))
+            else:
+                frames.append(
+                    FirewallRule(pattern=M(protocol=str(arg)), disposition=Disposition.ALLOW)
+                )
+
+    current_stack = _firewall_stack.get()
+    new_stack = current_stack.push(*frames) if frames else current_stack
+    firewall_token = _firewall_stack.set(new_stack)
 
     level_token = _guard_level.set(guard_level)
-    allowlist_token = _guard_allowlist.set(allowlist)
     guard_token = _guard_active.set(True)
     try:
         yield
     finally:
         _guard_active.reset(guard_token)
-        _guard_allowlist.reset(allowlist_token)
         _guard_level.reset(level_token)
+        _firewall_stack.reset(firewall_token)
+
+
+def _parse_toml_rule(rule_str: str) -> M:  # type: ignore[name-defined]  # noqa: F821
+    """Parse a TOML rule string into an M() pattern."""
+    from bigfoot._match import M  # noqa: PLC0415
+
+    # Protocol:wildcard shorthand
+    if ":" in rule_str and "//" not in rule_str:
+        protocol, _, pattern = rule_str.partition(":")
+        if pattern == "*":
+            return M(protocol=protocol)
+        if protocol == "subprocess":
+            return M(protocol="subprocess", binary=pattern)
+        if protocol == "memcache":
+            return M(protocol="memcache", command=pattern)
+        if protocol == "file_io":
+            return M(protocol="file_io", path=pattern)
+        if protocol == "boto3":
+            parts = pattern.split(":")
+            if len(parts) == 2:  # noqa: PLR2004
+                return M(protocol="boto3", service=parts[0], operation=parts[1])
+            return M(protocol="boto3", service=parts[0])
+        return M(protocol=protocol)
+
+    # URL-style: scheme://host[:port][/path]
+    from urllib.parse import urlparse  # noqa: PLC0415
+
+    parsed = urlparse(rule_str)
+    scheme = parsed.scheme
+    kwargs: dict[str, object] = {}
+    protocol_map = {
+        "http": "http",
+        "https": "http",
+        "redis": "redis",
+        "rediss": "redis",
+        "ws": "websocket",
+        "wss": "websocket",
+        "postgresql": "psycopg2",
+        "postgres": "psycopg2",
+        "smtp": "smtp",
+        "ssh": "ssh",
+    }
+    protocol = protocol_map.get(scheme, scheme)
+    kwargs["protocol"] = protocol
+    if parsed.hostname:
+        kwargs["host"] = parsed.hostname
+    if parsed.port:
+        kwargs["port"] = parsed.port
+    if parsed.path and parsed.path != "/":
+        if protocol == "redis" and parsed.path.lstrip("/").isdigit():
+            kwargs["db"] = int(parsed.path.lstrip("/"))
+        else:
+            kwargs["path"] = parsed.path
+    return M(**kwargs)  # type: ignore[arg-type]
+
+
+def _path_matches_glob(test_path: str, glob_pattern: str) -> bool:
+    """Check if a test path matches a glob pattern."""
+    from bigfoot._glob import bigfoot_match  # noqa: PLC0415
+
+    return bigfoot_match(glob_pattern, test_path)

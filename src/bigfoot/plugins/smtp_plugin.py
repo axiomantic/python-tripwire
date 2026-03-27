@@ -3,7 +3,8 @@
 import smtplib
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._firewall_request import SmtpFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -34,8 +35,10 @@ _SOURCE_QUIT = "smtp:quit"
 # ---------------------------------------------------------------------------
 
 
-def _find_smtp_plugin() -> "SmtpPlugin":
-    verifier = get_verifier_or_raise("smtp:connect")
+def _find_smtp_plugin(
+    firewall_request: SmtpFirewallRequest | None = None,
+) -> "SmtpPlugin":
+    verifier = get_verifier_or_raise("smtp:connect", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, SmtpPlugin):
             return plugin
@@ -54,17 +57,18 @@ class _FakeSMTP:
     """Fake smtplib.SMTP that routes all operations through SmtpPlugin."""
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        # Check allowlist FIRST - bypasses both guard and sandbox
-        if "smtp" in _guard_allowlist.get():
-            return _ORIGINAL_SMTP(*args, **kwargs)
+        host = args[0] if args else kwargs.get("host", "")
+        port = args[1] if len(args) > 1 else kwargs.get("port", 0)
+        fw_request = SmtpFirewallRequest(host=host, port=port)
         try:
-            _find_smtp_plugin()
+            _find_smtp_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             return _ORIGINAL_SMTP(*args, **kwargs)
         return super().__new__(cls)
 
     def __init__(self, host: str = "", port: int = 0, **kwargs: Any) -> None:  # noqa: ANN401
-        plugin = _find_smtp_plugin()
+        fw_request = SmtpFirewallRequest(host=host, port=port)
+        plugin = _find_smtp_plugin(firewall_request=fw_request)
         plugin._bind_connection(self)  # partial init
         handle = plugin._lookup_session(self)
         # ALWAYS execute connect step unconditionally (matches real smtplib.SMTP behavior)

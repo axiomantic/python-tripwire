@@ -529,13 +529,13 @@ Key implementation rules:
 
 ---
 
-## Guard mode support
+## Firewall mode support
 
-Plugins declare whether they participate in guard mode via the `supports_guard` class variable.
+Plugins declare whether they participate in firewall mode (formerly guard mode) via the `supports_guard` class variable.
 
 ### Default: `supports_guard = True`
 
-The default value in `BasePlugin` is `True`. This means bigfoot will activate the plugin at session startup during guard mode, and any intercepted call outside a sandbox will be blocked (or passed through if allowed). This is correct for any plugin that intercepts external I/O (HTTP, database, socket, etc.).
+The default value in `BasePlugin` is `True`. This means bigfoot will activate the plugin at session startup during firewall mode, and any intercepted call outside a sandbox will be checked against the firewall rules (allow/deny/restrict with `M()` patterns). This is correct for any plugin that intercepts external I/O (HTTP, database, socket, etc.).
 
 ### Setting `supports_guard = False`
 
@@ -549,9 +549,26 @@ class MyComputePlugin(BasePlugin):
     # ...
 ```
 
+### Constructing FirewallRequest objects
+
+When a firewall-eligible plugin intercepts a call outside a sandbox, it should construct a protocol-specific `FirewallRequest` dataclass and pass it to the firewall for matching against `M()` patterns. Each protocol defines its own request type with fields relevant to that protocol:
+
+```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class MyProtocolFirewallRequest:
+    protocol: str = "myprotocol"
+    host: str = ""
+    port: int = 0
+    operation: str = ""
+```
+
+Populate all available fields so that user-defined `M()` patterns can match precisely. The firewall checks these fields against the rules defined in TOML config, `@pytest.mark.allow`/`deny`, and `allow()`/`deny()`/`restrict()` context managers.
+
 ### Handling `GuardPassThrough` in interceptors
 
-When guard mode is active and a call is allowed (via `allow()` or `@pytest.mark.allow`), `get_verifier_or_raise()` raises `GuardPassThrough` instead of returning a verifier. The allowlist can also be narrowed with `deny()` or `@pytest.mark.deny`, which re-guards specific plugins. Guard-eligible interceptors must catch `GuardPassThrough` and delegate to the original function:
+When firewall mode is active and a call is allowed (via `allow()`, `@pytest.mark.allow`, or an `M()` pattern match), `get_verifier_or_raise()` raises `GuardPassThrough` instead of returning a verifier. The allowlist can also be narrowed with `deny()`, `@pytest.mark.deny`, or `restrict()`. Firewall-eligible interceptors must catch `GuardPassThrough` and delegate to the original function:
 
 ```python
 from bigfoot import get_verifier_or_raise, GuardPassThrough
@@ -568,7 +585,7 @@ def _my_interceptor(original_self, *args, **kwargs):
 
 `GuardPassThrough` inherits from `BaseException` (not `Exception`) so that generic `except Exception` clauses in user code do not accidentally swallow it. Only interceptors should catch it.
 
-If your plugin has `supports_guard = False`, you do not need `GuardPassThrough` handling because guard mode will never activate your plugin's interceptors.
+If your plugin has `supports_guard = False`, you do not need `GuardPassThrough` handling because firewall mode will never activate your plugin's interceptors.
 
 ---
 

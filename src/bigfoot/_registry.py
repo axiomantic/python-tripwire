@@ -121,42 +121,6 @@ PLUGIN_REGISTRY: tuple[PluginEntry, ...] = (
 
 VALID_PLUGIN_NAMES: frozenset[str] = frozenset(e.name for e in PLUGIN_REGISTRY)
 
-# Source-ID prefixes used by guard-eligible plugins (supports_guard=True,
-# default_enabled=True). Guard mode blocks calls whose source_id starts with
-# one of these prefixes. Prefixes that don't match registry names (e.g., "db"
-# for the "database" plugin) are included explicitly.
-#
-# Non-guard plugins (logging, jwt, crypto, celery) and opt-in plugins
-# (file_io, native) are NOT included. MockPlugin source_ids start with
-# "mock:" which is also not included.
-GUARD_ELIGIBLE_PREFIXES: frozenset[str] = frozenset({
-    "http",          # HttpPlugin
-    "subprocess",    # SubprocessPlugin, PopenPlugin
-    "smtp",          # SmtpPlugin
-    "socket",        # SocketPlugin
-    "db",            # DatabasePlugin (source_id: "db:connect", "db:execute", ...)
-    "database",      # DatabasePlugin (registry name, for allow() compatibility)
-    "websocket",     # AsyncWebSocketPlugin, SyncWebSocketPlugin
-    "async_websocket",  # registry name
-    "sync_websocket",   # registry name
-    "redis",         # RedisPlugin
-    "psycopg2",      # Psycopg2Plugin
-    "asyncpg",       # AsyncpgPlugin
-    "asyncio",       # AsyncSubprocessPlugin (source_id: "asyncio:subprocess:spawn")
-    "async_subprocess",  # registry name
-    "dns",           # DnsPlugin
-    "memcache",      # MemcachePlugin
-    "boto3",         # Boto3Plugin
-    "elasticsearch", # ElasticsearchPlugin
-    "mongo",         # MongoPlugin
-    "pika",          # PikaPlugin
-    "ssh",           # SshPlugin
-    "grpc",          # GrpcPlugin
-    "mcp",           # McpPlugin
-    "popen",         # PopenPlugin (registry name)
-})
-
-
 def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     """Import and return the plugin class for a registry entry."""
     import importlib
@@ -164,6 +128,37 @@ def get_plugin_class(entry: PluginEntry) -> type[BasePlugin]:
     module = importlib.import_module(entry.import_path)
     cls: type[BasePlugin] = getattr(module, entry.class_name)
     return cls
+
+
+def is_guard_eligible(plugin_name: str) -> bool:
+    """Check if a plugin name corresponds to a guard-eligible plugin.
+
+    Derives eligibility from the plugin's supports_guard ClassVar.
+    Replaces the old GUARD_ELIGIBLE_PREFIXES set.
+    """
+    # Build a cache on first call
+    if not hasattr(is_guard_eligible, "_cache"):
+        eligible: set[str] = set()
+        for entry in PLUGIN_REGISTRY:
+            if not entry.default_enabled:
+                continue
+            try:
+                cls = get_plugin_class(entry)
+                if getattr(cls, "supports_guard", True):
+                    eligible.add(entry.name)
+                    # Also add source_id prefixes that differ from registry name
+                    for prefix in getattr(cls, "guard_prefixes", ()):
+                        eligible.add(prefix)
+            except Exception:
+                pass
+        is_guard_eligible._cache = frozenset(eligible)  # type: ignore[attr-defined]
+    return plugin_name in is_guard_eligible._cache  # type: ignore[attr-defined]
+
+
+def _clear_guard_eligible_cache() -> None:
+    """Clear the is_guard_eligible cache. For testing only."""
+    if hasattr(is_guard_eligible, "_cache"):
+        del is_guard_eligible._cache
 
 
 def resolve_enabled_plugins(

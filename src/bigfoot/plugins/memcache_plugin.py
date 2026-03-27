@@ -10,10 +10,13 @@ import traceback
 from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
+from weakref import WeakKeyDictionary
 
 from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import GuardPassThrough, _guard_allowlist, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import MemcacheFirewallRequest
+from bigfoot._normalize import normalize_host
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -29,6 +32,9 @@ try:
     _PYMEMCACHE_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _PYMEMCACHE_AVAILABLE = False
+
+# Connection metadata: maps Client instance -> (host, port)
+_memcache_conn_meta: WeakKeyDictionary[object, tuple[str, int]] = WeakKeyDictionary()
 
 
 # ---------------------------------------------------------------------------
@@ -52,8 +58,10 @@ class MemcacheMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_memcache_plugin() -> MemcachePlugin | None:
-    verifier = get_verifier_or_raise("memcache:command")
+def _get_memcache_plugin(
+    firewall_request: MemcacheFirewallRequest | None = None,
+) -> MemcachePlugin | None:
+    verifier = get_verifier_or_raise("memcache:command", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, MemcachePlugin):
             return plugin
@@ -107,13 +115,10 @@ def _make_patched_method(method_name: str) -> Any:  # noqa: ANN401
     cmd_upper = method_name.upper()
 
     def _patched(client_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        # Check allowlist FIRST - bypasses both guard and sandbox
-        if "memcache" in _guard_allowlist.get():
-            original = MemcachePlugin._originals.get(method_name)
-            if original is not None:
-                return original(client_self, *args, **kwargs)
+        host, port = _memcache_conn_meta.get(client_self, ("unknown", 0))
+        fw_request = MemcacheFirewallRequest(host=host, port=port, command=cmd_upper)
         try:
-            plugin = _get_memcache_plugin()
+            plugin = _get_memcache_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             original = MemcachePlugin._originals.get(method_name)
             if original is not None:
@@ -186,6 +191,7 @@ class MemcachePlugin(BasePlugin):
     """
 
     _originals: ClassVar[dict[str, Any]] = {m: None for m in _ALL_INTERCEPTED}
+    _original_init: ClassVar[Any] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -229,6 +235,21 @@ class MemcachePlugin(BasePlugin):
             )
         from pymemcache.client.base import Client
 
+        # Patch __init__ to capture connection metadata
+        if MemcachePlugin._original_init is None:
+            MemcachePlugin._original_init = Client.__init__
+
+            def _patched_init(self_: object, server: Any, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+                assert MemcachePlugin._original_init is not None
+                MemcachePlugin._original_init(self_, server, *args, **kwargs)
+                if isinstance(server, tuple):
+                    host, port = str(server[0]), int(server[1]) if len(server) > 1 else 11211
+                else:
+                    host, port = str(server), 11211
+                _memcache_conn_meta[self_] = (normalize_host(host), port)
+
+            Client.__init__ = _patched_init
+
         for method_name in _ALL_INTERCEPTED:
             MemcachePlugin._originals[method_name] = getattr(Client, method_name, None)
             setattr(Client, method_name, _make_patched_method(method_name))
@@ -241,6 +262,9 @@ class MemcachePlugin(BasePlugin):
             if original is not None:
                 setattr(Client, method_name, original)
         MemcachePlugin._originals = {k: None for k in MemcachePlugin._originals}
+        if MemcachePlugin._original_init is not None:
+            Client.__init__ = MemcachePlugin._original_init
+            MemcachePlugin._original_init = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

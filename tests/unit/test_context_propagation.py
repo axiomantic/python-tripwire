@@ -260,7 +260,6 @@ from bigfoot._context import (
     _any_order_depth,
     _current_test_verifier,
     _guard_active,
-    _guard_allowlist,
     _guard_level,
     _guard_patches_installed,
 )
@@ -278,7 +277,6 @@ class TestBigfootContextVarsPropagation:
             (_any_order_depth, 3),
             (_current_test_verifier, object()),
             (_guard_active, True),
-            (_guard_allowlist, frozenset({"http", "socket"})),
             (_guard_level, "error"),
             (_guard_patches_installed, True),
             (_recording_in_progress, True),
@@ -289,7 +287,6 @@ class TestBigfootContextVarsPropagation:
             "any_order_depth",
             "current_test_verifier",
             "guard_active",
-            "guard_allowlist",
             "guard_level",
             "guard_patches_installed",
             "recording_in_progress",
@@ -336,7 +333,6 @@ class TestGuardModePropagation:
             stack.callback(_guard_active.reset, _guard_active.set(True))
             stack.callback(_guard_level.reset, _guard_level.set("error"))
             stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
-            stack.callback(_guard_allowlist.reset, _guard_allowlist.set(frozenset()))
             errors: list[BaseException] = []
 
             def worker() -> None:
@@ -352,20 +348,35 @@ class TestGuardModePropagation:
         assert len(errors) == 1
         assert isinstance(errors[0], GuardedCallError)
 
-    def test_guard_allowlist_propagates_to_child_thread(self) -> None:
-        """When a plugin is in the allowlist, child thread passes through."""
+    def test_guard_firewall_allow_propagates_to_child_thread(self) -> None:
+        """When a firewall allow rule matches, child thread passes through."""
+        from bigfoot._firewall import (
+            Disposition,
+            FirewallRule,
+            FirewallStack,
+            _firewall_stack,
+        )
+        from bigfoot._firewall_request import HttpFirewallRequest
+        from bigfoot._match import M
+
         install_context_propagation()
+
+        allow_stack = FirewallStack((
+            FirewallRule(pattern=M(protocol="http"), disposition=Disposition.ALLOW),
+        ))
 
         with contextlib.ExitStack() as stack:
             stack.callback(_guard_active.reset, _guard_active.set(True))
             stack.callback(_guard_level.reset, _guard_level.set("error"))
             stack.callback(_guard_patches_installed.reset, _guard_patches_installed.set(True))
-            stack.callback(_guard_allowlist.reset, _guard_allowlist.set(frozenset({"http"})))
+            stack.callback(_firewall_stack.reset, _firewall_stack.set(allow_stack))
             errors: list[BaseException] = []
+
+            request = HttpFirewallRequest(host="example.com", port=80)
 
             def worker() -> None:
                 try:
-                    get_verifier_or_raise("http:request")
+                    get_verifier_or_raise("http:request", firewall_request=request)
                 except GuardPassThrough as exc:
                     errors.append(exc)
 
