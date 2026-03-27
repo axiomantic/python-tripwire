@@ -7,10 +7,13 @@ import traceback
 from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
+from weakref import WeakKeyDictionary
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import ElasticsearchFirewallRequest
+from bigfoot._normalize import normalize_host
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -26,6 +29,9 @@ try:
     _ELASTICSEARCH_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _ELASTICSEARCH_AVAILABLE = False
+
+# Connection metadata: maps Elasticsearch client instance -> (host, port)
+_es_conn_meta: WeakKeyDictionary[object, tuple[str, int]] = WeakKeyDictionary()
 
 # Methods to intercept and their detail extraction specs.
 # Each entry: (method_name, list of (kwarg_name, detail_key) pairs)
@@ -76,8 +82,10 @@ class ElasticsearchMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_elasticsearch_plugin() -> ElasticsearchPlugin | None:
-    verifier = get_verifier_or_raise("elasticsearch:operation")
+def _get_elasticsearch_plugin(
+    firewall_request: ElasticsearchFirewallRequest | None = None,
+) -> ElasticsearchPlugin | None:
+    verifier = get_verifier_or_raise("elasticsearch:operation", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, ElasticsearchPlugin):
             return plugin
@@ -106,8 +114,13 @@ def _make_interceptor(operation: str) -> Any:  # noqa: ANN401
     detail_keys = _OPERATION_DETAILS.get(operation, ())
 
     def interceptor(es_self: object, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        host, port = _es_conn_meta.get(es_self, ("unknown", 0))
+        index = kwargs.get("index", "")
+        fw_request = ElasticsearchFirewallRequest(
+            host=host, port=port, index=index if isinstance(index, str) else "", operation=operation,
+        )
         try:
-            plugin = _get_elasticsearch_plugin()
+            plugin = _get_elasticsearch_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             original = ElasticsearchPlugin._originals.get(operation)
             if original is not None:
@@ -168,6 +181,7 @@ class ElasticsearchPlugin(BasePlugin):
     """
 
     _originals: ClassVar[dict[str, Any]] = {}
+    _original_init: ClassVar[Any] = None
 
     def __init__(self, verifier: StrictVerifier) -> None:
         super().__init__(verifier)
@@ -210,6 +224,53 @@ class ElasticsearchPlugin(BasePlugin):
                 "pip install bigfoot[elasticsearch]"
             )
         es_cls = es_lib.Elasticsearch
+
+        # Patch __init__ to capture connection metadata
+        if ElasticsearchPlugin._original_init is None:
+            ElasticsearchPlugin._original_init = es_cls.__init__
+
+            def _patched_init(self_: object, *args: Any, **kwargs: Any) -> None:
+                assert ElasticsearchPlugin._original_init is not None
+                ElasticsearchPlugin._original_init(self_, *args, **kwargs)
+                # Elasticsearch client accepts hosts as str, list of str, or list of dicts
+                hosts = args[0] if args else kwargs.get("hosts", kwargs.get("host", "localhost"))
+                host, port = "localhost", 9200
+                if isinstance(hosts, str):
+                    if ":" in hosts and not hosts.startswith("["):
+                        parts = hosts.rsplit(":", 1)
+                        host = parts[0]
+                        try:
+                            port = int(parts[1].rstrip("/"))
+                        except ValueError:
+                            pass
+                    else:
+                        host = hosts.rstrip("/")
+                elif isinstance(hosts, (list, tuple)) and hosts:
+                    first = hosts[0]
+                    if isinstance(first, dict):
+                        host = first.get("host", "localhost")
+                        port = first.get("port", 9200)
+                    elif isinstance(first, str):
+                        if ":" in first and not first.startswith("["):
+                            parts = first.rsplit(":", 1)
+                            host = parts[0]
+                            try:
+                                port = int(parts[1].rstrip("/"))
+                            except ValueError:
+                                pass
+                        else:
+                            host = first.rstrip("/")
+                # Strip scheme if present (e.g., "http://localhost")
+                if "://" in str(host):
+                    from urllib.parse import urlparse  # noqa: PLC0415
+                    parsed = urlparse(str(host) if not str(host).endswith("/") else str(host))
+                    host = parsed.hostname or "localhost"
+                    if parsed.port:
+                        port = parsed.port
+                _es_conn_meta[self_] = (normalize_host(str(host)), int(port))
+
+            es_cls.__init__ = _patched_init  # type: ignore[method-assign]
+
         for method_name in _INTERCEPTED_METHODS:
             ElasticsearchPlugin._originals[method_name] = getattr(es_cls, method_name)
             setattr(es_cls, method_name, _make_interceptor(method_name))
@@ -220,6 +281,9 @@ class ElasticsearchPlugin(BasePlugin):
         for method_name, original in ElasticsearchPlugin._originals.items():
             setattr(es_cls, method_name, original)
         ElasticsearchPlugin._originals.clear()
+        if ElasticsearchPlugin._original_init is not None:
+            es_cls.__init__ = ElasticsearchPlugin._original_init  # type: ignore[method-assign]
+            ElasticsearchPlugin._original_init = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

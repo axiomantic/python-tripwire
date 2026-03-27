@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._firewall_request import SshFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -48,8 +49,10 @@ _SOURCE_CLOSE = "ssh:close"
 # ---------------------------------------------------------------------------
 
 
-def _find_ssh_plugin() -> SshPlugin:
-    verifier = get_verifier_or_raise("ssh:connect")
+def _find_ssh_plugin(
+    firewall_request: SshFirewallRequest | None = None,
+) -> SshPlugin:
+    verifier = get_verifier_or_raise("ssh:connect", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, SshPlugin):
             return plugin
@@ -182,8 +185,11 @@ class _FakeSSHClient:
     ) -> Any:  # noqa: ANN401
         _orig_cls = SshPlugin._original_ssh_client
         assert _orig_cls is not None
+        fw_request = SshFirewallRequest(
+            host=hostname, port=port, username=username or "",
+        )
         try:
-            plugin = _find_ssh_plugin()
+            plugin = _find_ssh_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             self._real_client = _orig_cls()
             return self._real_client.connect(

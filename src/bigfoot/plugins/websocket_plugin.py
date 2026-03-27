@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import WebSocketFirewallRequest
+from bigfoot._normalize import normalize_url
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -53,8 +55,10 @@ except ImportError:  # pragma: no cover
 # ---------------------------------------------------------------------------
 
 
-def _get_async_websocket_plugin() -> AsyncWebSocketPlugin:
-    verifier = get_verifier_or_raise("websocket:async:connect")
+def _get_async_websocket_plugin(
+    firewall_request: WebSocketFirewallRequest | None = None,
+) -> AsyncWebSocketPlugin:
+    verifier = get_verifier_or_raise("websocket:async:connect", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, AsyncWebSocketPlugin):
             return plugin
@@ -64,8 +68,10 @@ def _get_async_websocket_plugin() -> AsyncWebSocketPlugin:
     )
 
 
-def _get_sync_websocket_plugin() -> SyncWebSocketPlugin:
-    verifier = get_verifier_or_raise("websocket:sync:connect")
+def _get_sync_websocket_plugin(
+    firewall_request: WebSocketFirewallRequest | None = None,
+) -> SyncWebSocketPlugin:
+    verifier = get_verifier_or_raise("websocket:sync:connect", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, SyncWebSocketPlugin):
             return plugin
@@ -158,6 +164,8 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     States: connecting -> open -> closed
     """
 
+    guard_prefixes: ClassVar[tuple[str, ...]] = ("async_websocket", "websocket")
+
     # Saved original, restored when count reaches 0.
     _original_connect: ClassVar[Callable[..., Any] | None] = None
 
@@ -226,11 +234,13 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
         _orig_connect = _ws.connect
 
         def _patched_websockets_connect(*args: Any, **kwargs: Any) -> _FakeAsyncWebSocketCM:  # noqa: ANN401
+            uri = args[0] if args else kwargs.get("uri", "")
+            scheme, host, port, path = normalize_url(str(uri))
+            fw_request = WebSocketFirewallRequest(host=host, port=port, scheme=scheme, path=path)
             try:
-                plugin = _get_async_websocket_plugin()
+                plugin = _get_async_websocket_plugin(firewall_request=fw_request)
             except GuardPassThrough:
                 return cast(_FakeAsyncWebSocketCM, _orig_connect(*args, **kwargs))
-            uri = args[0] if args else kwargs.get("uri", "")
             # Pop from queue at websockets.connect() call time (FIFO).
             with plugin._registry_lock:
                 if not plugin._session_queue:
@@ -402,6 +412,8 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     States: connecting -> open -> closed
     """
 
+    guard_prefixes: ClassVar[tuple[str, ...]] = ("sync_websocket", "websocket")
+
     # Saved original, restored when count reaches 0.
     _original_create_connection: ClassVar[Callable[..., Any] | None] = None
 
@@ -470,11 +482,13 @@ class SyncWebSocketPlugin(StateMachinePlugin):
         _orig_create = _wsc.create_connection
 
         def _patched_create_connection(*args: Any, **kwargs: Any) -> _FakeSyncWebSocket:  # noqa: ANN401
+            uri = args[0] if args else kwargs.get("url", "")
+            scheme, host, port, path = normalize_url(str(uri))
+            fw_request = WebSocketFirewallRequest(host=host, port=port, scheme=scheme, path=path)
             try:
-                plugin = _get_sync_websocket_plugin()
+                plugin = _get_sync_websocket_plugin(firewall_request=fw_request)
             except GuardPassThrough:
                 return cast(_FakeSyncWebSocket, _orig_create(*args, **kwargs))
-            uri = args[0] if args else kwargs.get("url", "")
             # Pop from queue immediately at create_connection() call time (FIFO).
             with plugin._registry_lock:
                 if not plugin._session_queue:

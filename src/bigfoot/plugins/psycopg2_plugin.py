@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._firewall_request import PostgresFirewallRequest
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -37,8 +38,10 @@ _SOURCE_CLOSE = "psycopg2:close"
 # ---------------------------------------------------------------------------
 
 
-def _get_psycopg2_plugin() -> "Psycopg2Plugin":
-    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
+def _get_psycopg2_plugin(
+    firewall_request: PostgresFirewallRequest | None = None,
+) -> "Psycopg2Plugin":
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT, firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, Psycopg2Plugin):
             return plugin
@@ -163,8 +166,13 @@ def _patched_psycopg2_connect(
 ) -> _FakePsycopg2Connection:
     _original = Psycopg2Plugin._original_connect
     assert _original is not None
+    # Parse connection parameters for firewall request
+    host = str(kwargs.get("host", ""))
+    port = int(kwargs.get("port", 0)) if "port" in kwargs else 0
+    dbname = str(kwargs.get("dbname", ""))
+    fw_request = PostgresFirewallRequest(protocol="psycopg2", host=host, port=port, dbname=dbname)
     try:
-        plugin = _get_psycopg2_plugin()
+        plugin = _get_psycopg2_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return cast(_FakePsycopg2Connection, _original(dsn, **kwargs))
     fake_conn = _FakePsycopg2Connection(plugin)

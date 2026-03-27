@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import GrpcFirewallRequest
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -64,8 +65,10 @@ class GrpcMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_grpc_plugin() -> GrpcPlugin:
-    verifier = get_verifier_or_raise("grpc:channel")
+def _get_grpc_plugin(
+    firewall_request: GrpcFirewallRequest | None = None,
+) -> GrpcPlugin:
+    verifier = get_verifier_or_raise("grpc:channel", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, GrpcPlugin):
             return plugin
@@ -236,13 +239,34 @@ class _FakeChannel:
 # ---------------------------------------------------------------------------
 
 
+def _parse_grpc_target(target: str) -> tuple[str, int]:
+    """Parse a gRPC target string into (host, port)."""
+    # Strip scheme if present (e.g., "dns:///host:port")
+    if ":///" in target:
+        target = target.split(":///", 1)[1]
+    elif "://" in target:
+        target = target.split("://", 1)[1]
+    # Split host:port
+    if ":" in target:
+        host, port_str = target.rsplit(":", 1)
+        try:
+            port = int(port_str)
+        except ValueError:
+            host, port = target, 0
+    else:
+        host, port = target, 0
+    return host, port
+
+
 def _patched_insecure_channel(target: str, *args: Any, **kwargs: Any) -> _FakeChannel:  # noqa: ANN401
     from bigfoot._errors import SandboxNotActiveError  # noqa: PLC0415
 
     _original = GrpcPlugin._original_insecure_channel
     assert _original is not None
+    host, port = _parse_grpc_target(target)
+    fw_request = GrpcFirewallRequest(host=host, port=port, method="", call_type="")
     try:
-        get_verifier_or_raise("grpc:channel")
+        get_verifier_or_raise("grpc:channel", firewall_request=fw_request)
     except GuardPassThrough:
         return cast(_FakeChannel, _original(target, *args, **kwargs))
     except SandboxNotActiveError:
@@ -258,8 +282,10 @@ def _patched_secure_channel(  # noqa: ANN401
 
     _original = GrpcPlugin._original_secure_channel
     assert _original is not None
+    host, port = _parse_grpc_target(target)
+    fw_request = GrpcFirewallRequest(host=host, port=port, method="", call_type="")
     try:
-        get_verifier_or_raise("grpc:channel")
+        get_verifier_or_raise("grpc:channel", firewall_request=fw_request)
     except GuardPassThrough:
         return cast(_FakeChannel, _original(target, credentials, *args, **kwargs))
     except SandboxNotActiveError:

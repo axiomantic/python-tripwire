@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError
+from bigfoot._firewall_request import SubprocessFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -48,8 +49,10 @@ _bigfoot_popen_class: Any = None
 # ---------------------------------------------------------------------------
 
 
-def _find_popen_plugin() -> "PopenPlugin":
-    verifier = get_verifier_or_raise(_SOURCE_SPAWN)
+def _find_popen_plugin(
+    firewall_request: SubprocessFirewallRequest | None = None,
+) -> "PopenPlugin":
+    verifier = get_verifier_or_raise(_SOURCE_SPAWN, firewall_request=firewall_request)
     try:
         return next(p for p in verifier._plugins if isinstance(p, PopenPlugin))
     except StopIteration:
@@ -100,7 +103,15 @@ class _FakePopen:
         **kwargs: Any,  # noqa: ANN401
     ) -> Any:  # noqa: ANN401
         try:
-            _find_popen_plugin()
+            if hasattr(args, "__iter__") and not isinstance(args, str):
+                cmd_list = list(args)
+                binary = str(cmd_list[0]) if cmd_list else ""
+                command_str = " ".join(str(c) for c in cmd_list)
+            else:
+                binary = str(args).split()[0] if args else ""
+                command_str = str(args)
+            fw_request = SubprocessFirewallRequest(command=command_str, binary=binary)
+            _find_popen_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             return _ORIGINAL_POPEN(args, *pos_args, **kwargs)
         return super().__new__(cls)

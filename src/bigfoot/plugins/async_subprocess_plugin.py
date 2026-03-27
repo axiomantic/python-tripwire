@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError
+from bigfoot._firewall_request import SubprocessFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -49,8 +50,10 @@ _bigfoot_create_subprocess_shell: Callable[..., Any] | None = None
 # ---------------------------------------------------------------------------
 
 
-def _find_async_subprocess_plugin() -> "AsyncSubprocessPlugin":
-    verifier = get_verifier_or_raise(_SOURCE_SPAWN)
+def _find_async_subprocess_plugin(
+    firewall_request: SubprocessFirewallRequest | None = None,
+) -> "AsyncSubprocessPlugin":
+    verifier = get_verifier_or_raise(_SOURCE_SPAWN, firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, AsyncSubprocessPlugin):
             return plugin
@@ -175,7 +178,11 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
             **kwargs: Any,  # noqa: ANN401
         ) -> _AsyncFakeProcess:
             try:
-                plugin = _find_async_subprocess_plugin()
+                command = [program, *[str(a) for a in args]]
+                binary = program
+                command_str = " ".join(command)
+                fw_request = SubprocessFirewallRequest(command=command_str, binary=binary)
+                plugin = _find_async_subprocess_plugin(firewall_request=fw_request)
             except GuardPassThrough:
                 return cast(
                     _AsyncFakeProcess,
@@ -201,7 +208,9 @@ class AsyncSubprocessPlugin(StateMachinePlugin):
             **kwargs: Any,  # noqa: ANN401
         ) -> _AsyncFakeProcess:
             try:
-                plugin = _find_async_subprocess_plugin()
+                binary = cmd.split()[0] if cmd else ""
+                fw_request = SubprocessFirewallRequest(command=cmd, binary=binary)
+                plugin = _find_async_subprocess_plugin(firewall_request=fw_request)
             except GuardPassThrough:
                 return cast(
                     _AsyncFakeProcess,

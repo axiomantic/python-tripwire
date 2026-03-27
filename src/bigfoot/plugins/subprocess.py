@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
+from bigfoot._firewall_request import SubprocessFirewallRequest
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -295,7 +296,16 @@ class SubprocessPlugin(BasePlugin):
 
         def _run_interceptor(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             try:
-                verifier = get_verifier_or_raise(_SOURCE_RUN)
+                cmd = args[0] if args else kwargs.get("args", [])
+                if isinstance(cmd, str):
+                    binary = cmd.split()[0] if cmd else ""
+                    command_str = cmd
+                else:
+                    cmd_list = list(cmd)
+                    binary = cmd_list[0] if cmd_list else ""
+                    command_str = " ".join(str(c) for c in cmd_list)
+                fw_request = SubprocessFirewallRequest(command=command_str, binary=binary)
+                verifier = get_verifier_or_raise(_SOURCE_RUN, firewall_request=fw_request)
             except GuardPassThrough:
                 return _orig_run(*args, **kwargs)
             plugin = _find_subprocess_plugin(verifier)
@@ -303,7 +313,8 @@ class SubprocessPlugin(BasePlugin):
 
         def _which_interceptor(name: str, **kwargs: Any) -> str | None:  # noqa: ANN401
             try:
-                verifier = get_verifier_or_raise(_SOURCE_WHICH)
+                fw_request = SubprocessFirewallRequest(command=name, binary=name)
+                verifier = get_verifier_or_raise(_SOURCE_WHICH, firewall_request=fw_request)
             except GuardPassThrough:
                 return _orig_which(name, **kwargs)
             plugin = _find_subprocess_plugin(verifier)

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._firewall_request import SocketFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -37,8 +38,10 @@ _SOCKET_CLOSE_ORIGINAL: Callable[..., Any] = socket.socket.close
 # ---------------------------------------------------------------------------
 
 
-def _get_socket_plugin() -> "SocketPlugin | None":
-    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
+def _get_socket_plugin(
+    firewall_request: SocketFirewallRequest | None = None,
+) -> "SocketPlugin | None":
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT, firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, SocketPlugin):
             return plugin
@@ -129,19 +132,21 @@ class SocketPlugin(StateMachinePlugin):
         SocketPlugin._original_close = socket.socket.close
 
         def _patched_connect(sock_self: socket.socket, address: object) -> None:
-            try:
-                plugin = _get_socket_plugin()
-            except GuardPassThrough:
-                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
-            if plugin is None:
-                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
-            handle = plugin._bind_connection(sock_self)
             if isinstance(address, tuple) and len(address) >= 2:
                 host = str(address[0])
                 port = int(address[1])
             else:
                 host = str(address)
                 port = 0
+            family_str = sock_self.family.name if hasattr(sock_self.family, "name") else str(sock_self.family)
+            fw_request = SocketFirewallRequest(host=host, port=port, family=family_str)
+            try:
+                plugin = _get_socket_plugin(firewall_request=fw_request)
+            except GuardPassThrough:
+                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
+            if plugin is None:
+                return cast(None, _SOCKET_CONNECT_ORIGINAL(sock_self, address))
+            handle = plugin._bind_connection(sock_self)
             plugin._execute_step(
                 handle, "connect", (address,), {}, _SOURCE_CONNECT,
                 details={"host": host, "port": port},

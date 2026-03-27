@@ -31,6 +31,8 @@ except ImportError:  # pragma: no cover
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import ConflictError, UnmockedInteractionError
+from bigfoot._firewall_request import HttpFirewallRequest
+from bigfoot._normalize import normalize_url
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -569,8 +571,12 @@ class HttpPlugin(BasePlugin):
             transport_self: httpx.HTTPTransport,
             request: httpx.Request,
         ) -> httpx.Response:
+            url = str(request.url)
+            method = request.method
+            scheme, host, port, path = normalize_url(url)
+            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
             try:
-                verifier = get_verifier_or_raise("http:request")
+                verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
                 return _orig_httpx(transport_self, request)
             plugin = _find_http_plugin(verifier)
@@ -581,8 +587,12 @@ class HttpPlugin(BasePlugin):
             transport_self: httpx.AsyncHTTPTransport,
             request: httpx.Request,
         ) -> httpx.Response:
+            url = str(request.url)
+            method = request.method
+            scheme, host, port, path = normalize_url(url)
+            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
             try:
-                verifier = get_verifier_or_raise("http:request")
+                verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
                 return await _orig_httpx_async(
                     transport_self, request,
@@ -596,8 +606,12 @@ class HttpPlugin(BasePlugin):
             request: requests.PreparedRequest,
             **kwargs: Any,  # noqa: ANN401
         ) -> requests.Response:
+            url = request.url or ""
+            method = (request.method or "GET").upper()
+            scheme, host, port, path = normalize_url(url)
+            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
             try:
-                verifier = get_verifier_or_raise("http:request")
+                verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
                 return _orig_requests_send(adapter_self, request, **kwargs)
             plugin = _find_http_plugin(verifier)
@@ -668,8 +682,12 @@ class HttpPlugin(BasePlugin):
         def _bigfoot_urllib_dispatch(
             req: urllib.request.Request,
         ) -> urllib.response.addinfourl:
+            url = req.full_url
+            method = (req.get_method() or "GET").upper()
+            scheme, host, port, path = normalize_url(url)
+            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
             try:
-                verifier = get_verifier_or_raise("http:request")
+                verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)
@@ -698,8 +716,11 @@ class HttpPlugin(BasePlugin):
             str_or_url: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
         ) -> Any:  # noqa: ANN401
+            url = str(str_or_url)
+            scheme, host, port, path = normalize_url(url)
+            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
             try:
-                verifier = get_verifier_or_raise("http:request")
+                verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
                 return await _orig_aiohttp(
                     session_self, method, str_or_url, **kwargs,
@@ -1273,8 +1294,12 @@ class HttpPlugin(BasePlugin):
         def _bigfoot_urllib_dispatch_ref(
             req: urllib.request.Request,
         ) -> urllib.response.addinfourl:
+            url = req.full_url
+            method = (req.get_method() or "GET").upper()
+            scheme, host, port, path = normalize_url(url)
+            fw_request = HttpFirewallRequest(host=host, port=port, scheme=scheme, path=path, method=method)
             try:
-                verifier = get_verifier_or_raise("http:request")
+                verifier = get_verifier_or_raise("http:request", firewall_request=fw_request)
             except GuardPassThrough:
                 original_opener = HttpPlugin._original_urllib_opener
                 urllib.request.install_opener(original_opener)

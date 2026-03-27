@@ -7,10 +7,13 @@ import traceback
 from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, cast
+from weakref import WeakKeyDictionary
 
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import MongoFirewallRequest
+from bigfoot._normalize import normalize_host
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -27,6 +30,9 @@ try:
     _PYMONGO_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _PYMONGO_AVAILABLE = False
+
+# Connection metadata: maps MongoClient instance -> (host, port)
+_mongo_conn_meta: WeakKeyDictionary[object, tuple[str, int]] = WeakKeyDictionary()
 
 
 # ---------------------------------------------------------------------------
@@ -59,8 +65,10 @@ class MongoMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_mongo_plugin() -> MongoPlugin | None:
-    verifier = get_verifier_or_raise("mongo:operation")
+def _get_mongo_plugin(
+    firewall_request: MongoFirewallRequest | None = None,
+) -> MongoPlugin | None:
+    verifier = get_verifier_or_raise("mongo:operation", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, MongoPlugin):
             return plugin
@@ -159,8 +167,16 @@ def _make_patched_method(operation: str) -> Any:  # noqa: ANN401
     """Create a patched method for a specific MongoDB collection operation."""
 
     def _patched(collection_self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        # Navigate from Collection -> Database -> MongoClient for connection metadata
+        client = getattr(getattr(collection_self, "database", None), "client", None)
+        host, port = _mongo_conn_meta.get(client, ("unknown", 0)) if client is not None else ("unknown", 0)
+        database = getattr(collection_self.database, "name", "") if hasattr(collection_self, "database") else ""
+        collection_name = getattr(collection_self, "name", "")
+        fw_request = MongoFirewallRequest(
+            host=host, port=port, database=database, collection=collection_name, operation=operation,
+        )
         try:
-            plugin = _get_mongo_plugin()
+            plugin = _get_mongo_plugin(firewall_request=fw_request)
         except GuardPassThrough:
             original = MongoPlugin._original_methods
             if original is not None and operation in original:
@@ -221,6 +237,7 @@ class MongoPlugin(BasePlugin):
 
     # Saved originals, restored when count reaches 0.
     _original_methods: ClassVar[dict[str, Any] | None] = None
+    _original_client_init: ClassVar[Any] = None
 
     # Operations to intercept
     _INTERCEPTED_OPERATIONS: ClassVar[tuple[str, ...]] = (
@@ -283,6 +300,31 @@ class MongoPlugin(BasePlugin):
             raise ImportError(
                 "Install bigfoot[mongo] to use MongoPlugin: pip install bigfoot[mongo]"
             )
+
+        # Patch MongoClient.__init__ to capture connection metadata
+        if MongoPlugin._original_client_init is None:
+            MongoPlugin._original_client_init = pymongo.MongoClient.__init__
+
+            def _patched_client_init(self_: object, *args: Any, **kwargs: Any) -> None:
+                assert MongoPlugin._original_client_init is not None
+                MongoPlugin._original_client_init(self_, *args, **kwargs)
+                host_arg = args[0] if args else kwargs.get("host", "localhost")
+                port_arg = kwargs.get("port") or (args[1] if len(args) > 1 else 27017)
+                host = "localhost"
+                port = int(port_arg)
+                if isinstance(host_arg, str):
+                    if host_arg.startswith("mongodb://") or host_arg.startswith("mongodb+srv://"):
+                        from urllib.parse import urlparse  # noqa: PLC0415
+                        parsed = urlparse(host_arg)
+                        host = parsed.hostname or "localhost"
+                        if parsed.port:
+                            port = parsed.port
+                    else:
+                        host = host_arg
+                _mongo_conn_meta[self_] = (normalize_host(host), port)
+
+            pymongo.MongoClient.__init__ = _patched_client_init  # type: ignore[method-assign]
+
         MongoPlugin._original_methods = {}
         for op in MongoPlugin._INTERCEPTED_OPERATIONS:
             MongoPlugin._original_methods[op] = getattr(
@@ -300,6 +342,9 @@ class MongoPlugin(BasePlugin):
             for method_name, original in MongoPlugin._original_methods.items():
                 setattr(pymongo.collection.Collection, method_name, original)
             MongoPlugin._original_methods = None
+        if MongoPlugin._original_client_init is not None:
+            pymongo.MongoClient.__init__ = MongoPlugin._original_client_init  # type: ignore[method-assign]
+            MongoPlugin._original_client_init = None
 
     # ------------------------------------------------------------------
     # BasePlugin abstract method implementations

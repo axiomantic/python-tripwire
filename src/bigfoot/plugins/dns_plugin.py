@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import DnsFirewallRequest
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -61,15 +62,19 @@ class DnsMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_dns_plugin() -> DnsPlugin | None:
-    verifier = get_verifier_or_raise("dns:lookup")
+def _get_dns_plugin(
+    firewall_request: DnsFirewallRequest | None = None,
+) -> DnsPlugin | None:
+    verifier = get_verifier_or_raise("dns:lookup", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, DnsPlugin):
             return plugin
     return None
 
 
-def _resolve_dns_plugin() -> DnsPlugin | None:
+def _resolve_dns_plugin(
+    firewall_request: DnsFirewallRequest | None = None,
+) -> DnsPlugin | None:
     """Return the active DnsPlugin, or ``None`` if the call should pass through.
 
     Centralises the guard-mode / allowlist check shared by all DNS interceptors:
@@ -79,7 +84,7 @@ def _resolve_dns_plugin() -> DnsPlugin | None:
     4. Otherwise return the plugin instance.
     """
     try:
-        return _get_dns_plugin()
+        return _get_dns_plugin(firewall_request=firewall_request)
     except GuardPassThrough:
         return None
 
@@ -152,7 +157,8 @@ def _patched_getaddrinfo(
     proto: int = 0,
     flags: int = 0,
 ) -> Any:  # noqa: ANN401
-    plugin = _resolve_dns_plugin()
+    fw_request = DnsFirewallRequest(hostname=host, port=port if isinstance(port, int) else 0, rdtype="")
+    plugin = _resolve_dns_plugin(firewall_request=fw_request)
     if plugin is None:
         _orig = DnsPlugin._original_getaddrinfo
         assert _orig is not None
@@ -168,7 +174,8 @@ def _patched_getaddrinfo(
 
 
 def _patched_gethostbyname(hostname: str) -> Any:  # noqa: ANN401
-    plugin = _resolve_dns_plugin()
+    fw_request = DnsFirewallRequest(hostname=hostname, port=0, rdtype="A")
+    plugin = _resolve_dns_plugin(firewall_request=fw_request)
     if plugin is None:
         _orig = DnsPlugin._original_gethostbyname
         assert _orig is not None
@@ -191,7 +198,8 @@ def _patched_resolver_resolve(
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Instance method: Resolver().resolve(qname, rdtype)."""
-    plugin = _resolve_dns_plugin()
+    fw_request = DnsFirewallRequest(hostname=str(qname), port=0, rdtype=str(rdtype))
+    plugin = _resolve_dns_plugin(firewall_request=fw_request)
     if plugin is None:
         _orig = DnsPlugin._original_resolver_resolve
         assert _orig is not None
@@ -215,7 +223,8 @@ def _patched_module_resolve(
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
     """Module-level: dns.resolver.resolve(qname, rdtype)."""
-    plugin = _resolve_dns_plugin()
+    fw_request = DnsFirewallRequest(hostname=str(qname), port=0, rdtype=str(rdtype))
+    plugin = _resolve_dns_plugin(firewall_request=fw_request)
     if plugin is None:
         _orig = DnsPlugin._original_resolve
         assert _orig is not None

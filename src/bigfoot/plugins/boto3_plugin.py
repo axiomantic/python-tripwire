@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import Boto3FirewallRequest
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -63,8 +64,10 @@ class Boto3MockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_boto3_plugin() -> Boto3Plugin | None:
-    verifier = get_verifier_or_raise("boto3:_make_api_call")
+def _get_boto3_plugin(
+    firewall_request: Boto3FirewallRequest | None = None,
+) -> Boto3Plugin | None:
+    verifier = get_verifier_or_raise("boto3:_make_api_call", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, Boto3Plugin):
             return plugin
@@ -109,17 +112,19 @@ def _patched_make_api_call(
 ) -> Any:  # noqa: ANN401
     _original = Boto3Plugin._original_make_api_call
     assert _original is not None
+    meta = getattr(client_self, "meta", None)
+    service_model = getattr(meta, "service_model", None) if meta else None
+    service_name_fw: str = (
+        getattr(service_model, "service_name", "unknown") if service_model else "unknown"
+    )
+    fw_request = Boto3FirewallRequest(service=service_name_fw, operation=operation_name)
     try:
-        plugin = _get_boto3_plugin()
+        plugin = _get_boto3_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return _original(client_self, operation_name, api_params)
     if plugin is None:
         return _original(client_self, operation_name, api_params)
-    meta = getattr(client_self, "meta", None)
-    service_model = getattr(meta, "service_model", None) if meta else None
-    service_name: str = (
-        getattr(service_model, "service_name", "unknown") if service_model else "unknown"
-    )
+    service_name = service_name_fw
     queue_key = f"{service_name}:{operation_name}"
     source_id = f"boto3:{queue_key}"
 

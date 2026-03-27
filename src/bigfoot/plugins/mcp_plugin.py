@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from bigfoot._base_plugin import BasePlugin
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
 from bigfoot._errors import UnmockedInteractionError
+from bigfoot._firewall_request import McpFirewallRequest
 from bigfoot._timeline import Interaction
 
 if TYPE_CHECKING:
@@ -63,8 +64,10 @@ class McpMockConfig:
 # ---------------------------------------------------------------------------
 
 
-def _get_mcp_plugin() -> McpPlugin | None:
-    verifier = get_verifier_or_raise("mcp:client:call_tool")
+def _get_mcp_plugin(
+    firewall_request: McpFirewallRequest | None = None,
+) -> McpPlugin | None:
+    verifier = get_verifier_or_raise("mcp:client:call_tool", firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, McpPlugin):
             return plugin
@@ -97,8 +100,9 @@ async def _patched_call_tool(
 ) -> Any:  # noqa: ANN401
     _original = McpPlugin._original_call_tool
     assert _original is not None
+    fw_request = McpFirewallRequest(tool_name=name, uri="")
     try:
-        plugin = _get_mcp_plugin()
+        plugin = _get_mcp_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return await _original(self, name, arguments, *args, **kwargs)
     if plugin is None:
@@ -148,8 +152,9 @@ async def _patched_read_resource(
 ) -> Any:  # noqa: ANN401
     _original = McpPlugin._original_read_resource
     assert _original is not None
+    fw_request = McpFirewallRequest(tool_name="", uri=str(uri))
     try:
-        plugin = _get_mcp_plugin()
+        plugin = _get_mcp_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return await _original(self, uri, *args, **kwargs)
     if plugin is None:
@@ -199,8 +204,9 @@ async def _patched_get_prompt(
 ) -> Any:  # noqa: ANN401
     _original = McpPlugin._original_get_prompt
     assert _original is not None
+    fw_request = McpFirewallRequest(tool_name="", uri=name)
     try:
-        plugin = _get_mcp_plugin()
+        plugin = _get_mcp_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return await _original(self, name, arguments, *args, **kwargs)
     if plugin is None:
@@ -260,8 +266,10 @@ async def _patched_handle_request(
 
     _original = McpPlugin._original_handle_request
     assert _original is not None
+    # Server-side: construct a generic firewall request (specific tool/uri not yet known)
+    fw_request = McpFirewallRequest(tool_name="", uri="")
     try:
-        plugin = _get_mcp_plugin()
+        plugin = _get_mcp_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         await _original(
             self, message, req, session, lifespan_context, raise_exceptions,

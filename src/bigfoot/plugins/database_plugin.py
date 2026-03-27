@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._firewall_request import DatabaseFirewallRequest
 from bigfoot._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
 
@@ -27,8 +28,10 @@ _SOURCE_CLOSE = "db:close"
 # ---------------------------------------------------------------------------
 
 
-def _get_database_plugin() -> "DatabasePlugin":
-    verifier = get_verifier_or_raise(_SOURCE_CONNECT)
+def _get_database_plugin(
+    firewall_request: DatabaseFirewallRequest | None = None,
+) -> "DatabasePlugin":
+    verifier = get_verifier_or_raise(_SOURCE_CONNECT, firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, DatabasePlugin):
             return plugin
@@ -152,8 +155,9 @@ class _FakeConnection:
 def _patched_connect(database: str, **_kwargs: object) -> _FakeConnection:
     _original = DatabasePlugin._original_connect
     assert _original is not None
+    fw_request = DatabaseFirewallRequest(database_path=database)
     try:
-        plugin = _get_database_plugin()
+        plugin = _get_database_plugin(firewall_request=fw_request)
     except GuardPassThrough:
         return cast(_FakeConnection, _original(database, **_kwargs))
     fake_conn = _FakeConnection(plugin)
