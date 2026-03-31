@@ -910,36 +910,37 @@ class TestGuardPassThroughInStateMachinePlugins:
         finally:
             sp.deactivate()
 
-    def test_socket_send_guard_blocks_when_not_allowed(self) -> None:
-        """Guard blocks socket:send when socket not in allowlist."""
+    def test_socket_send_guard_passes_through_in_guard_mode(self) -> None:
+        """In guard mode (no sandbox), send passes through to the original.
+
+        The firewall decision was already made at connect time; send/recv/
+        sendall/close skip bigfoot entirely when no sandbox is active.
+        """
         import socket as socket_mod
 
-        from bigfoot._context import _guard_level
-        from bigfoot._guard import deny
         from bigfoot._verifier import StrictVerifier
-        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+        from bigfoot.plugins.socket_plugin import (
+            _SOCKET_CLOSE_ORIGINAL,
+            _SOCKET_SEND_ORIGINAL,
+            SocketPlugin,
+        )
 
         v = StrictVerifier()
         sp = SocketPlugin(v)
         sp.activate()
         try:
-            level_token = _guard_level.set("error")
             guard_token = _guard_active.set(True)
             try:
-                # Explicitly deny socket to override project-level allow = ["socket:*"]
-                with deny("socket"):
-                    sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
-                    try:
-                        with pytest.raises(GuardedCallError) as exc_info:
-                            sock.send(b"hello")
-                        assert exc_info.value.plugin_name == "socket"
-                        # Note: _get_socket_plugin() hardcodes _SOURCE_CONNECT for source_id
-                        assert exc_info.value.source_id == "socket:connect"
-                    finally:
-                        _SOCKET_CLOSE_ORIGINAL(sock)
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    # send should pass through without GuardedCallError
+                    # (will raise OSError because socket is not connected, but NOT GuardedCallError)
+                    with pytest.raises(OSError):
+                        sock.send(b"hello")
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
             finally:
                 _guard_active.reset(guard_token)
-                _guard_level.reset(level_token)
         finally:
             sp.deactivate()
 
@@ -1817,3 +1818,172 @@ class TestFirewallTomlConfig:
                 hook_gen.send(None)
             except StopIteration:
                 pass
+
+
+class TestSocketNonConnectGuardPassThrough:
+    """Test that send/recv/sendall/close pass through in guard mode (no sandbox).
+
+    The firewall decision is made at connect time. Non-connect operations
+    should not hit the firewall at all when no sandbox is active.
+    """
+
+    def test_send_passes_through_in_guard_mode(self) -> None:
+        """socket.send passes through to original in guard mode."""
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    # Not connected, so real send raises OSError, not GuardedCallError
+                    with pytest.raises(OSError):
+                        sock.send(b"hello")
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_sendall_passes_through_in_guard_mode(self) -> None:
+        """socket.sendall passes through to original in guard mode."""
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    # Not connected, so real sendall raises OSError, not GuardedCallError
+                    with pytest.raises(OSError):
+                        sock.sendall(b"hello")
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_recv_passes_through_in_guard_mode(self) -> None:
+        """socket.recv passes through to original in guard mode."""
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                try:
+                    # Not connected, so real recv raises OSError, not GuardedCallError
+                    with pytest.raises(OSError):
+                        sock.recv(1024)
+                finally:
+                    _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_close_passes_through_in_guard_mode(self) -> None:
+        """socket.close passes through to original in guard mode."""
+        import socket as socket_mod
+
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            guard_token = _guard_active.set(True)
+            try:
+                sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                # close should succeed without GuardedCallError
+                sock.close()
+            finally:
+                _guard_active.reset(guard_token)
+        finally:
+            sp.deactivate()
+
+    def test_close_no_guarded_call_error_even_with_deny(self) -> None:
+        """socket.close does not raise GuardedCallError even when socket is denied.
+
+        Non-connect operations bypass bigfoot entirely in guard mode,
+        regardless of firewall rules.
+        """
+        import socket as socket_mod
+
+        from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            level_token = _guard_level.set("error")
+            guard_token = _guard_active.set(True)
+            try:
+                with deny("socket"):
+                    sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                    # close passes through even with deny("socket") active
+                    sock.close()
+            finally:
+                _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
+        finally:
+            sp.deactivate()
+
+    def test_send_no_guarded_call_error_even_with_deny(self) -> None:
+        """socket.send does not raise GuardedCallError even when socket is denied.
+
+        Non-connect operations bypass bigfoot entirely in guard mode,
+        regardless of firewall rules. The real send raises OSError because
+        the socket is not connected.
+        """
+        import socket as socket_mod
+
+        from bigfoot._context import _guard_level
+        from bigfoot._guard import deny
+        from bigfoot._verifier import StrictVerifier
+        from bigfoot.plugins.socket_plugin import _SOCKET_CLOSE_ORIGINAL, SocketPlugin
+
+        v = StrictVerifier()
+        sp = SocketPlugin(v)
+        sp.activate()
+        try:
+            level_token = _guard_level.set("error")
+            guard_token = _guard_active.set(True)
+            try:
+                with deny("socket"):
+                    sock = socket_mod.socket(socket_mod.AF_INET, socket_mod.SOCK_STREAM)
+                    try:
+                        # Real send raises OSError, not GuardedCallError
+                        with pytest.raises(OSError):
+                            sock.send(b"hello")
+                    finally:
+                        _SOCKET_CLOSE_ORIGINAL(sock)
+            finally:
+                _guard_active.reset(guard_token)
+                _guard_level.reset(level_token)
+        finally:
+            sp.deactivate()

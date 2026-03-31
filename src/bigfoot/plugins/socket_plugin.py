@@ -4,7 +4,7 @@ import socket
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from bigfoot._context import GuardPassThrough, get_verifier_or_raise
+from bigfoot._context import GuardPassThrough, get_active_verifier, get_verifier_or_raise
 from bigfoot._firewall_request import SocketFirewallRequest
 from bigfoot._state_machine_plugin import StateMachinePlugin, _StepSentinel
 from bigfoot._timeline import Interaction
@@ -40,8 +40,9 @@ _SOCKET_CLOSE_ORIGINAL: Callable[..., Any] = socket.socket.close
 
 def _get_socket_plugin(
     firewall_request: SocketFirewallRequest | None = None,
+    source_id: str = _SOURCE_CONNECT,
 ) -> "SocketPlugin | None":
-    verifier = get_verifier_or_raise(_SOURCE_CONNECT, firewall_request=firewall_request)
+    verifier = get_verifier_or_raise(source_id, firewall_request=firewall_request)
     for plugin in verifier._plugins:
         if isinstance(plugin, SocketPlugin):
             return plugin
@@ -161,8 +162,10 @@ class SocketPlugin(StateMachinePlugin):
             data: bytes | bytearray | memoryview,
             flags: int = 0,
         ) -> int:
+            if get_active_verifier() is None:
+                return cast(int, _SOCKET_SEND_ORIGINAL(sock_self, data, flags))
             try:
-                plugin = _get_socket_plugin()
+                plugin = _get_socket_plugin(source_id=_SOURCE_SEND)
             except GuardPassThrough:
                 return cast(int, _SOCKET_SEND_ORIGINAL(sock_self, data, flags))
             if plugin is None:
@@ -180,8 +183,10 @@ class SocketPlugin(StateMachinePlugin):
             data: bytes | bytearray | memoryview,
             flags: int = 0,
         ) -> None:
+            if get_active_verifier() is None:
+                return cast(None, _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags))
             try:
-                plugin = _get_socket_plugin()
+                plugin = _get_socket_plugin(source_id=_SOURCE_SENDALL)
             except GuardPassThrough:
                 return cast(None, _SOCKET_SENDALL_ORIGINAL(sock_self, data, flags))
             if plugin is None:
@@ -193,8 +198,10 @@ class SocketPlugin(StateMachinePlugin):
             )
 
         def _patched_recv(sock_self: socket.socket, bufsize: int, flags: int = 0) -> bytes:
+            if get_active_verifier() is None:
+                return cast(bytes, _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags))
             try:
-                plugin = _get_socket_plugin()
+                plugin = _get_socket_plugin(source_id=_SOURCE_RECV)
             except GuardPassThrough:
                 return cast(bytes, _SOCKET_RECV_ORIGINAL(sock_self, bufsize, flags))
             if plugin is None:
@@ -210,8 +217,10 @@ class SocketPlugin(StateMachinePlugin):
             return data
 
         def _patched_close(sock_self: socket.socket) -> None:
+            if get_active_verifier() is None:
+                return cast(None, _SOCKET_CLOSE_ORIGINAL(sock_self))
             try:
-                plugin = _get_socket_plugin()
+                plugin = _get_socket_plugin(source_id=_SOURCE_CLOSE)
             except GuardPassThrough:
                 return cast(None, _SOCKET_CLOSE_ORIGINAL(sock_self))
             if plugin is None:
