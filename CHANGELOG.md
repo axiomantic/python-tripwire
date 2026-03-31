@@ -5,14 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.19.2] - 2026-03-31
+## [0.19.1] - 2026-03-27
 
 ### Fixed
 
 - **Guard mode no longer blocks non-connect socket operations:** `socket.send()`, `socket.sendall()`, `socket.recv()`, and `socket.close()` now pass through to the originals when no sandbox is active. Previously, these operations hit the "fail closed" guard path because they had no `FirewallRequest` to evaluate, causing `GuardedCallError` on asyncio internal socket cleanup (self-pipe sockets) and any other non-bigfoot-managed socket. The firewall decision is made at `socket.connect()` time; subsequent operations on the same socket are implicitly allowed.
 - **`_get_socket_plugin` now accepts `source_id` parameter:** Previously hardcoded `_SOURCE_CONNECT` regardless of which operation called it, producing misleading error messages in sandbox mode.
-
-## [0.19.1] - 2026-03-27
 
 ### Improved
 
@@ -371,7 +369,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
-[0.19.2]: https://github.com/axiomantic/bigfoot/releases/tag/v0.19.2
 [0.19.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.19.1
 [0.19.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.19.0
 [0.18.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.18.0
