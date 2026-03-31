@@ -25,6 +25,10 @@ def test_create_charge_posts_to_stripe_and_logs():
         url="https://api.stripe.com/v1/charges",
         headers=IsInstance(dict),
         body=IsInstance(str),
+    ).assert_response(
+        status=200,
+        headers=IsInstance(dict),
+        body='{"id": "ch_test_123", "amount": 5000, "currency": "usd"}',
     )
     bigfoot.log_mock.assert_info(
         'HTTP Request: POST https://api.stripe.com/v1/charges "HTTP/1.1 200 OK"',

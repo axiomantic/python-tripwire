@@ -58,6 +58,7 @@ def test_all_wildcard_assertion_raises():
             url=AnyThing(),
             headers=AnyThing(),
             body=AnyThing(),
+            require_response=False,
         )
 
 
@@ -73,6 +74,7 @@ def test_partial_wildcard_is_allowed():
         url=AnyThing(),
         headers=AnyThing(),
         body=AnyThing(),
+        require_response=False,
     )
 
 
@@ -88,6 +90,7 @@ def test_all_wildcard_error_shows_real_values():
             url=AnyThing(),
             headers=AnyThing(),
             body=AnyThing(),
+            require_response=False,
         )
 
     # The error message should contain the real values from format_assert_hint
@@ -109,4 +112,5 @@ def test_all_wildcard_detection_in_any_order():
                 url=AnyThing(),
                 headers=AnyThing(),
                 body=AnyThing(),
+                require_response=False,
             )

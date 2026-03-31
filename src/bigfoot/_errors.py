@@ -53,15 +53,8 @@ class UnassertedInteractionsError(BigfootError):
         self.interactions = interactions
         self.hint = hint
         count = len(interactions)
-        preamble = (
-            f"{count} interaction{'s were' if count > 1 else ' was'} not asserted. "
-            f"Every intercepted call must be verified with an assert_* call "
-            f"after the sandbox closes:\n\n"
-            f"    with bigfoot:\n"
-            f"        result = do_something()\n"
-            f"    plugin.assert_*(...)  # <-- required for each interaction\n\n"
-        )
-        super().__init__(f"{preamble}{hint}")
+        header = f"{count} interaction{'s were' if count > 1 else ' was'} not asserted."
+        super().__init__(f"{header}\n\n{hint}")
 
 
 class UnusedMocksError(BigfootError):
@@ -90,15 +83,14 @@ class VerificationError(BigfootError):
         self.unasserted = unasserted
         self.unused = unused
 
-        parts: list[str] = []
+        sections: list[str] = []
         if unasserted is not None:
-            parts.append(f"  [UnassertedInteractions] {unasserted}")
+            sections.append(f"--- Unasserted Interactions ---\n{unasserted}")
         if unused is not None:
-            parts.append(f"  [UnusedMocks] {unused}")
+            sections.append(f"--- Unused Mocks ---\n{unused}")
 
-        if parts:
-            body = "\n".join(parts)
-            message = f"VerificationError:\n{body}"
+        if sections:
+            message = "\n\n".join(sections)
         else:
             message = "VerificationError: (no details)"
 
@@ -121,9 +113,7 @@ class InteractionMismatchError(BigfootError):
         self.expected = expected
         self.actual = actual
         self.hint = hint
-        super().__init__(
-            f"Expected={expected!r}, actual={actual!r}\n\n{hint}"
-        )
+        super().__init__(hint)
 
 
 class SandboxNotActiveError(BigfootError):
@@ -190,15 +180,29 @@ class MissingAssertionFieldsError(BigfootError):
         missing_fields: frozenset of field names that were required but absent.
     """
 
-    def __init__(self, missing_fields: frozenset[str]) -> None:
+    def __init__(
+        self,
+        missing_fields: frozenset[str],
+        provided_fields: frozenset[str] | None = None,
+    ) -> None:
         self.missing_fields = missing_fields
-        fields_str = ", ".join(sorted(missing_fields))
-        super().__init__(
-            f"MissingAssertionFieldsError: the following assertable fields were not "
-            f"included in the assertion: {fields_str}. "
-            f"Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
-            f"if the value is not the focus of this assertion."
+        self.provided_fields = provided_fields
+        missing_str = ", ".join(sorted(missing_fields))
+        lines = [
+            f"Missing assertion fields: {missing_str}",
+        ]
+        if provided_fields is not None:
+            provided_str = ", ".join(sorted(provided_fields))
+            lines.append(f"  Provided: {provided_str}")
+        lines.append("")
+        lines.append(
+            "Include them in **expected or use a dirty-equals"
+            " matcher (e.g., IsAnything())"
         )
+        lines.append(
+            "if the value is not the focus of this assertion."
+        )
+        super().__init__("\n".join(lines))
 
 
 class AutoAssertError(BigfootError):

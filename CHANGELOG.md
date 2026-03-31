@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] - 2026-03-27
+
+### Fixed
+
+- **Guard mode no longer blocks non-connect socket operations:** `socket.send()`, `socket.sendall()`, `socket.recv()`, and `socket.close()` now pass through to the originals when no sandbox is active. Previously, these operations hit the "fail closed" guard path because they had no `FirewallRequest` to evaluate, causing `GuardedCallError` on asyncio internal socket cleanup (self-pipe sockets) and any other non-bigfoot-managed socket. The firewall decision is made at `socket.connect()` time; subsequent operations on the same socket are implicitly allowed.
+- **`_get_socket_plugin` now accepts `source_id` parameter:** Previously hardcoded `_SOURCE_CONNECT` regardless of which operation called it, producing misleading error messages in sandbox mode.
+
+### Changed
+
+- **`require_response` now defaults to `True`:** `HttpPlugin` now requires response assertions by default. Calling `assert_request()` returns an `HttpAssertionBuilder` that must be completed with `.assert_response(status, headers, body)`. To opt out, pass `require_response=False` per-call or set `require_response = false` in `[tool.bigfoot.http]` config. This aligns with bigfoot's "certainty is the contract" philosophy: if you mock a response, you should assert you got it.
+
+### Improved
+
+- **Field-level diffs in `InteractionMismatchError`:** Mismatch errors now show per-field `expected:` / `actual:` comparisons for only the fields that differ, with `difflib.unified_diff` for long strings. Matching fields are collapsed to a single "N fields matched" line.
+- **Compact remaining timeline:** The "Remaining timeline" section in mismatch errors is hidden when redundant (single interaction already shown above).
+- **Assertion-first `UnassertedInteractionsError`:** Copy-pasteable assertion code is shown first per interaction; the teaching preamble appears once at the end, not repeated per interaction.
+- **Slimmer `InteractionMismatchError` header:** Removed redundant `Expected={...}, actual={...}` repr dump from the one-liner; the formatted hint already contains all the detail.
+- **Cleaner `VerificationError` nesting:** When both unasserted and unused errors fire, section headers (`--- Unasserted Interactions ---`, `--- Unused Mocks ---`) replace the old cramped nesting.
+- **`MissingAssertionFieldsError` shows provided fields:** Error message now lists both the missing fields and the fields that were provided, so you see the gap at a glance.
+- **Richer `MockPlugin.format_interaction`:** One-liners now include a truncated preview of the first positional arg (e.g., `[MockPlugin] mod:attr.__call__(["osascript", "-e", ...])`), making timeline listings distinguishable when multiple interactions share the same source.
+
 ## [0.19.0] - 2026-03-26
 
 ### Added
@@ -352,6 +373,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Multi-OS CI matrix (Ubuntu, macOS, Windows) across Python 3.11, 3.12, and 3.13
 - OIDC trusted publishing to PyPI on `v*` tags
 
+[0.19.1]: https://github.com/axiomantic/bigfoot/releases/tag/v0.19.1
 [0.19.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.19.0
 [0.18.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.18.0
 [0.17.0]: https://github.com/axiomantic/bigfoot/releases/tag/v0.17.0

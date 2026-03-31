@@ -1,6 +1,7 @@
 # src/bigfoot/_verifier.py
 """StrictVerifier, SandboxContext, and InAnyOrderContext."""
 
+import difflib
 import warnings
 from importlib.metadata import entry_points
 from types import TracebackType
@@ -19,6 +20,8 @@ from bigfoot._errors import (
     VerificationError,
 )
 from bigfoot._timeline import Interaction, Timeline
+
+_MISSING = object()
 
 if TYPE_CHECKING:
     import contextvars
@@ -199,7 +202,10 @@ class StrictVerifier:
             required_fields = candidate.plugin.assertable_fields(candidate)
             missing = required_fields - set(expected.keys())
             if missing:
-                raise MissingAssertionFieldsError(missing_fields=frozenset(missing))
+                raise MissingAssertionFieldsError(
+                    missing_fields=frozenset(missing),
+                    provided_fields=frozenset(expected.keys()),
+                )
             # Detect all-wildcard assertions
             if expected and self._all_wildcards(expected):
                 hint = candidate.plugin.format_assert_hint(candidate)
@@ -234,7 +240,10 @@ class StrictVerifier:
             required_fields = interaction.plugin.assertable_fields(interaction)
             missing = required_fields - set(expected.keys())
             if missing:
-                raise MissingAssertionFieldsError(missing_fields=frozenset(missing))
+                raise MissingAssertionFieldsError(
+                    missing_fields=frozenset(missing),
+                    provided_fields=frozenset(expected.keys()),
+                )
             # Detect all-wildcard assertions
             if expected and self._all_wildcards(expected):
                 hint = interaction.plugin.format_assert_hint(interaction)
@@ -322,20 +331,72 @@ class StrictVerifier:
             "",
             f"  Expected source: {source_id}",
         ]
-        if expected:
-            fields_str = ", ".join(f"{k}={v!r}" for k, v in expected.items())
-            lines.append(f"  Expected fields: {fields_str}")
-        lines.append("")
+
         if actual is None:
-            lines.append("  Actual next interaction: (none — timeline is empty or all asserted)")
+            # No interaction to compare against; fall back to flat dump
+            if expected:
+                fields_str = ", ".join(f"{k}={v!r}" for k, v in expected.items())
+                lines.append(f"  Expected fields: {fields_str}")
+            lines.append("")
+            lines.append("  Actual next interaction: (none -- timeline is empty or all asserted)")
         else:
             lines.append(f"  Actual next interaction (sequence={actual.sequence}):")
             lines.append(f"    {actual.plugin.format_interaction(actual)}")
-        if remaining:
+            lines.append("")
+
+            # Field-by-field diff: only show mismatched fields
+            if expected:
+                matched = 0
+                for key, exp_val in expected.items():
+                    act_val = actual.details.get(key, _MISSING)
+                    if act_val is _MISSING:
+                        lines.append(f"  {key}:")
+                        lines.append(f"    expected: {exp_val!r}")
+                        lines.append("    actual:   (missing)")
+                    elif exp_val != act_val:
+                        exp_repr = repr(exp_val)
+                        act_repr = repr(act_val)
+                        if (
+                            isinstance(exp_val, str)
+                            and isinstance(act_val, str)
+                            and len(exp_repr) > 60
+                            and len(act_repr) > 60
+                        ):
+                            diff_lines = list(
+                                difflib.unified_diff(
+                                    exp_val.splitlines(keepends=True),
+                                    act_val.splitlines(keepends=True),
+                                    fromfile="expected",
+                                    tofile="actual",
+                                )
+                            )
+                            lines.append(f"  {key}:")
+                            for dl in diff_lines:
+                                lines.append(f"    {dl.rstrip()}")
+                        else:
+                            lines.append(f"  {key}:")
+                            lines.append(f"    expected: {exp_repr}")
+                            lines.append(f"    actual:   {act_repr}")
+                    else:
+                        matched += 1
+                if matched:
+                    lines.append(f"  ({matched} field{'s' if matched != 1 else ''} matched)")
+
+        # Compact timeline: skip when there's exactly 1 remaining and it's the actual
+        show_remaining = (
+            remaining
+            and not (
+                len(remaining) == 1
+                and actual is not None
+                and remaining[0] is actual
+            )
+        )
+        if show_remaining:
             lines.append("")
             lines.append(f"  Remaining timeline ({len(remaining)} interaction(s)):")
             for r in remaining:
                 lines.append(f"    [{r.sequence}] {r.plugin.format_interaction(r)}")
+
         lines.append("")
         lines.append("  Hint: Did you forget an in_any_order() block?")
         return "\n".join(lines)
@@ -352,12 +413,18 @@ class StrictVerifier:
     def _format_unasserted_error(self, unasserted: list[Interaction]) -> str:
         lines = [f"{len(unasserted)} interaction(s) were not asserted", ""]
         for i in unasserted:
-            lines.append(f"  [sequence={i.sequence}] {i.plugin.format_interaction(i)}")
+            hint = i.plugin.format_assert_hint(i)
+            # Indent each line of the hint
+            indented_hint = "\n".join(f"    {ln}" for ln in hint.splitlines())
+            lines.append(indented_hint)
+            lines.append(f"    # ^ [sequence={i.sequence}] {i.plugin.format_interaction(i)}")
             lines.append("")
-            lines.append("    Copy this assertion into your test:")
-            lines.append("")
-            lines.append(f"      {i.plugin.format_assert_hint(i)}")
-            lines.append("")
+        lines.append("  Every intercepted call must be verified with an assert_* call")
+        lines.append("  after the sandbox closes:")
+        lines.append("")
+        lines.append("    with bigfoot:")
+        lines.append("        result = do_something()")
+        lines.append("    plugin.assert_*(...)  # <-- required for each interaction")
         return "\n".join(lines)
 
     def _format_unused_mocks_error(self, unused: list[tuple["BasePlugin", Any]]) -> str:

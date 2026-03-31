@@ -596,10 +596,16 @@ class MockPlugin(BasePlugin):
             return False
 
     def format_interaction(self, interaction: Interaction) -> str:
-        """One-line description: '[MockPlugin] MockName.method_name'."""
+        """One-line description: '[MockPlugin] MockName.method_name(first_arg_preview)'."""
         # source_id is "mock:MockName.method_name"
         readable = interaction.source_id.replace("mock:", "[MockPlugin] ", 1)
-        return readable
+        args = interaction.details.get("args", ())
+        if args:
+            first_repr = repr(args[0])
+            if len(first_repr) > 60:
+                first_repr = first_repr[:60] + "..."
+            return f"{readable}({first_repr})"
+        return f"{readable}()"
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         """Copy-pasteable code to configure a mock for this interaction."""
@@ -607,8 +613,8 @@ class MockPlugin(BasePlugin):
         method_name = interaction.details.get("method_name", "?")
         if "raised" in interaction.details:
             raised = interaction.details["raised"]
-            return f'verifier.mock("{mock_name}").{method_name}.raises({raised!r})'
-        return f'verifier.mock("{mock_name}").{method_name}.returns(<value>)'
+            return f'bigfoot.mock("{mock_name}").{method_name}.raises({raised!r})'
+        return f'bigfoot.mock("{mock_name}").{method_name}.returns(<value>)'
 
     def format_unmocked_hint(
         self,
@@ -626,9 +632,9 @@ class MockPlugin(BasePlugin):
             f"Unexpected call to {mock_name}.{method_name}\n\n"
             f"  Called with: args={args!r}, kwargs={kwargs!r}\n\n"
             f"  To mock this interaction, add before your sandbox:\n"
-            f'    verifier.mock("{mock_name}").{method_name}.returns(<value>)\n\n'
+            f'    bigfoot.mock("{mock_name}").{method_name}.returns(<value>)\n\n'
             f"  Or to mark it optional:\n"
-            f'    verifier.mock("{mock_name}").{method_name}.required(False).returns(<value>)'
+            f'    bigfoot.mock("{mock_name}").{method_name}.required(False).returns(<value>)'
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -638,7 +644,7 @@ class MockPlugin(BasePlugin):
         args = interaction.details.get("args", ())
         kwargs = interaction.details.get("kwargs", {})
         lines = [
-            f'verifier.mock("{mock_name}").{method_name}.assert_call(',
+            f'bigfoot.mock("{mock_name}").{method_name}.assert_call(',
             f"    args={args!r},",
             f"    kwargs={kwargs!r},",
         ]
@@ -693,6 +699,6 @@ class MockPlugin(BasePlugin):
             f"{mock_config.registration_traceback}\n"
             f"    Options:\n"
             f"      - Remove this mock if it's not needed\n"
-            f'      - Mark it optional: verifier.mock("{mock_config.mock_name}")'
+            f'      - Mark it optional: bigfoot.mock("{mock_config.mock_name}")'
             f".{mock_config.method_name}.required(False).returns(...)"
         )

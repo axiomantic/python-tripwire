@@ -672,6 +672,11 @@ def test_format_assert_hint_returns_correct_snippet() -> None:
         '    "https://api.example.com/data",\n'
         "    headers={},\n"
         "    body='',\n"
+        "    require_response=True,\n"
+        ").assert_response(\n"
+        "    status=200,\n"
+        "    headers={},\n"
+        "    body='',\n"
         ")"
     )
 
@@ -1438,7 +1443,7 @@ def test_assert_request_lazy_does_not_touch_timeline() -> None:
 
 
 # ESCAPE: test_assert_request_terminal_when_require_response_false
-#   CLAIM: assert_request() with default require_response=False is terminal: returns
+#   CLAIM: assert_request() with explicit require_response=False is terminal: returns
 #          None and fully asserts the interaction (verify_all passes).
 #   PATH:  assert_request() -> effective=False -> assert_interaction(4 request fields)
 #          -> returns None.
@@ -1460,6 +1465,7 @@ def test_assert_request_terminal_when_require_response_false() -> None:
         "GET",
         "https://api.example.com/terminal",
         headers=recorded_headers,
+        require_response=False,
     )
 
     assert result is None
@@ -1563,6 +1569,7 @@ def test_assert_request_terminal_missing_field_raises() -> None:
             "POST",  # Wrong method -- recorded interaction is GET
             "https://api.example.com/mismatch",
             headers=recorded_headers,
+            require_response=False,
         )
 
 
@@ -2248,6 +2255,7 @@ def test_assert_request_missing_raised_triggers_missing_fields_error() -> None:
             "https://api.example.com/data",
             headers=recorded_headers,
             body="",
+            require_response=False,
             # raised= intentionally omitted
         )
     assert "raised" in exc_info.value.missing_fields

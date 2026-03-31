@@ -110,8 +110,8 @@ def test_load_config_require_response_true() -> None:
     """load_config with require_response=True sets _require_response to True."""
     stub = _StubVerifier(bigfoot_config={})
     plugin = HttpPlugin(stub)  # type: ignore[arg-type]
-    # Default is False
-    assert plugin._require_response is False
+    # Default is True
+    assert plugin._require_response is True
     plugin.load_config({"require_response": True})
     assert plugin._require_response is True
 
@@ -186,24 +186,24 @@ def test_http_plugin_reads_require_response_from_config(
 def test_config_absent_preserves_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No [tool.bigfoot.http] in pyproject.toml → _require_response remains False."""
+    """No [tool.bigfoot.http] in pyproject.toml → _require_response remains True (the default)."""
     (tmp_path / "pyproject.toml").write_text("[tool.other]\nkey = 1\n")
     monkeypatch.chdir(tmp_path)
     verifier = StrictVerifier()
     # Retrieve the auto-created HttpPlugin
     plugin = next(p for p in verifier._plugins if isinstance(p, HttpPlugin))
-    assert plugin._require_response is False
+    assert plugin._require_response is True
 
 
 def test_no_pyproject_preserves_default(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No pyproject.toml at all → _require_response remains False."""
+    """No pyproject.toml at all → _require_response remains True (the default)."""
     monkeypatch.chdir(tmp_path)
     verifier = StrictVerifier()
     # Retrieve the auto-created HttpPlugin
     plugin = next(p for p in verifier._plugins if isinstance(p, HttpPlugin))
-    assert plugin._require_response is False
+    assert plugin._require_response is True
 
 
 def test_require_response_wrong_type_raises_on_plugin_init(

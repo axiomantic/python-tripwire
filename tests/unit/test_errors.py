@@ -157,12 +157,7 @@ def test_unasserted_interactions_error_str() -> None:
     )
     result = str(err)
     assert result == (
-        "2 interactions were not asserted. "
-        "Every intercepted call must be verified with an assert_* call "
-        "after the sandbox closes:\n\n"
-        "    with bigfoot:\n"
-        "        result = do_something()\n"
-        "    plugin.assert_*(...)  # <-- required for each interaction\n\n"
+        "2 interactions were not asserted.\n\n"
         "Assert all recorded interactions before teardown."
     )
 
@@ -269,18 +264,12 @@ def test_verification_error_str_both_set() -> None:
     )
     err = VerificationError(unasserted=unasserted, unused=unused)
     result = str(err)
-    unasserted_preamble = (
-        "1 interaction was not asserted. "
-        "Every intercepted call must be verified with an assert_* call "
-        "after the sandbox closes:\n\n"
-        "    with bigfoot:\n"
-        "        result = do_something()\n"
-        "    plugin.assert_*(...)  # <-- required for each interaction\n\n"
-    )
     assert result == (
-        "VerificationError:\n"
-        f"  [UnassertedInteractions] {unasserted_preamble}Assert each interaction.\n"
-        "  [UnusedMocks] Remove or set required=False."
+        "--- Unasserted Interactions ---\n"
+        "1 interaction was not asserted.\n\n"
+        "Assert each interaction.\n\n"
+        "--- Unused Mocks ---\n"
+        "Remove or set required=False."
     )
 
 
@@ -292,17 +281,10 @@ def test_verification_error_str_only_unasserted() -> None:
     )
     err = VerificationError(unasserted=unasserted, unused=None)
     result = str(err)
-    unasserted_preamble = (
-        "0 interaction was not asserted. "
-        "Every intercepted call must be verified with an assert_* call "
-        "after the sandbox closes:\n\n"
-        "    with bigfoot:\n"
-        "        result = do_something()\n"
-        "    plugin.assert_*(...)  # <-- required for each interaction\n\n"
-    )
     assert result == (
-        "VerificationError:\n"
-        f"  [UnassertedInteractions] {unasserted_preamble}Nothing to assert."
+        "--- Unasserted Interactions ---\n"
+        "0 interaction was not asserted.\n\n"
+        "Nothing to assert."
     )
 
 
@@ -315,7 +297,8 @@ def test_verification_error_str_only_unused() -> None:
     err = VerificationError(unasserted=None, unused=unused)
     result = str(err)
     assert result == (
-        "VerificationError:\n  [UnusedMocks] Fix unused."
+        "--- Unused Mocks ---\n"
+        "Fix unused."
     )
 
 
@@ -368,11 +351,7 @@ def test_interaction_mismatch_error_str() -> None:
         hint="Check order of assert_interaction() calls.",
     )
     result = str(err)
-    assert result == (
-        "Expected={'source_id': 'http.get'}, "
-        "actual={'source_id': 'db.read'}\n\n"
-        "Check order of assert_interaction() calls."
-    )
+    assert result == "Check order of assert_interaction() calls."
 
 
 # ---------------------------------------------------------------------------
@@ -531,9 +510,8 @@ def test_missing_assertion_fields_error_str_single_field() -> None:
     err = MissingAssertionFieldsError(frozenset({"args"}))
     result = str(err)
     assert result == (
-        "MissingAssertionFieldsError: the following assertable fields were not "
-        "included in the assertion: args. "
-        "Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
+        "Missing assertion fields: args\n\n"
+        "Include them in **expected or use a dirty-equals matcher (e.g., IsAnything())\n"
         "if the value is not the focus of this assertion."
     )
 
@@ -543,9 +521,8 @@ def test_missing_assertion_fields_error_str_multiple_fields_sorted() -> None:
     err = MissingAssertionFieldsError(frozenset({"kwargs", "args"}))
     result = str(err)
     assert result == (
-        "MissingAssertionFieldsError: the following assertable fields were not "
-        "included in the assertion: args, kwargs. "
-        "Include them in **expected or use a dirty-equals matcher (e.g., IsAnything()) "
+        "Missing assertion fields: args, kwargs\n\n"
+        "Include them in **expected or use a dirty-equals matcher (e.g., IsAnything())\n"
         "if the value is not the focus of this assertion."
     )
 

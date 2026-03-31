@@ -32,10 +32,14 @@ async def test_sync_user_data_fetches_and_stores():
 
     assert result == {"id": 1, "name": "Alice", "email": "alice@example.com"}
 
-    # Assert the HTTP request
+    # Assert the HTTP request and response
     bigfoot.http.assert_request(
         method="GET",
         url="https://api.example.com/users/1",
+    ).assert_response(
+        status=200,
+        headers={"content-type": "application/json"},
+        body='{"id": 1, "name": "Alice", "email": "alice@example.com"}',
     )
 
     # Assert the log message

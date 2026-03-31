@@ -898,7 +898,7 @@ def test_format_interaction_returns_string() -> None:
         plugin=p,
     )
     result = p.format_interaction(interaction)
-    assert result == "[MockPlugin] Svc.method"
+    assert result == "[MockPlugin] Svc.method()"
 
 
 def test_format_interaction_includes_source_id_components() -> None:
@@ -947,7 +947,7 @@ def test_format_mock_hint_returns_string() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == 'verifier.mock("Svc").method.returns(<value>)'
+    assert result == 'bigfoot.mock("Svc").method.returns(<value>)'
 
 
 # ---------------------------------------------------------------------------
@@ -991,9 +991,9 @@ def test_format_unmocked_hint_returns_string() -> None:
         "Unexpected call to Svc.method\n\n"
         "  Called with: args=(), kwargs={}\n\n"
         "  To mock this interaction, add before your sandbox:\n"
-        '    verifier.mock("Svc").method.returns(<value>)\n\n'
+        '    bigfoot.mock("Svc").method.returns(<value>)\n\n'
         "  Or to mark it optional:\n"
-        '    verifier.mock("Svc").method.required(False).returns(<value>)'
+        '    bigfoot.mock("Svc").method.required(False).returns(<value>)'
     )
     assert result == expected
 
@@ -1022,7 +1022,7 @@ def test_format_assert_hint_returns_string() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.mock("Svc").method.assert_call(\n'
+        'bigfoot.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         ")"
@@ -1502,7 +1502,7 @@ def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.mock("Logger").log.assert_call(\n'
+        'bigfoot.mock("Logger").log.assert_call(\n'
         "    args=('event',),\n"
         "    kwargs={'level': 'info'},\n"
         ")"
@@ -1838,7 +1838,7 @@ def test_format_assert_hint_includes_raised_when_present() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.mock("Svc").method.assert_call(\n'
+        'bigfoot.mock("Svc").method.assert_call(\n'
         "    args=('a',),\n"
         "    kwargs={},\n"
         f"    raised={exc!r},\n"
@@ -1865,7 +1865,7 @@ def test_format_assert_hint_includes_returned_when_present() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.mock("Svc").method.assert_call(\n'
+        'bigfoot.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         "    returned={'data': 'value'},\n"
@@ -1891,7 +1891,7 @@ def test_format_assert_hint_plain_call_unchanged() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'verifier.mock("Svc").method.assert_call(\n'
+        'bigfoot.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         ")"
@@ -1917,4 +1917,4 @@ def test_format_mock_hint_includes_raises_when_raised_in_details() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == f'verifier.mock("Svc").method.raises({exc!r})'
+    assert result == f'bigfoot.mock("Svc").method.raises({exc!r})'

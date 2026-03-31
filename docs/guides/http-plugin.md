@@ -27,7 +27,8 @@ def test_api():
         response = httpx.get("https://api.example.com/users")
 
     bigfoot.http.assert_request("GET", "https://api.example.com/users",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(200, {"content-type": "application/json"}, '{"users": []}')
 ```
 
 For manual use outside pytest, construct `HttpPlugin` explicitly:
@@ -95,7 +96,7 @@ bigfoot.http.mock_response("GET", "https://api.example.com/search", json={...}, 
 
 ## Asserting HTTP interactions
 
-Use `bigfoot.http.assert_request()` to assert interactions after the sandbox exits:
+Use `bigfoot.http.assert_request()` to assert interactions after the sandbox exits. By default, `assert_request()` returns an `HttpAssertionBuilder` that must be completed with `.assert_response()`:
 
 ```python
 import bigfoot, httpx
@@ -107,21 +108,18 @@ def test_users():
         response = httpx.get("https://api.example.com/users")
 
     bigfoot.http.assert_request("GET", "https://api.example.com/users",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(200, {"content-type": "application/json"}, '[]')
 ```
 
 `assert_request()` requires all assertable request fields. Omitting any of `method`, `url`, `headers`, or `body` raises `MissingAssertionFieldsError`. Use `IsMapping()` from `dirty-equals` for headers when you want to assert type without exact matching, or `ANY` from `unittest.mock`.
 
-`assert_request()` is a convenience wrapper around the lower-level `verifier.assert_interaction()` call:
+To assert only request fields without response assertions, pass `require_response=False`:
 
 ```python
-# Convenience (recommended):
 bigfoot.http.assert_request("GET", "https://api.example.com/users",
-                            headers=IsMapping(), body="")
-
-# Equivalent low-level call:
-bigfoot.assert_interaction(bigfoot.http.request, method="GET", url="https://api.example.com/users",
-                           request_headers=IsMapping(), request_body="")
+                            headers=IsMapping(), body="",
+                            require_response=False)
 ```
 
 Parameters for `assert_request()`:
@@ -147,7 +145,8 @@ def test_httpx_sync():
         assert response.json() == {"value": 42}
 
     bigfoot.http.assert_request("GET", "https://api.example.com/data",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(200, {"content-type": "application/json"}, '{"value": 42}')
 ```
 
 ## Using with httpx async
@@ -164,7 +163,8 @@ async def test_httpx_async():
         assert response.status_code == 201
 
     bigfoot.http.assert_request("POST", "https://api.example.com/items",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(201, {"content-type": "application/json"}, '{"id": 1}')
 ```
 
 ## Using with requests
@@ -180,7 +180,8 @@ def test_requests():
         assert response.status_code == 204
 
     bigfoot.http.assert_request("DELETE", "https://api.example.com/items/99",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(204, IsMapping(), "")
 ```
 
 ## Mocking errors
@@ -280,27 +281,29 @@ def test_mixed():
         real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
 
     bigfoot.http.assert_request("GET", "https://api.example.com/cached",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(200, IsMapping(), '{"data": "cached"}')
     bigfoot.http.assert_request("GET", "https://api.example.com/live",
-                                headers=IsMapping(), body="")
+                                headers=IsMapping(), body="") \
+        .assert_response(IsInstance(int), IsMapping(), IsInstance(str))
 ```
 
 Mock responses are checked before pass-through rules. If a mock matches, the pass-through rule is not evaluated for that request. If no mock matches and a pass-through rule matches, the real call is made. If neither matches, `UnmockedInteractionError` is raised.
 
 ## Requiring response assertions
 
-By default, `assert_request()` asserts only the four request fields (`method`, `url`, `request_headers`, `request_body`) and returns `None`. The `require_response` feature changes this behavior so that `assert_request()` returns an `HttpAssertionBuilder` that must be completed with a chained `.assert_response()` call. This ensures all seven fields (four request + three response) are always asserted.
+By default, `assert_request()` returns an `HttpAssertionBuilder` that must be completed with a chained `.assert_response()` call. This ensures all seven fields (four request + three response) are always asserted. To opt out and assert only request fields, pass `require_response=False` on the call or set it in configuration.
 
-### Enabling via configuration
+### Configuration
 
-Add to your `pyproject.toml`:
+The default is `require_response = true`. To disable it project-wide, add to your `pyproject.toml`:
 
 ```toml
 [tool.bigfoot.http]
-require_response = true
+require_response = false
 ```
 
-With this setting, every `assert_request()` call returns an `HttpAssertionBuilder`:
+With the default setting (or explicit `require_response = true`), every `assert_request()` call returns an `HttpAssertionBuilder`:
 
 ```python
 import bigfoot, httpx
@@ -332,11 +335,11 @@ http = HttpPlugin(verifier, require_response=True)
 The `require_response` parameter on `assert_request()` overrides both the constructor default and the project-level config:
 
 ```python
-# Force response assertion for this call, regardless of project config:
+# Force response assertion for this call (this is the default):
 bigfoot.http.assert_request("GET", "https://api.example.com/data", require_response=True) \
     .assert_response(200, {}, '{"value": 42}')
 
-# Disable response assertion for this call, even if project config enables it:
+# Disable response assertion for this call (opt out of the default):
 bigfoot.http.assert_request("GET", "https://api.example.com/health", require_response=False)
 ```
 

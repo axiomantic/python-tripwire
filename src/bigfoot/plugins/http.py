@@ -298,7 +298,7 @@ class HttpPlugin(BasePlugin):
     _original_urllib_opener: Any = None
     _original_aiohttp_request: Callable[..., Any] | None = None
 
-    def __init__(self, verifier: "StrictVerifier", require_response: bool = False) -> None:
+    def __init__(self, verifier: "StrictVerifier", require_response: bool = True) -> None:
         super().__init__(verifier)
         self._mock_queue: list[HttpMockEntry] = []
         self._sentinel = HttpRequestSentinel(self)
@@ -320,7 +320,7 @@ class HttpPlugin(BasePlugin):
         Recognized keys:
             require_response (bool): When True, assert_request() returns an
                 HttpAssertionBuilder requiring .assert_response() to complete
-                the assertion. Default False.
+                the assertion. Default True.
 
         Unknown keys are silently ignored for forward-compatibility.
         Raises TypeError for require_response with a non-bool value.
@@ -353,7 +353,7 @@ class HttpPlugin(BasePlugin):
         When ``raised`` is provided, the assertion is always terminal (error
         interactions have no response to chain). Returns ``None``.
 
-        When ``require_response`` is False (the default), this method is terminal:
+        When ``require_response`` is False, this method is terminal:
         it asserts only the four request fields and returns ``None``.
 
         When ``require_response`` is True, this method returns an
