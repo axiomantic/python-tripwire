@@ -731,10 +731,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#enabling-via-configuration" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Enabling via configuration
+        Configuration
       
     </span>
   </a>
@@ -2913,10 +2913,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#enabling-via-configuration" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Enabling via configuration
+        Configuration
       
     </span>
   </a>
@@ -3034,7 +3034,8 @@
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="n">response</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">)</span>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">,</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;content-type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">},</span> <span class="s1">&#39;{&quot;users&quot;: []}&#39;</span><span class="p">)</span>
 </code></pre></div>
 <p>For manual use outside pytest, construct <code>HttpPlugin</code> explicitly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">bigfoot</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrictVerifier</span>
@@ -3126,7 +3127,7 @@
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">mock_response</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/search&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">},</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;q&quot;</span><span class="p">:</span> <span class="s2">&quot;hello&quot;</span><span class="p">})</span>
 </code></pre></div>
 <h2 id="asserting-http-interactions">Asserting HTTP interactions<a class="headerlink" href="#asserting-http-interactions" title="Permanent link">&para;</a></h2>
-<p>Use <code>bigfoot.http.assert_request()</code> to assert interactions after the sandbox exits:</p>
+<p>Use <code>bigfoot.http.assert_request()</code> to assert interactions after the sandbox exits. By default, <code>assert_request()</code> returns an <code>HttpAssertionBuilder</code> that must be completed with <code>.assert_response()</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span><span class="o">,</span><span class="w"> </span><span class="nn">httpx</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_users</span><span class="p">():</span>
@@ -3136,17 +3137,14 @@
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="n">response</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">)</span>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">,</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;content-type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">},</span> <span class="s1">&#39;[]&#39;</span><span class="p">)</span>
 </code></pre></div>
 <p><code>assert_request()</code> requires all assertable request fields. Omitting any of <code>method</code>, <code>url</code>, <code>headers</code>, or <code>body</code> raises <code>MissingAssertionFieldsError</code>. Use <code>IsMapping()</code> from <code>dirty-equals</code> for headers when you want to assert type without exact matching, or <code>ANY</code> from <code>unittest.mock</code>.</p>
-<p><code>assert_request()</code> is a convenience wrapper around the lower-level <code>verifier.assert_interaction()</code> call:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Convenience (recommended):</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>                            <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># Equivalent low-level call:</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">assert_interaction</span><span class="p">(</span><span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">request</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">,</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>                           <span class="n">request_headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">request_body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<p>To assert only request fields without response assertions, pass <code>require_response=False</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/users&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>                            <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>                            <span class="n">require_response</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 <p>Parameters for <code>assert_request()</code>:</p>
 <table>
@@ -3187,7 +3185,8 @@
 <a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mi">42</span><span class="p">}</span>
 <a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
 <a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">,</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;content-type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">},</span> <span class="s1">&#39;{&quot;value&quot;: 42}&#39;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="using-with-httpx-async">Using with httpx async<a class="headerlink" href="#using-with-httpx-async" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span><span class="o">,</span><span class="w"> </span><span class="nn">httpx</span>
@@ -3201,7 +3200,8 @@
 <a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">201</span>
 <a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>
 <a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/items&quot;</span><span class="p">,</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">201</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;content-type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">},</span> <span class="s1">&#39;{&quot;id&quot;: 1}&#39;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="using-with-requests">Using with requests<a class="headerlink" href="#using-with-requests" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span><span class="o">,</span><span class="w"> </span><span class="nn">requests</span>
@@ -3214,7 +3214,8 @@
 <a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>        <span class="k">assert</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">204</span>
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
 <a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;DELETE&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/items/99&quot;</span><span class="p">,</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">204</span><span class="p">,</span> <span class="n">IsMapping</span><span class="p">(),</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
 </code></pre></div>
 <h2 id="mocking-errors">Mocking errors<a class="headerlink" href="#mocking-errors" title="Permanent link">&para;</a></h2>
 <p>Use <code>bigfoot.http.mock_error(method, url, raises=...)</code> to register a mock that raises an exception instead of returning a response. This simulates connection failures, timeouts, and other transport-level errors:</p>
@@ -3320,19 +3321,21 @@
 <a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>        <span class="n">real</span>   <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/live&quot;</span><span class="p">)</span>     <span class="c1"># makes real HTTP call</span>
 <a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>
 <a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/cached&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/live&quot;</span><span class="p">,</span>
-<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="n">IsMapping</span><span class="p">(),</span> <span class="s1">&#39;{&quot;data&quot;: &quot;cached&quot;}&#39;</span><span class="p">)</span>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>    <span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/live&quot;</span><span class="p">,</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>                                <span class="n">headers</span><span class="o">=</span><span class="n">IsMapping</span><span class="p">(),</span> <span class="n">body</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span> \
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="n">IsInstance</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="n">IsMapping</span><span class="p">(),</span> <span class="n">IsInstance</span><span class="p">(</span><span class="nb">str</span><span class="p">))</span>
 </code></pre></div>
 <p>Mock responses are checked before pass-through rules. If a mock matches, the pass-through rule is not evaluated for that request. If no mock matches and a pass-through rule matches, the real call is made. If neither matches, <code>UnmockedInteractionError</code> is raised.</p>
 <h2 id="requiring-response-assertions">Requiring response assertions<a class="headerlink" href="#requiring-response-assertions" title="Permanent link">&para;</a></h2>
-<p>By default, <code>assert_request()</code> asserts only the four request fields (<code>method</code>, <code>url</code>, <code>request_headers</code>, <code>request_body</code>) and returns <code>None</code>. The <code>require_response</code> feature changes this behavior so that <code>assert_request()</code> returns an <code>HttpAssertionBuilder</code> that must be completed with a chained <code>.assert_response()</code> call. This ensures all seven fields (four request + three response) are always asserted.</p>
-<h3 id="enabling-via-configuration">Enabling via configuration<a class="headerlink" href="#enabling-via-configuration" title="Permanent link">&para;</a></h3>
-<p>Add to your <code>pyproject.toml</code>:</p>
+<p>By default, <code>assert_request()</code> returns an <code>HttpAssertionBuilder</code> that must be completed with a chained <code>.assert_response()</code> call. This ensures all seven fields (four request + three response) are always asserted. To opt out and assert only request fields, pass <code>require_response=False</code> on the call or set it in configuration.</p>
+<h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
+<p>The default is <code>require_response = true</code>. To disable it project-wide, add to your <code>pyproject.toml</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">[tool.bigfoot.http]</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">require_response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">require_response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </code></pre></div>
-<p>With this setting, every <code>assert_request()</code> call returns an <code>HttpAssertionBuilder</code>:</p>
+<p>With the default setting (or explicit <code>require_response = true</code>), every <code>assert_request()</code> call returns an <code>HttpAssertionBuilder</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">bigfoot</span><span class="o">,</span><span class="w"> </span><span class="nn">httpx</span>
 <a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
 <a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_api_with_response</span><span class="p">():</span>
@@ -3354,11 +3357,11 @@
 </code></pre></div>
 <h3 id="per-call-override">Per-call override<a class="headerlink" href="#per-call-override" title="Permanent link">&para;</a></h3>
 <p>The <code>require_response</code> parameter on <code>assert_request()</code> overrides both the constructor default and the project-level config:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Force response assertion for this call, regardless of project config:</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Force response assertion for this call (this is the default):</span>
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">,</span> <span class="n">require_response</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> \
 <a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>    <span class="o">.</span><span class="n">assert_response</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{},</span> <span class="s1">&#39;{&quot;value&quot;: 42}&#39;</span><span class="p">)</span>
 <a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="c1"># Disable response assertion for this call, even if project config enables it:</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="c1"># Disable response assertion for this call (opt out of the default):</span>
 <a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="n">bigfoot</span><span class="o">.</span><span class="n">http</span><span class="o">.</span><span class="n">assert_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://api.example.com/health&quot;</span><span class="p">,</span> <span class="n">require_response</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="httpassertionbuilder">HttpAssertionBuilder<a class="headerlink" href="#httpassertionbuilder" title="Permanent link">&para;</a></h3>

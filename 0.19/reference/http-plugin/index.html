@@ -2740,7 +2740,7 @@
 
 
 <a href="#bigfoot.plugins.http.HttpPlugin" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HttpPlugin</span><span class="p">(</span><span class="n">verifier</span><span class="p">,</span> <span class="n">require_response</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HttpPlugin</span><span class="p">(</span><span class="n">verifier</span><span class="p">,</span> <span class="n">require_response</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2772,7 +2772,7 @@ counting so nested sandboxes work correctly.</p>
 <span class="normal"><a href="#__codelineno-0-307">307</a></span>
 <span class="normal"><a href="#__codelineno-0-308">308</a></span>
 <span class="normal"><a href="#__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#__codelineno-0-310">310</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verifier</span><span class="p">:</span> <span class="s2">&quot;StrictVerifier&quot;</span><span class="p">,</span> <span class="n">require_response</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">verifier</span><span class="p">:</span> <span class="s2">&quot;StrictVerifier&quot;</span><span class="p">,</span> <span class="n">require_response</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">verifier</span><span class="p">)</span>
 <a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_mock_queue</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">HttpMockEntry</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 <a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_sentinel</span> <span class="o">=</span> <span class="n">HttpRequestSentinel</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
@@ -2874,7 +2874,7 @@ counting so nested sandboxes work correctly.</p>
 <p>Recognized keys:
     require_response (bool): When True, assert_request() returns an
         HttpAssertionBuilder requiring .assert_response() to complete
-        the assertion. Default False.</p>
+        the assertion. Default True.</p>
 <p>Unknown keys are silently ignored for forward-compatibility.
 Raises TypeError for require_response with a non-bool value.</p>
 
@@ -2905,7 +2905,7 @@ Raises TypeError for require_response with a non-bool value.</p>
 <a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    Recognized keys:</span>
 <a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">        require_response (bool): When True, assert_request() returns an</span>
 <a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">            HttpAssertionBuilder requiring .assert_response() to complete</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">            the assertion. Default False.</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">            the assertion. Default True.</span>
 <a id="__codelineno-0-324" name="__codelineno-0-324"></a>
 <a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    Unknown keys are silently ignored for forward-compatibility.</span>
 <a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    Raises TypeError for require_response with a non-bool value.</span>
@@ -2940,7 +2940,7 @@ Raises TypeError for require_response with a non-bool value.</p>
         <p>Assert an HTTP request interaction, optionally requiring a chained response assertion.</p>
 <p>When <code>raised</code> is provided, the assertion is always terminal (error
 interactions have no response to chain). Returns <code>None</code>.</p>
-<p>When <code>require_response</code> is False (the default), this method is terminal:
+<p>When <code>require_response</code> is False, this method is terminal:
 it asserts only the four request fields and returns <code>None</code>.</p>
 <p>When <code>require_response</code> is True, this method returns an
 <code>HttpAssertionBuilder</code>.</p>
@@ -3020,7 +3020,7 @@ it asserts only the four request fields and returns <code>None</code>.</p>
 <a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="sd">    When ``raised`` is provided, the assertion is always terminal (error</span>
 <a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="sd">    interactions have no response to chain). Returns ``None``.</span>
 <a id="__codelineno-0-355" name="__codelineno-0-355"></a>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    When ``require_response`` is False (the default), this method is terminal:</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    When ``require_response`` is False, this method is terminal:</span>
 <a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    it asserts only the four request fields and returns ``None``.</span>
 <a id="__codelineno-0-358" name="__codelineno-0-358"></a>
 <a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="sd">    When ``require_response`` is True, this method returns an</span>
