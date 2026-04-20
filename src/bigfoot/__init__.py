@@ -1154,7 +1154,7 @@ _DEPRECATED_PROXY_ALIASES: dict[str, str] = {
 _warned_aliases: set[str] = set()
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> Any:  # noqa: ANN401
     """Module-level attribute lookup hook (PEP 562).
 
     Resolves deprecated ``_mock`` aliases to their canonical un-suffixed proxy
