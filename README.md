@@ -173,7 +173,7 @@ Since tripwire uses a module-level API, there are no fixtures to set up or injec
 
 ### Concurrency boundaries
 
-Sandbox state is carried via Python ContextVars, so it propagates through `asyncio.to_thread`, `asyncio.create_task`, `loop.run_in_executor`, `asyncio.gather`, and `concurrent.futures.ThreadPoolExecutor.submit` — code dispatched into worker threads or tasks still hits the active verifier. `ProcessPoolExecutor` does not propagate `with tripwire:` state because each worker is a separate Python process with its own (empty) ContextVar set. To use tripwire across process pools, enter `with tripwire:` inside the worker function itself.
+Sandbox state is carried via Python ContextVars, so it propagates through `asyncio.to_thread`, `asyncio.create_task`, `loop.run_in_executor`, `asyncio.gather`, and `concurrent.futures.ThreadPoolExecutor.submit`, so code dispatched into worker threads or tasks still hits the active verifier. `ProcessPoolExecutor` does not propagate `with tripwire:` state because each worker is a separate Python process with its own (empty) ContextVar set. To use tripwire across process pools, enter `with tripwire:` inside the worker function itself.
 
 ## Coming from unittest.mock
 

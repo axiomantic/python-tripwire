@@ -35,15 +35,22 @@ def test_message_contains_outside_framing() -> None:
 
 
 def test_message_names_plugin_and_method() -> None:
-    """C5-T2: message contains plugin name and method-being-called."""
+    """C5-T2: message contains plugin name and method-being-called.
+
+    Uses sentinel values that would not naturally appear elsewhere in the
+    rendered message (the literal ``source_id`` echo, the ``Attempted:``
+    block, etc.), so the assertion catches a regression that drops the
+    human-prose ``<plugin>.<method>`` rendering.
+    """
     err = _build_err_with_frame(
         ("/path/to/test.py", 42, "test_x"),
-        plugin="subprocess",
-        method="run",
+        plugin="ZPLUG_SENTINEL",
+        method="ZMETH_SENTINEL",
     )
     msg = str(err)
-    assert "subprocess" in msg
-    assert "run" in msg
+    assert "ZPLUG_SENTINEL.ZMETH_SENTINEL" in msg, (
+        "expected plugin.method joined in human prose; got:\n" + msg
+    )
 
 
 def test_message_includes_user_call_site() -> None:
