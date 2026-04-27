@@ -1,12 +1,12 @@
 """Integration tests for firewall layering: TOML + marks + context managers."""
 
-from bigfoot._firewall import Disposition, FirewallRule, FirewallStack
-from bigfoot._firewall_request import (
+from tripwire._firewall import Disposition, FirewallRule, FirewallStack
+from tripwire._firewall_request import (
     DnsFirewallRequest,
     HttpFirewallRequest,
     RedisFirewallRequest,
 )
-from bigfoot._match import M
+from tripwire._match import M
 
 
 class TestAppendixAWalkthrough:

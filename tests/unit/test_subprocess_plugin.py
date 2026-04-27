@@ -1,4 +1,4 @@
-"""Unit tests for bigfoot SubprocessPlugin."""
+"""Unit tests for tripwire SubprocessPlugin."""
 
 import shutil
 import subprocess
@@ -7,18 +7,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     ConflictError,
     InteractionMismatchError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.subprocess import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.subprocess import (
     _SHUTIL_WHICH_ORIGINAL,
     _SUBPROCESS_RUN_ORIGINAL,
     SubprocessPlugin,
@@ -67,7 +67,7 @@ def clean_install_count():
 
 
 # ESCAPE: test_activate_installs_patches
-#   CLAIM: After activate(), subprocess.run is replaced with bigfoot's interceptor.
+#   CLAIM: After activate(), subprocess.run is replaced with tripwire's interceptor.
 #   PATH:  activate() -> _install_count == 0 -> _install_patches() -> subprocess.run = interceptor.
 #   CHECK: subprocess.run is not _SUBPROCESS_RUN_ORIGINAL and shutil.which is not _SHUTIL_WHICH_ORIGINAL.
 #   MUTATION: Skipping _install_patches() leaves originals in place; identity checks fail.
@@ -85,7 +85,7 @@ def test_activate_installs_patches() -> None:
 #   CLAIM: After activate() then deactivate(), subprocess.run and shutil.which are originals again.
 #   PATH:  deactivate() -> _install_count reaches 0 -> _restore_patches() -> restore originals.
 #   CHECK: Both functions restored to their import-time constants.
-#   MUTATION: Not restoring in _restore_patches leaves bigfoot's interceptors in place.
+#   MUTATION: Not restoring in _restore_patches leaves tripwire's interceptors in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against import-time constants.
 def test_deactivate_restores_patches() -> None:
     v, p = _make_verifier_with_plugin()
@@ -253,22 +253,22 @@ def test_mock_run_raises_exception() -> None:
 
 
 # ---------------------------------------------------------------------------
-# mock_run with BigFoot sandbox (module-level API)
+# mock_run with Tripwire sandbox (module-level API)
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_mock_run_in_sandbox
-#   CLAIM: Using bigfoot.sandbox() context manager with mock_run registered before;
+#   CLAIM: Using tripwire.sandbox() context manager with mock_run registered before;
 #          assert_interaction passes after sandbox exits.
-#   PATH:  bigfoot.sandbox() -> SandboxContext using _current_test_verifier -> activate;
+#   PATH:  tripwire.sandbox() -> SandboxContext using _current_test_verifier -> activate;
 #          interceptor uses verifier from ContextVar -> assert_interaction checks timeline.
 #   CHECK: assert_interaction does not raise; result has correct fields.
 #   MUTATION: Recording interaction with wrong command would cause assert_interaction to raise.
 #   ESCAPE: Nothing reasonable -- assert_interaction is the definitive check here.
-def test_mock_run_in_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    bigfoot.subprocess_mock.mock_run(["make", "build"], returncode=0, stdout="ok")
+def test_mock_run_in_sandbox(tripwire_verifier: StrictVerifier) -> None:
+    tripwire.subprocess_mock.mock_run(["make", "build"], returncode=0, stdout="ok")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         result = subprocess.run(["make", "build"])
 
     assert result.returncode == 0
@@ -276,20 +276,20 @@ def test_mock_run_in_sandbox(bigfoot_verifier: StrictVerifier) -> None:
     assert result.stderr == ""
     assert result.args == ["make", "build"]
 
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["make", "build"], returncode=0, stdout="ok", stderr="")
+    tripwire.assert_interaction(tripwire.subprocess_mock.run, command=["make", "build"], returncode=0, stdout="ok", stderr="")
 
 
 # ESCAPE: test_unregistered_run_in_sandbox_raises
-#   CLAIM: subprocess.run inside bigfoot.sandbox() with no mock raises UnmockedInteractionError.
+#   CLAIM: subprocess.run inside tripwire.sandbox() with no mock raises UnmockedInteractionError.
 #   PATH:  interceptor -> _handle_run -> empty queue -> UnmockedInteractionError.
 #   CHECK: UnmockedInteractionError raised; source_id == "subprocess:run".
 #   MUTATION: Returning a default response silently lets unmocked calls through.
 #   ESCAPE: Nothing reasonable -- exact exception type and source_id.
-def test_unregistered_run_in_sandbox_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_unregistered_run_in_sandbox_raises(tripwire_verifier: StrictVerifier) -> None:
     # Access subprocess_mock to ensure SubprocessPlugin is created and registered
-    bigfoot.subprocess_mock.install()
+    tripwire.subprocess_mock.install()
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         with pytest.raises(UnmockedInteractionError) as exc_info:
             subprocess.run(["cargo", "build"])
 
@@ -432,14 +432,14 @@ def test_unmocked_which_asserted_passes() -> None:
 #   MUTATION: Not recording the interaction would cause assert_interaction to raise
 #             InteractionMismatchError.
 #   ESCAPE: Recording with wrong command would cause field match to fail.
-def test_assert_interaction_run(bigfoot_verifier: StrictVerifier) -> None:
-    bigfoot.subprocess_mock.mock_run(["pytest", "--tb=short"], returncode=0, stdout="passed")
+def test_assert_interaction_run(tripwire_verifier: StrictVerifier) -> None:
+    tripwire.subprocess_mock.mock_run(["pytest", "--tb=short"], returncode=0, stdout="passed")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         subprocess.run(["pytest", "--tb=short"])
 
     # Must not raise
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.run, command=["pytest", "--tb=short"], returncode=0, stdout="passed", stderr="")
+    tripwire.assert_interaction(tripwire.subprocess_mock.run, command=["pytest", "--tb=short"], returncode=0, stdout="passed", stderr="")
 
 
 # ESCAPE: test_assert_interaction_which
@@ -449,14 +449,14 @@ def test_assert_interaction_run(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Recording interaction with wrong name would cause field mismatch.
 #   ESCAPE: Recording source_id as "subprocess:run" instead would fail source_id match.
-def test_assert_interaction_which(bigfoot_verifier: StrictVerifier) -> None:
-    bigfoot.subprocess_mock.mock_which("python3", returns="/usr/bin/python3")
+def test_assert_interaction_which(tripwire_verifier: StrictVerifier) -> None:
+    tripwire.subprocess_mock.mock_which("python3", returns="/usr/bin/python3")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         shutil.which("python3")
 
     # Must not raise
-    bigfoot.assert_interaction(bigfoot.subprocess_mock.which, name="python3", returns="/usr/bin/python3")
+    tripwire.assert_interaction(tripwire.subprocess_mock.which, name="python3", returns="/usr/bin/python3")
 
 
 # ---------------------------------------------------------------------------
@@ -465,10 +465,10 @@ def test_assert_interaction_which(bigfoot_verifier: StrictVerifier) -> None:
 
 
 # ESCAPE: test_conflict_error_subprocess_run_already_patched
-#   CLAIM: If subprocess.run is replaced with a MagicMock before bigfoot.sandbox(),
+#   CLAIM: If subprocess.run is replaced with a MagicMock before tripwire.sandbox(),
 #          ConflictError is raised.
 #   PATH:  sandbox -> activate -> _check_conflicts -> subprocess.run is not original
-#          and not bigfoot's -> ConflictError.
+#          and not tripwire's -> ConflictError.
 #   CHECK: ConflictError raised (wrapped in BaseExceptionGroup from SandboxContext._enter).
 #   MUTATION: Not checking for foreign patchers in _check_conflicts silently allows conflict.
 #   ESCAPE: Nothing reasonable -- ConflictError is the definitive signal.
@@ -487,7 +487,7 @@ def test_conflict_error_subprocess_run_already_patched() -> None:
 # ESCAPE: test_conflict_error_shutil_which_already_patched
 #   CLAIM: If shutil.which is replaced with a MagicMock before sandbox activation,
 #          ConflictError is raised.
-#   PATH:  _check_conflicts -> shutil.which is not original and not bigfoot's -> ConflictError.
+#   PATH:  _check_conflicts -> shutil.which is not original and not tripwire's -> ConflictError.
 #   CHECK: ConflictError raised.
 #   MUTATION: Not checking shutil.which lets the conflict through silently.
 #   ESCAPE: Nothing reasonable -- exact exception type.
@@ -509,21 +509,21 @@ def test_conflict_error_shutil_which_already_patched() -> None:
 
 
 # ESCAPE: test_subprocess_mock_proxy_raises_outside_sandbox
-#   CLAIM: Accessing bigfoot.subprocess_mock.mock_run outside a pytest test context
+#   CLAIM: Accessing tripwire.subprocess_mock.mock_run outside a pytest test context
 #          raises NoActiveVerifierError (because _current_test_verifier is not set).
 #   PATH:  _SubprocessProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError (or subclass) raised when ContextVar is explicitly cleared.
 #   MUTATION: Returning a dummy plugin instead of raising would hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_subprocess_mock_proxy_raises_outside_sandbox() -> None:
-    # The autouse _bigfoot_auto_verifier fixture sets _current_test_verifier.
+    # The autouse _tripwire_auto_verifier fixture sets _current_test_verifier.
     # We explicitly clear it to simulate "outside any test context".
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.subprocess_mock.mock_run
+            _ = tripwire.subprocess_mock.mock_run
     finally:
         _current_test_verifier.reset(token)
 
@@ -796,7 +796,7 @@ def test_format_assert_hint_run() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "bigfoot.subprocess_mock.assert_run(" in result
+    assert "tripwire.subprocess_mock.assert_run(" in result
     assert "command=['git', 'status']" in result
     assert "returncode=0" in result
     assert "stdout=''" in result
@@ -815,7 +815,7 @@ def test_format_assert_hint_which() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "bigfoot.subprocess_mock.assert_which(" in result
+    assert "tripwire.subprocess_mock.assert_which(" in result
     assert "name='gcc'" in result
     assert "returns='/usr/bin/gcc'" in result
     # Must NOT contain old assert_interaction pattern

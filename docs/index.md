@@ -1,6 +1,6 @@
-# bigfoot
+# tripwire
 
-**bigfoot** intercepts every external call your code makes and forces your tests to account for all of them. It ships with 27 plugins for HTTP, subprocess, database, cache, cloud, messaging, crypto, file I/O, and more. It enforces three guarantees that most mocking libraries leave silent:
+**tripwire** intercepts every external call your code makes and forces your tests to account for all of them. It ships with 27 plugins for HTTP, subprocess, database, cache, cloud, messaging, crypto, file I/O, and more. It enforces three guarantees that most mocking libraries leave silent:
 
 1. **Every call must be pre-authorized.** Code makes a call with no registered mock? `UnmockedInteractionError`, immediately.
 2. **Every recorded interaction must be explicitly asserted.** Forget to assert an interaction? `UnassertedInteractionsError` at teardown.
@@ -11,7 +11,7 @@ A plugin system makes it straightforward to intercept any service and enforce al
 ## Quick example
 
 ```python
-import bigfoot
+import tripwire
 from dirty_equals import IsInstance
 
 def create_charge(amount):
@@ -22,20 +22,20 @@ def create_charge(amount):
     return response.json()
 
 def test_payment_flow():
-    bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
+    tripwire.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
-    with bigfoot:
+    with tripwire:
         result = create_charge(5000)
 
-    bigfoot.http.assert_request(
+    tripwire.http.assert_request(
         "POST", "https://api.stripe.com/v1/charges",
         headers=IsInstance(dict), body='{"amount": 5000}',
     )
     assert result["id"] == "ch_123"
 ```
 
-The test calls `create_charge()`, which internally uses httpx. bigfoot intercepts the HTTP call transparently. If you forget the `assert_request()` call, bigfoot raises `UnassertedInteractionsError` at teardown. If the mock is never triggered, `UnusedMocksError`. If code makes an unmocked HTTP call, `UnmockedInteractionError` immediately.
+The test calls `create_charge()`, which internally uses httpx. tripwire intercepts the HTTP call transparently. If you forget the `assert_request()` call, tripwire raises `UnassertedInteractionsError` at teardown. If the mock is never triggered, `UnusedMocksError`. If code makes an unmocked HTTP call, `UnmockedInteractionError` immediately.
 
 ## Navigation
 
@@ -43,7 +43,7 @@ The test calls `create_charge()`, which internally uses httpx. bigfoot intercept
 
 - **[Installation](guides/installation.md)**
 
-    Install bigfoot and its optional extras.
+    Install tripwire and its optional extras.
 
 - **[Quick Start](guides/quickstart.md)**
 

@@ -1,3 +1,3 @@
 # SocketPlugin
 
-::: bigfoot.plugins.socket_plugin.SocketPlugin
+::: tripwire.plugins.socket_plugin.SocketPlugin

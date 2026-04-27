@@ -1,6 +1,6 @@
 # Async API Example
 
-Demonstrates bigfoot with async code, combining HTTP, asyncpg, and
+Demonstrates tripwire with async code, combining HTTP, asyncpg, and
 logging plugins in a single test.
 
 The application module (`app.py`) fetches user data from an external API

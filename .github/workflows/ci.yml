@@ -26,7 +26,7 @@ jobs:
         run: ruff check src/ tests/
 
       - name: Mypy
-        run: mypy src/bigfoot/ --strict
+        run: mypy src/tripwire/ --strict
 
   test:
     uses: ./.github/workflows/test.yml

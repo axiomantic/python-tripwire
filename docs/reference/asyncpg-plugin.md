@@ -1,3 +1,3 @@
 # AsyncpgPlugin
 
-::: bigfoot.plugins.asyncpg_plugin.AsyncpgPlugin
+::: tripwire.plugins.asyncpg_plugin.AsyncpgPlugin

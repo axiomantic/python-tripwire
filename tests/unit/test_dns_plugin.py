@@ -6,15 +6,15 @@ import socket
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.dns_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.dns_plugin import (
     DnsMockConfig,
     DnsPlugin,
 )
@@ -87,7 +87,7 @@ def test_dns_mock_config_defaults() -> None:
 
 
 def test_activate_installs_getaddrinfo_patch() -> None:
-    """After activate(), socket.getaddrinfo is replaced with bigfoot interceptor."""
+    """After activate(), socket.getaddrinfo is replaced with tripwire interceptor."""
     original = socket.getaddrinfo
     v, p = _make_verifier_with_plugin()
     p.activate()
@@ -96,7 +96,7 @@ def test_activate_installs_getaddrinfo_patch() -> None:
 
 
 def test_activate_installs_gethostbyname_patch() -> None:
-    """After activate(), socket.gethostbyname is replaced with bigfoot interceptor."""
+    """After activate(), socket.gethostbyname is replaced with tripwire interceptor."""
     original = socket.gethostbyname
     v, p = _make_verifier_with_plugin()
     p.activate()
@@ -151,19 +151,19 @@ def test_mock_getaddrinfo_returns_value() -> None:
     assert result == expected_result
 
 
-def test_mock_getaddrinfo_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
+def test_mock_getaddrinfo_full_assertion(tripwire_verifier: StrictVerifier) -> None:
     """assert_getaddrinfo asserts all fields: host, port, family, type, proto."""
-    import bigfoot
+    import tripwire
 
     expected_result = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
     ]
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
+    tripwire.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         socket.getaddrinfo("example.com", 80, socket.AF_INET, socket.SOCK_STREAM, 6)
 
-    bigfoot.dns_mock.assert_getaddrinfo(
+    tripwire.dns_mock.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=socket.AF_INET,
@@ -172,19 +172,19 @@ def test_mock_getaddrinfo_full_assertion(bigfoot_verifier: StrictVerifier) -> No
     )
 
 
-def test_mock_getaddrinfo_default_args(bigfoot_verifier: StrictVerifier) -> None:
+def test_mock_getaddrinfo_default_args(tripwire_verifier: StrictVerifier) -> None:
     """getaddrinfo with default family/type/proto records 0 for each."""
-    import bigfoot
+    import tripwire
 
     expected_result = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
     ]
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
+    tripwire.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         socket.getaddrinfo("example.com", 80)
 
-    bigfoot.dns_mock.assert_getaddrinfo(
+    tripwire.dns_mock.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=0,
@@ -209,16 +209,16 @@ def test_mock_gethostbyname_returns_value() -> None:
     assert result == "93.184.216.34"
 
 
-def test_mock_gethostbyname_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
+def test_mock_gethostbyname_full_assertion(tripwire_verifier: StrictVerifier) -> None:
     """assert_gethostbyname asserts hostname field."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.dns_mock.mock_gethostbyname("example.com", returns="93.184.216.34")
+    tripwire.dns_mock.mock_gethostbyname("example.com", returns="93.184.216.34")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         socket.gethostbyname("example.com")
 
-    bigfoot.dns_mock.assert_gethostbyname(hostname="example.com")
+    tripwire.dns_mock.assert_gethostbyname(hostname="example.com")
 
 
 # ---------------------------------------------------------------------------
@@ -281,24 +281,24 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_missing_assertion_fields_getaddrinfo(bigfoot_verifier: StrictVerifier) -> None:
+def test_missing_assertion_fields_getaddrinfo(tripwire_verifier: StrictVerifier) -> None:
     """Asserting getaddrinfo with incomplete fields raises MissingAssertionFieldsError."""
-    import bigfoot
-    from bigfoot.plugins.dns_plugin import _DnsSentinel
+    import tripwire
+    from tripwire.plugins.dns_plugin import _DnsSentinel
 
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=[])
+    tripwire.dns_mock.mock_getaddrinfo("example.com", returns=[])
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         socket.getaddrinfo("example.com", 80)
 
     sentinel = _DnsSentinel("dns:getaddrinfo:example.com")
     with pytest.raises(MissingAssertionFieldsError) as exc_info:
         # Only pass host, omit port/family/type/proto
-        bigfoot_verifier.assert_interaction(sentinel, host="example.com")
+        tripwire_verifier.assert_interaction(sentinel, host="example.com")
 
     assert "port" in exc_info.value.missing_fields
     # Now assert fully so teardown passes
-    bigfoot.dns_mock.assert_getaddrinfo(
+    tripwire.dns_mock.assert_getaddrinfo(
         host="example.com", port=80, family=0, type=0, proto=0,
     )
 
@@ -358,20 +358,20 @@ def test_mock_getaddrinfo_fifo() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_dns_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
+def test_dns_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     """DNS interactions are NOT auto-asserted -- they land on the timeline unasserted."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.dns_mock.mock_gethostbyname("example.com", returns="1.2.3.4")
-    with bigfoot.sandbox():
+    tripwire.dns_mock.mock_gethostbyname("example.com", returns="1.2.3.4")
+    with tripwire.sandbox():
         socket.gethostbyname("example.com")
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "dns:gethostbyname:example.com"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.dns_mock.assert_gethostbyname(hostname="example.com")
+    tripwire.dns_mock.assert_gethostbyname(hostname="example.com")
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +443,7 @@ def test_format_mock_hint_getaddrinfo() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.dns_mock.mock_getaddrinfo('example.com', returns=...)"
+    assert result == "    tripwire.dns_mock.mock_getaddrinfo('example.com', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -452,7 +452,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "socket.getaddrinfo('example.com', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.dns_mock.mock_getaddrinfo('example.com', returns=...)"
+        "    tripwire.dns_mock.mock_getaddrinfo('example.com', returns=...)"
     )
 
 
@@ -466,7 +466,7 @@ def test_format_assert_hint_getaddrinfo() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.dns_mock.assert_getaddrinfo(\n"
+        "    tripwire.dns_mock.assert_getaddrinfo(\n"
         "        host='example.com',\n"
         "        port=80,\n"
         "        family=0,\n"
@@ -488,24 +488,24 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.dns_mock
+# Module-level proxy: tripwire.dns_mock
 # ---------------------------------------------------------------------------
 
 
-def test_dns_mock_proxy_mock_getaddrinfo(bigfoot_verifier: StrictVerifier) -> None:
-    """bigfoot.dns_mock.mock_getaddrinfo works via the proxy."""
-    import bigfoot
+def test_dns_mock_proxy_mock_getaddrinfo(tripwire_verifier: StrictVerifier) -> None:
+    """tripwire.dns_mock.mock_getaddrinfo works via the proxy."""
+    import tripwire
 
     expected_result = [
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
     ]
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
+    tripwire.dns_mock.mock_getaddrinfo("example.com", returns=expected_result)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         result = socket.getaddrinfo("example.com", 80)
 
     assert result == expected_result
-    bigfoot.dns_mock.assert_getaddrinfo(
+    tripwire.dns_mock.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=0,
@@ -515,14 +515,14 @@ def test_dns_mock_proxy_mock_getaddrinfo(bigfoot_verifier: StrictVerifier) -> No
 
 
 def test_dns_mock_proxy_raises_outside_context() -> None:
-    """Accessing bigfoot.dns_mock outside a test context raises NoActiveVerifierError."""
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    """Accessing tripwire.dns_mock outside a test context raises NoActiveVerifierError."""
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.dns_mock.mock_getaddrinfo
+            _ = tripwire.dns_mock.mock_getaddrinfo
     finally:
         _current_test_verifier.reset(token)
 
@@ -533,12 +533,12 @@ def test_dns_mock_proxy_raises_outside_context() -> None:
 
 
 def test_dns_plugin_in_all() -> None:
-    """DnsPlugin and dns_mock are exported from bigfoot."""
-    import bigfoot
+    """DnsPlugin and dns_mock are exported from tripwire."""
+    import tripwire
 
-    assert "DnsPlugin" in bigfoot.__all__
-    assert "dns_mock" in bigfoot.__all__
-    assert type(bigfoot.dns_mock).__name__ == "_DnsProxy"
+    assert "DnsPlugin" in tripwire.__all__
+    assert "dns_mock" in tripwire.__all__
+    assert type(tripwire.dns_mock).__name__ == "_DnsProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -546,17 +546,17 @@ def test_dns_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_assert_getaddrinfo_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_getaddrinfo_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None:
     """assert_getaddrinfo with wrong values raises InteractionMismatchError."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.dns_mock.mock_getaddrinfo("example.com", returns=[])
+    tripwire.dns_mock.mock_getaddrinfo("example.com", returns=[])
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         socket.getaddrinfo("example.com", 80)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.dns_mock.assert_getaddrinfo(
+        tripwire.dns_mock.assert_getaddrinfo(
             host="wrong.com",
             port=80,
             family=0,
@@ -564,7 +564,7 @@ def test_assert_getaddrinfo_wrong_args_raises(bigfoot_verifier: StrictVerifier) 
             proto=0,
         )
     # Assert correctly so teardown passes
-    bigfoot.dns_mock.assert_getaddrinfo(
+    tripwire.dns_mock.assert_getaddrinfo(
         host="example.com",
         port=80,
         family=0,
@@ -597,18 +597,18 @@ class TestDnsResolve:
 
         assert result == ["93.184.216.34"]
 
-    def test_mock_resolve_full_assertion(self, bigfoot_verifier: StrictVerifier) -> None:
+    def test_mock_resolve_full_assertion(self, tripwire_verifier: StrictVerifier) -> None:
         """assert_resolve asserts qname and rdtype fields."""
-        import bigfoot
+        import tripwire
 
-        bigfoot.dns_mock.mock_resolve("example.com", "A", returns=["93.184.216.34"])
+        tripwire.dns_mock.mock_resolve("example.com", "A", returns=["93.184.216.34"])
 
-        with bigfoot.sandbox():
+        with tripwire.sandbox():
             import dns.resolver
 
             dns.resolver.resolve("example.com", "A")
 
-        bigfoot.dns_mock.assert_resolve(qname="example.com", rdtype="A")
+        tripwire.dns_mock.assert_resolve(qname="example.com", rdtype="A")
 
     def test_unmocked_resolve_raises(self) -> None:
         """resolve without mock raises UnmockedInteractionError."""

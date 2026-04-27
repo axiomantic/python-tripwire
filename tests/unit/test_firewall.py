@@ -1,11 +1,11 @@
-"""Tests for bigfoot._firewall -- FirewallStack evaluation."""
+"""Tests for tripwire._firewall -- FirewallStack evaluation."""
 
-from bigfoot._firewall import Disposition, FirewallRule, FirewallStack, RestrictFrame
-from bigfoot._firewall_request import (
+from tripwire._firewall import Disposition, FirewallRule, FirewallStack, RestrictFrame
+from tripwire._firewall_request import (
     HttpFirewallRequest,
     RedisFirewallRequest,
 )
-from bigfoot._match import M
+from tripwire._match import M
 
 
 class TestFirewallStackEvaluate:

@@ -2,8 +2,8 @@
 
 ## AsyncWebSocketPlugin
 
-::: bigfoot.plugins.websocket_plugin.AsyncWebSocketPlugin
+::: tripwire.plugins.websocket_plugin.AsyncWebSocketPlugin
 
 ## SyncWebSocketPlugin
 
-::: bigfoot.plugins.websocket_plugin.SyncWebSocketPlugin
+::: tripwire.plugins.websocket_plugin.SyncWebSocketPlugin

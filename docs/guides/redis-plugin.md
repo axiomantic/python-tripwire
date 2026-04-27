@@ -5,36 +5,36 @@
 ## Installation
 
 ```bash
-pip install bigfoot[redis]
+pip install tripwire[redis]
 ```
 
 This installs `redis>=4.0.0`.
 
 ## Setup
 
-In pytest, access `RedisPlugin` through the `bigfoot.redis_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `RedisPlugin` through the `tripwire.redis_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_cache_lookup():
-    bigfoot.redis_mock.mock_command("GET", returns="cached_value")
+    tripwire.redis_mock.mock_command("GET", returns="cached_value")
 
-    with bigfoot:
+    with tripwire:
         import redis
         r = redis.Redis()
         value = r.execute_command("GET", "mykey")
 
     assert value == "cached_value"
 
-    bigfoot.redis_mock.assert_command("GET", args=("mykey",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("mykey",), kwargs={})
 ```
 
 For manual use outside pytest, construct `RedisPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.redis_plugin import RedisPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.redis_plugin import RedisPlugin
 
 verifier = StrictVerifier()
 redis_mock = RedisPlugin(verifier)
@@ -44,11 +44,11 @@ Each verifier may have at most one `RedisPlugin`. A second `RedisPlugin(verifier
 
 ## Registering mock commands
 
-Use `bigfoot.redis_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
+Use `tripwire.redis_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.redis_mock.mock_command("SET", returns=True)
-bigfoot.redis_mock.mock_command("GET", returns="hello")
+tripwire.redis_mock.mock_command("SET", returns=True)
+tripwire.redis_mock.mock_command("GET", returns="hello")
 ```
 
 ### Parameters
@@ -66,10 +66,10 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_multiple_gets():
-    bigfoot.redis_mock.mock_command("GET", returns="first")
-    bigfoot.redis_mock.mock_command("GET", returns="second")
+    tripwire.redis_mock.mock_command("GET", returns="first")
+    tripwire.redis_mock.mock_command("GET", returns="second")
 
-    with bigfoot:
+    with tripwire:
         r = redis.Redis()
         v1 = r.execute_command("GET", "key1")
         v2 = r.execute_command("GET", "key2")
@@ -77,20 +77,20 @@ def test_multiple_gets():
     assert v1 == "first"
     assert v2 == "second"
 
-    bigfoot.redis_mock.assert_command("GET", args=("key1",), kwargs={})
-    bigfoot.redis_mock.assert_command("GET", args=("key2",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("key1",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("key2",), kwargs={})
 ```
 
 Command names are case-insensitive: `mock_command("get", ...)` matches `execute_command("GET", ...)`.
 
 ## Asserting interactions
 
-Use the `assert_command` helper on `bigfoot.redis_mock`. All three fields (`command`, `args`, `kwargs`) are required:
+Use the `assert_command` helper on `tripwire.redis_mock`. All three fields (`command`, `args`, `kwargs`) are required:
 
 ### `assert_command(command, args, kwargs)`
 
 ```python
-bigfoot.redis_mock.assert_command("SET", args=("mykey", "myvalue"), kwargs={})
+tripwire.redis_mock.assert_command("SET", args=("mykey", "myvalue"), kwargs={})
 ```
 
 | Parameter | Type | Default | Description |
@@ -105,21 +105,21 @@ Use the `raises` parameter to simulate Redis errors:
 
 ```python
 import redis as redis_lib
-import bigfoot
+import tripwire
 
 def test_redis_error():
-    bigfoot.redis_mock.mock_command(
+    tripwire.redis_mock.mock_command(
         "GET",
         returns=None,
         raises=redis_lib.exceptions.ResponseError("WRONGTYPE"),
     )
 
-    with bigfoot:
+    with tripwire:
         r = redis.Redis()
         with pytest.raises(redis_lib.exceptions.ResponseError):
             r.execute_command("GET", "badkey")
 
-    bigfoot.redis_mock.assert_command("GET", args=("badkey",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("badkey",), kwargs={})
 ```
 
 ## Full example
@@ -141,17 +141,17 @@ def test_redis_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.redis_mock.mock_command("PING", returns="PONG", required=False)
+tripwire.redis_mock.mock_command("PING", returns="PONG", required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls `execute_command` with a command that has no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code calls `execute_command` with a command that has no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 redis.GET(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.redis_mock.mock_command('GET', returns=...)
+    tripwire.redis_mock.mock_command('GET', returns=...)
 ```

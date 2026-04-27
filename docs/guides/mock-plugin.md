@@ -1,34 +1,34 @@
 # MockPlugin Guide
 
-`MockPlugin` intercepts method calls on mock objects. It is the core mocking mechanism in bigfoot, created automatically when you call `bigfoot.mock()` or `bigfoot.spy()`.
+`MockPlugin` intercepts method calls on mock objects. It is the core mocking mechanism in tripwire, created automatically when you call `tripwire.mock()` or `tripwire.spy()`.
 
 ## Creating mocks
 
-### Import-site mock: `bigfoot.mock("mod:attr")`
+### Import-site mock: `tripwire.mock("mod:attr")`
 
 Patches a module-level attribute at its import location. The path uses colon-separated `"module.path:attribute"` syntax:
 
 ```python
-import bigfoot
+import tripwire
 
-cache = bigfoot.mock("myapp.services:cache")
+cache = tripwire.mock("myapp.services:cache")
 cache.get.returns("cached_value")
 cache.set.returns(None)
 ```
 
-When the sandbox activates, bigfoot resolves the path, saves the original value of `myapp.services.cache`, and replaces it with a dispatch proxy. When the sandbox exits, the original is restored.
+When the sandbox activates, tripwire resolves the path, saves the original value of `myapp.services.cache`, and replaces it with a dispatch proxy. When the sandbox exits, the original is restored.
 
 The colon separates the importable module path from the attribute path. Nested attributes work with dots after the colon: `"myapp.services:registry.cache"`.
 
-### Object mock: `bigfoot.mock.object(target, "attr")`
+### Object mock: `tripwire.mock.object(target, "attr")`
 
 Patches an attribute on a specific object instance:
 
 ```python
-import bigfoot
+import tripwire
 
 service = EmailService()
-mock = bigfoot.mock.object(service, "send")
+mock = tripwire.mock.object(service, "send")
 mock.returns(True)
 ```
 
@@ -36,10 +36,10 @@ This is useful when you have direct access to the object being tested and do not
 
 ### Individual activation (context manager)
 
-Mocks can be activated individually using the context manager protocol, outside a bigfoot sandbox. In this mode, interactions are recorded but not enforced at teardown:
+Mocks can be activated individually using the context manager protocol, outside a tripwire sandbox. In this mode, interactions are recorded but not enforced at teardown:
 
 ```python
-cache = bigfoot.mock("myapp.services:cache")
+cache = tripwire.mock("myapp.services:cache")
 cache.get.returns("setup_value")
 
 with cache:
@@ -48,17 +48,17 @@ with cache:
 # cache is deactivated, original restored
 ```
 
-This is useful for setup code that should not be subject to bigfoot's strict verification.
+This is useful for setup code that should not be subject to tripwire's strict verification.
 
 ### Sandbox activation (standard)
 
-When you use `with bigfoot:`, all registered mocks are activated together and enforcement is enabled. Interactions must be asserted and mocks must be consumed:
+When you use `with tripwire:`, all registered mocks are activated together and enforcement is enabled. Interactions must be asserted and mocks must be consumed:
 
 ```python
-cache = bigfoot.mock("myapp.services:cache")
+cache = tripwire.mock("myapp.services:cache")
 cache.get.returns("value")
 
-with bigfoot:
+with tripwire:
     result = get_from_cache("key")
 
 cache.get.assert_call(args=("key",), kwargs={})
@@ -73,12 +73,12 @@ cache.get.returns("first")
 cache.get.returns("second")
 ```
 
-Multiple `.returns()` calls build a queue. Each call to the mock consumes one entry. If the queue is exhausted and the mock is called again, bigfoot raises `UnmockedInteractionError`.
+Multiple `.returns()` calls build a queue. Each call to the mock consumes one entry. If the queue is exhausted and the mock is called again, tripwire raises `UnmockedInteractionError`.
 
 For single-callable targets (functions, not objects with methods), use `.returns()` directly on the mock:
 
 ```python
-mock_fn = bigfoot.mock("myapp.utils:calculate_tax")
+mock_fn = tripwire.mock("myapp.utils:calculate_tax")
 mock_fn.returns(42.0)
 ```
 
@@ -127,7 +127,7 @@ cache.get.returns("first").returns("second").raises(IOError("down"))
 
 ## Optional mocks
 
-By default, every registered side effect is `required=True`. If a required mock is never consumed by the time `verify_all()` runs, bigfoot raises `UnusedMocksError`.
+By default, every registered side effect is `required=True`. If a required mock is never consumed by the time `verify_all()` runs, tripwire raises `UnusedMocksError`.
 
 Mark a side effect as optional with `.required(False)`:
 
@@ -148,16 +148,16 @@ A spy wraps a real implementation. When the spy's call queue has an entry, that 
 
 ### Creating a spy
 
-Use `bigfoot.spy("mod:attr")` for import-site spies or `bigfoot.spy.object(target, "attr")` for object spies:
+Use `tripwire.spy("mod:attr")` for import-site spies or `tripwire.spy.object(target, "attr")` for object spies:
 
 ```python
-import bigfoot
+import tripwire
 
 # Import-site spy: wraps the real myapp.services.cache
-spy = bigfoot.spy("myapp.services:cache")
+spy = tripwire.spy("myapp.services:cache")
 spy.get.returns("override")  # queue entry: takes priority on first call
 
-with bigfoot:
+with tripwire:
     result1 = get_from_cache("key1")  # returns "override" (queue entry)
     result2 = get_from_cache("key2")  # delegates to real cache.get("key2")
 
@@ -169,7 +169,7 @@ Object spy:
 
 ```python
 real_service = PaymentService()
-spy = bigfoot.spy.object(real_service, "charge")
+spy = tripwire.spy.object(real_service, "charge")
 ```
 
 ### Spy return value and exception recording
@@ -200,13 +200,13 @@ The `returned` and `raised` fields are only present when the spy delegates to th
 Assertions happen after the sandbox exits. Use `.assert_call()` on the `MethodProxy`:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_cache_lookup():
-    cache = bigfoot.mock("myapp.services:cache")
+    cache = tripwire.mock("myapp.services:cache")
     cache.get.returns("value")
 
-    with bigfoot:
+    with tripwire:
         result = get_from_cache("my_key")
 
     cache.get.assert_call(args=("my_key",), kwargs={})
@@ -217,10 +217,10 @@ def test_cache_lookup():
 For single-callable targets, use `.assert_call()` directly on the mock:
 
 ```python
-mock_fn = bigfoot.mock("myapp.utils:calculate_tax")
+mock_fn = tripwire.mock("myapp.utils:calculate_tax")
 mock_fn.returns(42.0)
 
-with bigfoot:
+with tripwire:
     result = calculate_tax(100.0)
 
 mock_fn.assert_call(args=(100.0,), kwargs={})
@@ -233,7 +233,7 @@ mock_fn.assert_call(args=(100.0,), kwargs={})
 cache.get.assert_call(args=("key",), kwargs={})
 
 # Equivalent low-level call:
-bigfoot.assert_interaction(cache.get, args=("key",), kwargs={})
+tripwire.assert_interaction(cache.get, args=("key",), kwargs={})
 ```
 
 ### Asserting raised exceptions
@@ -243,7 +243,7 @@ When a mock uses `.raises()`, include `raised` in the assertion:
 ```python
 cache.get.raises(ConnectionError("down"))
 
-with bigfoot:
+with tripwire:
     try:
         get_from_cache("key")
     except ConnectionError:
@@ -261,9 +261,9 @@ cache.get.assert_call(
 When a spy delegates to the real implementation, include `returned` in the assertion:
 
 ```python
-spy = bigfoot.spy("myapp.services:cache")
+spy = tripwire.spy("myapp.services:cache")
 
-with bigfoot:
+with tripwire:
     result = get_from_cache("key")
 
 spy.get.assert_call(args=("key",), kwargs={}, returned="cached_value")
@@ -271,20 +271,20 @@ spy.get.assert_call(args=("key",), kwargs={}, returned="cached_value")
 
 ## In-any-order assertions
 
-By default, `assert_call()` checks the next unasserted interaction in timeline order. If multiple mocks fire and order does not matter, wrap assertions in `bigfoot.in_any_order()`:
+By default, `assert_call()` checks the next unasserted interaction in timeline order. If multiple mocks fire and order does not matter, wrap assertions in `tripwire.in_any_order()`:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_parallel_lookups():
-    cache = bigfoot.mock("myapp.services:cache")
+    cache = tripwire.mock("myapp.services:cache")
     cache.get.returns("a").returns("b")
 
-    with bigfoot:
+    with tripwire:
         get_from_cache("key1")
         get_from_cache("key2")
 
-    with bigfoot.in_any_order():
+    with tripwire.in_any_order():
         cache.get.assert_call(args=("key2",), kwargs={})
         cache.get.assert_call(args=("key1",), kwargs={})
 ```
@@ -295,7 +295,7 @@ def test_parallel_lookups():
 
 ### UnmockedInteractionError
 
-When a mock method is called inside the sandbox but its queue is empty, bigfoot raises `UnmockedInteractionError` immediately. The error message includes a copy-pasteable hint:
+When a mock method is called inside the sandbox but its queue is empty, tripwire raises `UnmockedInteractionError` immediately. The error message includes a copy-pasteable hint:
 
 ```
 Unexpected call to myapp.services:cache.get
@@ -311,7 +311,7 @@ Unexpected call to myapp.services:cache.get
 
 ### InteractionMismatchError
 
-When `assert_call()` is called and the expected source or fields do not match the next recorded interaction, bigfoot raises `InteractionMismatchError`. The error includes the full remaining timeline and a hint.
+When `assert_call()` is called and the expected source or fields do not match the next recorded interaction, tripwire raises `InteractionMismatchError`. The error includes the full remaining timeline and a hint.
 
 ### UnusedMocksError
 

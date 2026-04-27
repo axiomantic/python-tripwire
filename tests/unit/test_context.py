@@ -6,14 +6,14 @@ import contextvars
 
 import pytest
 
-from bigfoot._context import (
+from tripwire._context import (
     _active_verifier,
     _any_order_depth,
     get_active_verifier,
     get_verifier_or_raise,
     is_in_any_order,
 )
-from bigfoot._errors import SandboxNotActiveError
+from tripwire._errors import SandboxNotActiveError
 
 # ---------------------------------------------------------------------------
 # ContextVar defaults
@@ -63,7 +63,7 @@ def test_get_active_verifier_returns_set_value() -> None:
 def testget_verifier_or_raise_raises_when_no_verifier() -> None:
     """With guard mode active (default), raises GuardedCallError instead of
     SandboxNotActiveError. Disable guard to test the original behavior."""
-    from bigfoot._context import _guard_active, _guard_patches_installed
+    from tripwire._context import _guard_active, _guard_patches_installed
 
     guard_token = _guard_active.set(False)
     patches_token = _guard_patches_installed.set(False)

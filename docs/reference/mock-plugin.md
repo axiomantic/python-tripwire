@@ -1,3 +1,3 @@
 # MockPlugin
 
-::: bigfoot.MockPlugin
+::: tripwire.MockPlugin

@@ -6,12 +6,12 @@ import socket
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.socket_plugin import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.socket_plugin import (
     _SOCKET_CLOSE_ORIGINAL,
     _SOCKET_CONNECT_ORIGINAL,
     _SOCKET_RECV_ORIGINAL,
@@ -106,7 +106,7 @@ def test_unmocked_source_id() -> None:
 
 # ESCAPE: test_activate_installs_patches
 #   CLAIM: After activate(), socket.socket.connect/send/sendall/recv/close are
-#          replaced with bigfoot interceptors (not the originals anymore).
+#          replaced with tripwire interceptors (not the originals anymore).
 #   PATH:  activate() -> _install_count == 0 -> store originals -> install interceptors.
 #   CHECK: Each method is not the same object as the import-time original.
 #   MUTATION: Skipping patch installation leaves originals in place; identity checks fail.
@@ -131,7 +131,7 @@ def test_activate_installs_patches() -> None:
 #          are restored to the import-time originals.
 #   PATH:  deactivate() -> _install_count reaches 0 -> restore originals.
 #   CHECK: All five methods are the import-time originals again.
-#   MUTATION: Not restoring in deactivate() leaves bigfoot's interceptors in place.
+#   MUTATION: Not restoring in deactivate() leaves tripwire's interceptors in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against import-time constants.
 def test_deactivate_restores_patches() -> None:
     v, p = _make_verifier_with_plugin()
@@ -384,12 +384,12 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.socket_mock
+# Module-level proxy: tripwire.socket_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_socket_mock_proxy_new_session
-#   CLAIM: bigfoot.socket_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.socket_mock.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing SocketPlugin directly.
 #   PATH:  _SocketProxy.__getattr__("new_session") -> get verifier -> find/create SocketPlugin ->
 #          return plugin.new_session.
@@ -397,10 +397,10 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 #          Chaining .expect() on it does not raise.
 #   MUTATION: Returning None instead of a SessionHandle would fail isinstance check.
 #   ESCAPE: Nothing reasonable -- both the isinstance and the chained .expect() call check it.
-def test_socket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_socket_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.socket_mock.new_session()
+    session = tripwire.socket_mock.new_session()
     assert isinstance(session, SessionHandle)
     # Chaining expect() with required=False so it doesn't trigger UnusedMocksError at teardown.
     result = session.expect("connect", returns=None, required=False)
@@ -408,18 +408,18 @@ def test_socket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None
 
 
 # ESCAPE: test_socket_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.socket_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.socket_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _SocketProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_socket_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.socket_mock.new_session
+            _ = tripwire.socket_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 

@@ -1,11 +1,11 @@
-"""Unit tests for bigfoot._registry: plugin registry and config resolution."""
+"""Unit tests for tripwire._registry: plugin registry and config resolution."""
 
 from unittest.mock import patch
 
 import pytest
 
-from bigfoot._errors import BigfootConfigError
-from bigfoot._registry import (
+from tripwire._errors import TripwireConfigError
+from tripwire._registry import (
     PLUGIN_REGISTRY,
     VALID_PLUGIN_NAMES,
     PluginEntry,
@@ -79,14 +79,14 @@ def test_plugin_registry_names_are_unique() -> None:
 
 def test_is_available_always_returns_true() -> None:
     """Plugins with availability_check='always' are always available."""
-    entry = PluginEntry("test", "bigfoot.plugins.subprocess", "SubprocessPlugin", "always")
+    entry = PluginEntry("test", "tripwire.plugins.subprocess", "SubprocessPlugin", "always")
     assert _is_available(entry) is True
 
 
 def test_is_available_httpx_requests_when_installed() -> None:
     """HttpPlugin availability check returns True when httpx and requests are installed."""
     # httpx and requests are in dev deps, so they should be available
-    entry = PluginEntry("http", "bigfoot.plugins.http", "HttpPlugin", "httpx+requests")
+    entry = PluginEntry("http", "tripwire.plugins.http", "HttpPlugin", "httpx+requests")
     assert _is_available(entry) is True
 
 
@@ -94,7 +94,7 @@ def test_is_available_websockets_uses_flag() -> None:
     """Websockets availability check reads _WEBSOCKETS_AVAILABLE flag."""
     entry = PluginEntry(
         "async_websocket",
-        "bigfoot.plugins.websocket_plugin",
+        "tripwire.plugins.websocket_plugin",
         "AsyncWebSocketPlugin",
         "websockets",
     )
@@ -105,7 +105,7 @@ def test_is_available_websockets_uses_flag() -> None:
 def test_is_available_redis_uses_flag() -> None:
     """Redis availability check reads _REDIS_AVAILABLE flag."""
     entry = PluginEntry(
-        "redis", "bigfoot.plugins.redis_plugin", "RedisPlugin", "redis"
+        "redis", "tripwire.plugins.redis_plugin", "RedisPlugin", "redis"
     )
     # redis is in dev deps, should be available
     assert _is_available(entry) is True
@@ -113,7 +113,7 @@ def test_is_available_redis_uses_flag() -> None:
 
 def test_is_available_unknown_check_returns_false() -> None:
     """Unknown availability_check values return False."""
-    entry = PluginEntry("fake", "bigfoot.plugins.fake", "FakePlugin", "nonexistent_dep")
+    entry = PluginEntry("fake", "tripwire.plugins.fake", "FakePlugin", "nonexistent_dep")
     assert _is_available(entry) is False
 
 
@@ -141,7 +141,7 @@ class TestIsAvailableConventions:
         assert _is_available(entry) is False
 
     def test_flag_based_check(self) -> None:
-        entry = PluginEntry("test", "x.y", "X", "flag:bigfoot.plugins.redis_plugin:_REDIS_AVAILABLE")
+        entry = PluginEntry("test", "x.y", "X", "flag:tripwire.plugins.redis_plugin:_REDIS_AVAILABLE")
         result = _is_available(entry)
         assert isinstance(result, bool)
 
@@ -153,16 +153,16 @@ class TestIsAvailableConventions:
 
 def test_get_plugin_class_returns_correct_class() -> None:
     """get_plugin_class returns the actual class for a valid entry."""
-    from bigfoot.plugins.subprocess import SubprocessPlugin
+    from tripwire.plugins.subprocess import SubprocessPlugin
 
-    entry = PluginEntry("subprocess", "bigfoot.plugins.subprocess", "SubprocessPlugin", "always")
+    entry = PluginEntry("subprocess", "tripwire.plugins.subprocess", "SubprocessPlugin", "always")
     cls = get_plugin_class(entry)
     assert cls is SubprocessPlugin
 
 
 def test_get_plugin_class_import_error_for_bad_path() -> None:
     """get_plugin_class raises ImportError for a nonexistent module."""
-    entry = PluginEntry("fake", "bigfoot.plugins.nonexistent", "FakePlugin", "always")
+    entry = PluginEntry("fake", "tripwire.plugins.nonexistent", "FakePlugin", "always")
     with pytest.raises(ImportError):
         get_plugin_class(entry)
 
@@ -202,8 +202,8 @@ def test_resolve_enabled_plugins_blocklist() -> None:
 
 
 def test_resolve_enabled_plugins_mutual_exclusion() -> None:
-    """Both keys present raises BigfootConfigError."""
-    with pytest.raises(BigfootConfigError, match="mutually exclusive"):
+    """Both keys present raises TripwireConfigError."""
+    with pytest.raises(TripwireConfigError, match="mutually exclusive"):
         resolve_enabled_plugins({
             "enabled_plugins": ["http"],
             "disabled_plugins": ["subprocess"],
@@ -211,26 +211,26 @@ def test_resolve_enabled_plugins_mutual_exclusion() -> None:
 
 
 def test_resolve_enabled_plugins_unknown_name_in_enabled() -> None:
-    """Unknown name in enabled_plugins raises BigfootConfigError."""
-    with pytest.raises(BigfootConfigError, match="Unknown plugin name"):
+    """Unknown name in enabled_plugins raises TripwireConfigError."""
+    with pytest.raises(TripwireConfigError, match="Unknown plugin name"):
         resolve_enabled_plugins({"enabled_plugins": ["nonexistent"]})
 
 
 def test_resolve_enabled_plugins_unknown_name_in_disabled() -> None:
-    """Unknown name in disabled_plugins raises BigfootConfigError."""
-    with pytest.raises(BigfootConfigError, match="Unknown plugin name"):
+    """Unknown name in disabled_plugins raises TripwireConfigError."""
+    with pytest.raises(TripwireConfigError, match="Unknown plugin name"):
         resolve_enabled_plugins({"disabled_plugins": ["nonexistent"]})
 
 
 def test_resolve_enabled_plugins_invalid_type_string() -> None:
-    """enabled_plugins as string (not list) raises BigfootConfigError."""
-    with pytest.raises(BigfootConfigError, match="must be a list of strings"):
+    """enabled_plugins as string (not list) raises TripwireConfigError."""
+    with pytest.raises(TripwireConfigError, match="must be a list of strings"):
         resolve_enabled_plugins({"enabled_plugins": "http"})
 
 
 def test_resolve_enabled_plugins_invalid_type_disabled_string() -> None:
-    """disabled_plugins as string (not list) raises BigfootConfigError."""
-    with pytest.raises(BigfootConfigError, match="must be a list of strings"):
+    """disabled_plugins as string (not list) raises TripwireConfigError."""
+    with pytest.raises(TripwireConfigError, match="must be a list of strings"):
         resolve_enabled_plugins({"disabled_plugins": "http"})
 
 
@@ -247,8 +247,8 @@ class TestDefaultEnabled:
     def test_default_enabled_false_excluded_from_default(self) -> None:
         entry = PluginEntry("test_opt", "x.y", "X", "always", default_enabled=False)
         always_entry = PluginEntry("test_always", "x.y", "Y", "always", default_enabled=True)
-        with patch("bigfoot._registry.PLUGIN_REGISTRY", (entry, always_entry)):
-            with patch("bigfoot._registry.VALID_PLUGIN_NAMES", frozenset({"test_opt", "test_always"})):
+        with patch("tripwire._registry.PLUGIN_REGISTRY", (entry, always_entry)):
+            with patch("tripwire._registry.VALID_PLUGIN_NAMES", frozenset({"test_opt", "test_always"})):
                 result = resolve_enabled_plugins({})
                 names = [e.name for e in result]
                 assert "test_opt" not in names
@@ -256,15 +256,15 @@ class TestDefaultEnabled:
 
     def test_default_enabled_false_included_when_explicit(self) -> None:
         entry = PluginEntry("test_opt", "x.y", "X", "always", default_enabled=False)
-        with patch("bigfoot._registry.PLUGIN_REGISTRY", (entry,)):
-            with patch("bigfoot._registry.VALID_PLUGIN_NAMES", frozenset({"test_opt"})):
+        with patch("tripwire._registry.PLUGIN_REGISTRY", (entry,)):
+            with patch("tripwire._registry.VALID_PLUGIN_NAMES", frozenset({"test_opt"})):
                 result = resolve_enabled_plugins({"enabled_plugins": ["test_opt"]})
                 assert any(e.name == "test_opt" for e in result)
 
 
 def test_resolve_enabled_plugins_error_lists_valid_names() -> None:
     """Error message for unknown names includes the list of valid names."""
-    with pytest.raises(BigfootConfigError) as exc_info:
+    with pytest.raises(TripwireConfigError) as exc_info:
         resolve_enabled_plugins({"enabled_plugins": ["bogus"]})
     error_msg = str(exc_info.value)
     assert "subprocess" in error_msg

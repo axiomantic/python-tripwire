@@ -1,4 +1,4 @@
-"""Unit tests for bigfoot HttpPlugin.
+"""Unit tests for tripwire HttpPlugin.
 
 Tests use unittest.mock.patch to avoid real network calls.
 httpx and requests are optional extras -- skip all tests if not installed.
@@ -8,18 +8,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import bigfoot
+import tripwire
 
 httpx = pytest.importorskip("httpx")
 requests = pytest.importorskip("requests")
 import requests.adapters  # noqa: E402 -- importorskip guarantees requests is available
 
-from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _active_verifier
-from bigfoot._errors import ConflictError, SandboxNotActiveError, UnmockedInteractionError
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.http import (
+from tripwire._base_plugin import BasePlugin
+from tripwire._context import _active_verifier
+from tripwire._errors import ConflictError, SandboxNotActiveError, UnmockedInteractionError
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.http import (
     _HTTPX_ORIGINAL_ASYNC_HANDLE,
     _HTTPX_ORIGINAL_HANDLE,
     _REQUESTS_ORIGINAL_SEND,
@@ -160,7 +160,7 @@ def test_deactivate_decrements_install_count() -> None:
 #   CLAIM: deactivate() on last reference restores original transport methods.
 #   PATH:  deactivate() -> _install_count == 0 -> _restore_patches().
 #   CHECK: handle_request is _HTTPX_ORIGINAL_HANDLE after full deactivate.
-#   MUTATION: Skipping _restore_patches() leaves bigfoot patch in place.
+#   MUTATION: Skipping _restore_patches() leaves tripwire patch in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against import-time constant.
 def test_deactivate_restores_patches_on_last_call() -> None:
     v, p = _make_verifier_with_plugin()
@@ -226,7 +226,7 @@ def test_nested_deactivate_only_uninstalls_on_last() -> None:
 
 # ESCAPE: test_check_conflicts_raises_when_httpx_sync_patched_by_foreign
 #   CLAIM: _check_conflicts raises ConflictError if httpx.HTTPTransport.handle_request
-#          is neither the import-time original nor our bigfoot patch.
+#          is neither the import-time original nor our tripwire patch.
 #   PATH:  _check_conflicts() -> identity check -> ConflictError.
 #   CHECK: ConflictError raised with target naming httpx sync handle.
 #   MUTATION: Skipping the sync handle check lets the conflict through silently.
@@ -311,7 +311,7 @@ def test_check_conflicts_does_not_raise_when_no_foreign_patch() -> None:
 #   MUTATION: Calling real network instead of raising lets calls through silently.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
-    from bigfoot._context import _guard_active, _guard_patches_installed
+    from tripwire._context import _guard_active, _guard_patches_installed
 
     v, p = _make_verifier_with_plugin()
     p.activate()
@@ -336,7 +336,7 @@ def test_httpx_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
 #   MUTATION: Letting request proceed to real network skips the error entirely.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_requests_interceptor_raises_sandbox_not_active_when_no_sandbox() -> None:
-    from bigfoot._context import _guard_active, _guard_patches_installed
+    from tripwire._context import _guard_active, _guard_patches_installed
 
     v, p = _make_verifier_with_plugin()
     p.activate()
@@ -379,7 +379,7 @@ def test_httpx_interceptor_raises_unmocked_when_no_config() -> None:
 #   ESCAPE: Nothing reasonable -- type check plus attribute check.
 def test_requests_interceptor_raises_unmocked_when_no_config() -> None:
     v, p = _make_verifier_with_plugin()
-    with bigfoot.allow("dns"), v.sandbox():
+    with tripwire.allow("dns"), v.sandbox():
         with pytest.raises(UnmockedInteractionError) as exc_info:
             requests.get("https://api.example.com/no-mock")
     assert exc_info.value.source_id == "http:request"
@@ -439,7 +439,7 @@ def test_requests_configured_response_returned() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("GET", "https://api.example.com/items", json={"items": [1, 2, 3]})
 
-    with bigfoot.allow("dns"), v.sandbox():
+    with tripwire.allow("dns"), v.sandbox():
         response = requests.get("https://api.example.com/items")
 
     assert response.status_code == 200
@@ -456,7 +456,7 @@ def test_requests_configured_response_custom_status() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("GET", "https://api.example.com/missing", status=404)
 
-    with bigfoot.allow("dns"), v.sandbox():
+    with tripwire.allow("dns"), v.sandbox():
         response = requests.get("https://api.example.com/missing")
 
     assert response.status_code == 404
@@ -498,7 +498,7 @@ def test_interaction_recorded_after_requests_request() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("POST", "https://api.example.com/submit", json={"ok": True})
 
-    with bigfoot.allow("dns"), v.sandbox():
+    with tripwire.allow("dns"), v.sandbox():
         requests.post("https://api.example.com/submit", json={"data": 1})
 
     interactions = v._timeline.all_unasserted()
@@ -789,7 +789,7 @@ def test_format_unused_mock_hint_includes_registration_traceback() -> None:
 
 
 def test_identify_patcher_recognises_respx() -> None:
-    from bigfoot.plugins.http import _identify_patcher
+    from tripwire.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "respx.mock"
@@ -798,7 +798,7 @@ def test_identify_patcher_recognises_respx() -> None:
 
 
 def test_identify_patcher_recognises_responses() -> None:
-    from bigfoot.plugins.http import _identify_patcher
+    from tripwire.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "responses"
@@ -807,7 +807,7 @@ def test_identify_patcher_recognises_responses() -> None:
 
 
 def test_identify_patcher_recognises_httpretty() -> None:
-    from bigfoot.plugins.http import _identify_patcher
+    from tripwire.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "httpretty.core"
@@ -816,7 +816,7 @@ def test_identify_patcher_recognises_httpretty() -> None:
 
 
 def test_identify_patcher_returns_unknown_for_unrecognised() -> None:
-    from bigfoot.plugins.http import _identify_patcher
+    from tripwire.plugins.http import _identify_patcher
 
     method = MagicMock()
     method.__module__ = "some.other.lib"
@@ -832,11 +832,11 @@ def test_identify_patcher_returns_unknown_for_unrecognised() -> None:
 def test_find_http_plugin_raises_when_no_http_plugin_registered(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from bigfoot.plugins.http import _find_http_plugin
+    from tripwire.plugins.http import _find_http_plugin
 
     # Disable all plugins so HttpPlugin is not auto-instantiated
     monkeypatch.setattr(
-        "bigfoot._verifier.load_bigfoot_config",
+        "tripwire._verifier.load_tripwire_config",
         lambda: {"enabled_plugins": ["subprocess"]},
     )
     v = StrictVerifier()
@@ -961,7 +961,7 @@ def test_requests_interceptor_records_str_body() -> None:
     v, p = _make_verifier_with_plugin()
     p.mock_response("POST", "https://api.example.com/str-body", json={"ok": True})
 
-    with bigfoot.allow("dns"), v.sandbox():
+    with tripwire.allow("dns"), v.sandbox():
         # Sending a string body directly via prepared request
         req = requests.Request("POST", "https://api.example.com/str-body", data="raw string")
         prepared = req.prepare()
@@ -1018,7 +1018,7 @@ def test_format_mock_hint_returns_correct_snippet() -> None:
 
 def test_url_matches_returns_false_when_param_value_missing() -> None:
     """_url_matches returns False when a required param value is absent from the actual URL."""
-    from bigfoot.plugins.http import HttpMockConfig
+    from tripwire.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -1036,7 +1036,7 @@ def test_url_matches_returns_false_when_param_value_missing() -> None:
 
 def test_url_matches_returns_false_when_param_key_absent() -> None:
     """_url_matches returns False when a required param key is entirely absent."""
-    from bigfoot.plugins.http import HttpMockConfig
+    from tripwire.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -1054,7 +1054,7 @@ def test_url_matches_returns_false_when_param_key_absent() -> None:
 
 def test_url_matches_returns_true_with_empty_params_dict() -> None:
     """_url_matches returns True when params is an empty dict (no constraints)."""
-    from bigfoot.plugins.http import HttpMockConfig
+    from tripwire.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -1071,7 +1071,7 @@ def test_url_matches_returns_true_with_empty_params_dict() -> None:
 
 def test_url_matches_returns_false_when_val_not_in_actual_param_values() -> None:
     """_url_matches returns False when the param key is present but value doesn't match."""
-    from bigfoot.plugins.http import HttpMockConfig
+    from tripwire.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -1089,7 +1089,7 @@ def test_url_matches_returns_false_when_val_not_in_actual_param_values() -> None
 
 def test_url_matches_returns_false_when_scheme_differs() -> None:
     """_url_matches returns False immediately when schemes differ (short-circuit)."""
-    from bigfoot.plugins.http import HttpMockConfig
+    from tripwire.plugins.http import HttpMockConfig
 
     v, p = _make_verifier_with_plugin()
 
@@ -1552,7 +1552,7 @@ def test_assert_request_global_require_response_true() -> None:
 #   MUTATION: Not calling assert_interaction() terminally would let wrong calls pass.
 #   ESCAPE: Nothing reasonable -- exact exception type check.
 def test_assert_request_terminal_missing_field_raises() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     p.mock_response("GET", "https://api.example.com/mismatch", json={"x": 1})
@@ -1913,7 +1913,7 @@ async def test_aiohttp_response_as_context_manager() -> None:
 
 def test_http_error_config_exists_and_has_expected_fields() -> None:
     """HttpErrorConfig dataclass has method, url, params, raises, required fields."""
-    from bigfoot.plugins.http import HttpErrorConfig
+    from tripwire.plugins.http import HttpErrorConfig
 
     exc = ConnectionError("refused")
     config = HttpErrorConfig(
@@ -1934,7 +1934,7 @@ def test_http_error_config_exists_and_has_expected_fields() -> None:
 
 def test_find_matching_config_returns_http_error_config() -> None:
     """_find_matching_config returns HttpErrorConfig when an error mock matches."""
-    from bigfoot.plugins.http import HttpErrorConfig
+    from tripwire.plugins.http import HttpErrorConfig
 
     v, p = _make_verifier_with_plugin()
     exc = ConnectionError("refused")
@@ -1958,7 +1958,7 @@ def test_find_matching_config_returns_http_error_config() -> None:
 
 def test_mock_error_appends_to_unified_queue() -> None:
     """mock_error() appends an HttpErrorConfig to the unified _mock_queue."""
-    from bigfoot.plugins.http import HttpErrorConfig
+    from tripwire.plugins.http import HttpErrorConfig
 
     v, p = _make_verifier_with_plugin()
     exc = ConnectionError("refused")
@@ -2044,7 +2044,7 @@ def test_requests_handler_raises_error_config() -> None:
     exc = requests.ConnectionError("DNS resolution failed")
     p.mock_error("GET", "https://api.example.com/data", raises=exc)
 
-    with bigfoot.allow("dns"), v.sandbox():
+    with tripwire.allow("dns"), v.sandbox():
         with pytest.raises(requests.ConnectionError, match="DNS resolution failed"):
             requests.get("https://api.example.com/data")
 
@@ -2236,7 +2236,7 @@ def test_assert_request_with_raised_returns_none() -> None:
 
 def test_assert_request_missing_raised_triggers_missing_fields_error() -> None:
     """Omitting raised= on an error interaction triggers MissingAssertionFieldsError."""
-    from bigfoot._errors import MissingAssertionFieldsError
+    from tripwire._errors import MissingAssertionFieldsError
 
     v, p = _make_verifier_with_plugin()
     exc = httpx.ConnectError("Connection refused")
@@ -2355,7 +2355,7 @@ def test_format_unmocked_hint_suggests_both_options() -> None:
 
 def test_get_unused_mocks_returns_error_configs() -> None:
     """get_unused_mocks returns HttpErrorConfig entries from the unified queue."""
-    from bigfoot.plugins.http import HttpErrorConfig
+    from tripwire.plugins.http import HttpErrorConfig
 
     v, p = _make_verifier_with_plugin()
     p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))
@@ -2397,7 +2397,7 @@ def test_format_unused_mock_hint_for_error_config() -> None:
 
 def test_unused_error_mock_raises_at_verify_all() -> None:
     """An unused required error mock causes verify_all() to raise."""
-    from bigfoot._errors import UnusedMocksError, VerificationError
+    from tripwire._errors import UnusedMocksError, VerificationError
 
     v, p = _make_verifier_with_plugin()
     p.mock_error("GET", "https://api.example.com/data", raises=ConnectionError("x"))

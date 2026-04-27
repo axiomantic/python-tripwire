@@ -5,15 +5,15 @@ from __future__ import annotations
 import celery
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.celery_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.celery_plugin import (
     _CELERY_AVAILABLE,
     CeleryMockConfig,
     CeleryPlugin,
@@ -74,14 +74,14 @@ def test_celery_available_flag() -> None:
 
 
 def test_activate_raises_when_celery_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.celery_plugin as _cp
+    import tripwire.plugins.celery_plugin as _cp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_cp, "_CELERY_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[celery] to use CeleryPlugin: pip install bigfoot[celery]"
+        "Install tripwire[celery] to use CeleryPlugin: pip install tripwire[celery]"
     )
 
 
@@ -197,15 +197,15 @@ def test_mock_apply_async_returns_value() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_assert_delay_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_delay_full_assertion(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    tripwire.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         add_task.delay(1, 2)
 
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -213,15 +213,15 @@ def test_assert_delay_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
     )
 
 
-def test_assert_apply_async_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_apply_async_full_assertion(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.celery_mock.mock_apply_async("myapp.tasks.add", returns="mock-id")
+    tripwire.celery_mock.mock_apply_async("myapp.tasks.add", returns="mock-id")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         add_task.apply_async(args=(1, 2), countdown=10)
 
-    bigfoot.celery_mock.assert_apply_async(
+    tripwire.celery_mock.assert_apply_async(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -357,23 +357,23 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
-    from bigfoot.plugins.celery_plugin import _CelerySentinel
+def test_missing_assertion_fields(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
+    from tripwire.plugins.celery_plugin import _CelerySentinel
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    tripwire.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         add_task.delay(1, 2)
 
     sentinel = _CelerySentinel("celery:myapp.tasks.add:delay")
     with pytest.raises(MissingAssertionFieldsError) as exc_info:
         # Only pass task_name, omit others
-        bigfoot_verifier.assert_interaction(sentinel, task_name="myapp.tasks.add")
+        tripwire_verifier.assert_interaction(sentinel, task_name="myapp.tasks.add")
 
     assert "dispatch_method" in exc_info.value.missing_fields
     # Now assert fully so teardown passes
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -386,20 +386,20 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_celery_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_celery_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    tripwire.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         add_task.delay(1, 2)
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "celery:myapp.tasks.add:delay"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -485,7 +485,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
+    assert result == "    tripwire.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -494,7 +494,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "celery.delay('myapp.tasks.add', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
+        "    tripwire.celery_mock.mock_delay('myapp.tasks.add', returns=...)"
     )
 
 
@@ -514,7 +514,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.celery_mock.assert_delay(\n"
+        "    tripwire.celery_mock.assert_delay(\n"
         "        task_name='myapp.tasks.add',\n"
         "        dispatch_method='delay',\n"
         "        args=(1, 2),\n"
@@ -540,20 +540,20 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.celery_mock
+# Module-level proxy: tripwire.celery_mock
 # ---------------------------------------------------------------------------
 
 
-def test_celery_mock_proxy_mock_delay(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_celery_mock_proxy_mock_delay(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="proxy-result")
+    tripwire.celery_mock.mock_delay("myapp.tasks.add", returns="proxy-result")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         result = add_task.delay(1, 2)
 
     assert result == "proxy-result"
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},
@@ -562,13 +562,13 @@ def test_celery_mock_proxy_mock_delay(bigfoot_verifier: StrictVerifier) -> None:
 
 
 def test_celery_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.celery_mock.mock_delay
+            _ = tripwire.celery_mock.mock_delay
     finally:
         _current_test_verifier.reset(token)
 
@@ -579,11 +579,11 @@ def test_celery_mock_proxy_raises_outside_context() -> None:
 
 
 def test_celery_plugin_in_all() -> None:
-    import bigfoot
+    import tripwire
 
-    assert "CeleryPlugin" in bigfoot.__all__
-    assert "celery_mock" in bigfoot.__all__
-    assert type(bigfoot.celery_mock).__name__ == "_CeleryProxy"
+    assert "CeleryPlugin" in tripwire.__all__
+    assert "celery_mock" in tripwire.__all__
+    assert type(tripwire.celery_mock).__name__ == "_CeleryProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -591,23 +591,23 @@ def test_celery_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_assert_delay_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_delay_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
+    tripwire.celery_mock.mock_delay("myapp.tasks.add", returns="mock-id")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         add_task.delay(1, 2)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.celery_mock.assert_delay(
+        tripwire.celery_mock.assert_delay(
             task_name="myapp.tasks.add",
             args=(99, 99),
             kwargs={},
             options={},
         )
     # Assert correctly so teardown passes
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.add",
         args=(1, 2),
         kwargs={},

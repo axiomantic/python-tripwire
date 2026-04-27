@@ -1,7 +1,7 @@
 # McpPlugin
 
-::: bigfoot.plugins.mcp_plugin.McpPlugin
+::: tripwire.plugins.mcp_plugin.McpPlugin
 
 ## McpMockConfig
 
-::: bigfoot.plugins.mcp_plugin.McpMockConfig
+::: tripwire.plugins.mcp_plugin.McpMockConfig

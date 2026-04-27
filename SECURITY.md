@@ -9,9 +9,9 @@
 
 ## Scope
 
-bigfoot is a **testing library** that runs in development and CI environments. Its attack surface is narrower than production-facing software. Security issues relevant to this project include:
+tripwire is a **testing library** that runs in development and CI environments. Its attack surface is narrower than production-facing software. Security issues relevant to this project include:
 
-- Dependency vulnerabilities in bigfoot's direct dependencies
+- Dependency vulnerabilities in tripwire's direct dependencies
 - Code execution through crafted test fixtures or plugin configurations
 - Information disclosure through error messages or recorded interactions
 - Supply chain integrity of published PyPI packages
@@ -20,7 +20,7 @@ bigfoot is a **testing library** that runs in development and CI environments. I
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, use [GitHub's private security advisory feature](https://github.com/axiomantic/bigfoot/security/advisories/new) to report the issue confidentially.
+Instead, use [GitHub's private security advisory feature](https://github.com/axiomantic/tripwire/security/advisories/new) to report the issue confidentially.
 
 Include:
 

@@ -1,9 +1,9 @@
-"""Tests for bigfoot._guard -- new allow/deny/restrict context managers."""
+"""Tests for tripwire._guard -- new allow/deny/restrict context managers."""
 
-from bigfoot._firewall import Disposition, get_firewall_stack
-from bigfoot._firewall_request import HttpFirewallRequest, RedisFirewallRequest
-from bigfoot._guard import allow, deny, restrict
-from bigfoot._match import M
+from tripwire._firewall import Disposition, get_firewall_stack
+from tripwire._firewall_request import HttpFirewallRequest, RedisFirewallRequest
+from tripwire._guard import allow, deny, restrict
+from tripwire._match import M
 
 
 class TestAllow:

@@ -1,7 +1,7 @@
 """Tests for GuardedCallError message generation with firewall requests."""
 
-from bigfoot._errors import GuardedCallError
-from bigfoot._firewall_request import (
+from tripwire._errors import GuardedCallError
+from tripwire._firewall_request import (
     HttpFirewallRequest,
     RedisFirewallRequest,
     SubprocessFirewallRequest,
@@ -18,8 +18,8 @@ class TestGuardedCallErrorMessages:
         msg = str(err)
         assert "GET https://api.stripe.com:443/v1/charges" in msg
         assert "@pytest.mark.allow" in msg
-        assert "bigfoot.allow" in msg
-        assert "[tool.bigfoot.firewall]" in msg
+        assert "tripwire.allow" in msg
+        assert "[tool.tripwire.firewall]" in msg
 
     def test_redis_error_message(self) -> None:
         req = RedisFirewallRequest(host="localhost", port=6379, db=0, command="FLUSHALL")
@@ -43,4 +43,4 @@ class TestGuardedCallErrorMessages:
         """Backward compat: firewall_request defaults to None."""
         err = GuardedCallError("http:request", "http")
         msg = str(err)
-        assert "blocked by bigfoot firewall" in msg
+        assert "blocked by tripwire firewall" in msg

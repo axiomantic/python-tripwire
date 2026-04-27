@@ -2,7 +2,7 @@
 
 Most protocols are not a bag of independent calls. A database connection must be opened before queries can run. A socket must connect before it can send. SMTP must greet the server before submitting a message. The order matters, the state matters, and a test that does not enforce both can pass while the production code does something impossible.
 
-bigfoot's stateful plugins address this by modelling each protocol as an explicit state machine. Before your test runs, you write a session script: an ordered list of method calls you expect to happen, each paired with the value it should return. bigfoot consumes that script step by step during the test and raises `InvalidStateError` immediately if a method is called from the wrong state.
+tripwire's stateful plugins address this by modelling each protocol as an explicit state machine. Before your test runs, you write a session script: an ordered list of method calls you expect to happen, each paired with the value it should return. tripwire consumes that script step by step during the test and raises `InvalidStateError` immediately if a method is called from the wrong state.
 
 This guide covers each stateful plugin with working examples derived from the test suite.
 
@@ -18,7 +18,7 @@ Every stateful plugin (except `RedisPlugin`, which is stateless) extends `StateM
 
 **FIFO binding.** Sessions are consumed in registration order. The first call to the connection entry point (e.g., `socket.connect()`) pops the first queued session and binds it to that connection object. If two connections are opened, they each get their own session in the order they were registered.
 
-**Auto-assertion.** State machine interactions are marked as asserted the moment they are recorded. You do not call `bigfoot.assert_interaction()` for stateful plugins. `verify_all()` still runs at teardown and will report any `required=True` steps that were configured but never consumed.
+**Auto-assertion.** State machine interactions are marked as asserted the moment they are recorded. You do not call `tripwire.assert_interaction()` for stateful plugins. `verify_all()` still runs at teardown and will report any `required=True` steps that were configured but never consumed.
 
 ---
 
@@ -32,23 +32,23 @@ Every stateful plugin (except `RedisPlugin`, which is stateless) extends `StateM
 disconnected --connect--> connected --send/sendall/recv--> connected --close--> closed
 ```
 
-**Proxy:** `bigfoot.socket_mock`
+**Proxy:** `tripwire.socket_mock`
 
 ### Quickstart
 
 ```python
 import socket
-import bigfoot
+import tripwire
 
 def test_echo_client():
-    (bigfoot.socket_mock
+    (tripwire.socket_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("sendall",  returns=None)
         .expect("recv",     returns=b"pong")
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         sock = socket.socket()
         sock.connect(("127.0.0.1", 9999))
         sock.sendall(b"ping")
@@ -59,7 +59,7 @@ def test_echo_client():
     # verify_all() called automatically at teardown
 ```
 
-No imports other than `bigfoot` and `socket`. The proxy `bigfoot.socket_mock` auto-creates the plugin on the current test verifier the first time it is accessed.
+No imports other than `tripwire` and `socket`. The proxy `tripwire.socket_mock` auto-creates the plugin on the current test verifier the first time it is accessed.
 
 ### Scripting multiple connections
 
@@ -67,19 +67,19 @@ Sessions are consumed in registration order:
 
 ```python
 def test_two_connections():
-    (bigfoot.socket_mock
+    (tripwire.socket_mock
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"first")
         .expect("close",   returns=None))
 
-    (bigfoot.socket_mock
+    (tripwire.socket_mock
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns=b"second")
         .expect("close",   returns=None))
 
-    with bigfoot:
+    with tripwire:
         s1 = socket.socket()
         s2 = socket.socket()
         s1.connect(("127.0.0.1", 9001))
@@ -96,17 +96,17 @@ Calling a method from the wrong state raises `InvalidStateError` immediately:
 
 ```python
 def test_recv_before_connect():
-    bigfoot.socket_mock.new_session()  # empty session
+    tripwire.socket_mock.new_session()  # empty session
 
-    with bigfoot:
+    with tripwire:
         sock = socket.socket()
         # Bind the session without connecting first by directly using _bind_connection:
-        from bigfoot.plugins.socket_plugin import SocketPlugin
-        plugin = next(p for p in bigfoot.current_verifier()._plugins if isinstance(p, SocketPlugin))
+        from tripwire.plugins.socket_plugin import SocketPlugin
+        plugin = next(p for p in tripwire.current_verifier()._plugins if isinstance(p, SocketPlugin))
         handle = plugin._bind_connection(sock)
         # handle._state == "disconnected"
 
-        with pytest.raises(bigfoot.InvalidStateError) as exc_info:
+        with pytest.raises(tripwire.InvalidStateError) as exc_info:
             plugin._execute_step(handle, "recv", (1024,), {}, "socket:recv")
 
     exc = exc_info.value
@@ -131,21 +131,21 @@ in_transaction --commit/rollback--> connected
 connected/in_transaction --close--> closed
 ```
 
-**Proxy:** `bigfoot.db_mock`
+**Proxy:** `tripwire.db_mock`
 
 ### Quickstart
 
 ```python
 import sqlite3
-import bigfoot
+import tripwire
 
 def test_select_users():
-    (bigfoot.db_mock
+    (tripwire.db_mock
         .new_session()
         .expect("execute", returns=[[1, "Alice"], [2, "Bob"]])
         .expect("close",   returns=None))
 
-    with bigfoot:
+    with tripwire:
         conn = sqlite3.connect(":memory:")
         cursor = conn.execute("SELECT id, name FROM users")
         rows = cursor.fetchall()
@@ -158,12 +158,12 @@ def test_select_users():
 
 ```python
 def test_cursor_style():
-    (bigfoot.db_mock
+    (tripwire.db_mock
         .new_session()
         .expect("execute", returns=[["x"], ["y"]])
         .expect("close",   returns=None))
 
-    with bigfoot:
+    with tripwire:
         conn = sqlite3.connect(":memory:")
         cur = conn.cursor()
         cur.execute("SELECT val FROM t")
@@ -181,14 +181,14 @@ Each `execute()` moves the connection into `in_transaction`. `commit()` and `rol
 
 ```python
 def test_commit_then_execute():
-    (bigfoot.db_mock
+    (tripwire.db_mock
         .new_session()
         .expect("execute",  returns=[])
         .expect("commit",   returns=None)
         .expect("execute",  returns=[])   # valid only after commit reset state to "connected"
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         conn = sqlite3.connect(":memory:")
         conn.execute("INSERT INTO t VALUES (1)")
         conn.commit()
@@ -199,9 +199,9 @@ def test_commit_then_execute():
 Calling `commit()` from `connected` (before any `execute()`) raises `InvalidStateError`:
 
 ```python
-with bigfoot:
+with tripwire:
     conn = sqlite3.connect(":memory:")
-    with pytest.raises(bigfoot.InvalidStateError) as exc_info:
+    with pytest.raises(tripwire.InvalidStateError) as exc_info:
         conn.commit()
     conn.close()
 
@@ -215,7 +215,7 @@ assert exc_info.value.valid_states == frozenset({"in_transaction"})
 
 `AsyncWebSocketPlugin` intercepts `websockets.connect` and returns an async context manager that drives the session script.
 
-**Requires:** `pip install bigfoot[websockets]`
+**Requires:** `pip install tripwire[websockets]`
 
 **State machine:**
 
@@ -223,24 +223,24 @@ assert exc_info.value.valid_states == frozenset({"in_transaction"})
 connecting --connect (on __aenter__)--> open --send/recv--> open --close--> closed
 ```
 
-**Proxy:** `bigfoot.async_websocket_mock`
+**Proxy:** `tripwire.async_websocket_mock`
 
 ### Quickstart
 
 ```python
 import websockets
-import bigfoot
+import tripwire
 import pytest
 
 async def test_ws_echo():
-    (bigfoot.async_websocket_mock
+    (tripwire.async_websocket_mock
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
         .expect("recv",    returns="pong")
         .expect("close",   returns=None))
 
-    with bigfoot:
+    with tripwire:
         async with websockets.connect("ws://localhost:8765") as ws:
             await ws.send("ping")
             message = await ws.recv()
@@ -257,19 +257,19 @@ Sessions are popped at `websockets.connect()` call time, not at `__aenter__` tim
 
 ```python
 async def test_two_ws_connections():
-    (bigfoot.async_websocket_mock
+    (tripwire.async_websocket_mock
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="first")
         .expect("close",   returns=None))
 
-    (bigfoot.async_websocket_mock
+    (tripwire.async_websocket_mock
         .new_session()
         .expect("connect", returns=None)
         .expect("recv",    returns="second")
         .expect("close",   returns=None))
 
-    with bigfoot:
+    with tripwire:
         cm1 = websockets.connect("ws://localhost:8765")
         cm2 = websockets.connect("ws://localhost:8765")
         async with cm1 as ws1:
@@ -284,7 +284,7 @@ async def test_two_ws_connections():
 
 `SyncWebSocketPlugin` intercepts `websocket.create_connection` from the `websocket-client` library and returns a fake connection object.
 
-**Requires:** `pip install bigfoot[websocket-client]`
+**Requires:** `pip install tripwire[websocket-client]`
 
 **State machine:**
 
@@ -292,23 +292,23 @@ async def test_two_ws_connections():
 connecting --connect--> open --send/recv--> open --close--> closed
 ```
 
-**Proxy:** `bigfoot.sync_websocket_mock`
+**Proxy:** `tripwire.sync_websocket_mock`
 
 ### Quickstart
 
 ```python
 import websocket
-import bigfoot
+import tripwire
 
 def test_sync_ws():
-    (bigfoot.sync_websocket_mock
+    (tripwire.sync_websocket_mock
         .new_session()
         .expect("connect", returns=None)
         .expect("send",    returns=None)
         .expect("recv",    returns="hello")
         .expect("close",   returns=None))
 
-    with bigfoot:
+    with tripwire:
         ws = websocket.create_connection("ws://localhost:8765")
         ws.send("hi")
         message = ws.recv()
@@ -333,7 +333,7 @@ running --communicate--> terminated
 running --wait--> terminated (also releases the session)
 ```
 
-**Proxy:** `bigfoot.popen_mock`
+**Proxy:** `tripwire.popen_mock`
 
 **Coexistence with SubprocessPlugin:** `SubprocessPlugin` patches `subprocess.run` and `shutil.which`. `PopenPlugin` patches `subprocess.Popen`. Both can be active in the same sandbox without interference.
 
@@ -343,15 +343,15 @@ The most common usage pattern. The `communicate` step returns a 3-tuple `(stdout
 
 ```python
 import subprocess
-import bigfoot
+import tripwire
 
 def test_run_command():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
 
-    with bigfoot:
+    with tripwire:
         proc = subprocess.Popen(["echo", "hello"], stdout=subprocess.PIPE)
         stdout, stderr = proc.communicate()
 
@@ -364,12 +364,12 @@ def test_run_command():
 
 ```python
 def test_failing_command():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("init",        returns=None)
         .expect("communicate", returns=(b"", b"command not found", 127)))
 
-    with bigfoot:
+    with tripwire:
         proc = subprocess.Popen(["bogus-cmd"])
         stdout, stderr = proc.communicate()
 
@@ -383,12 +383,12 @@ def test_failing_command():
 
 ```python
 def test_wait():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("init", returns=None)
         .expect("wait", returns=0))
 
-    with bigfoot:
+    with tripwire:
         proc = subprocess.Popen(["sleep", "1"])
         rc = proc.wait()
 
@@ -402,12 +402,12 @@ For code that reads `proc.stdout` and `proc.stderr` directly rather than using `
 
 ```python
 def test_stream_read():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("init",        returns=None)
         .expect("stdout.read", returns=b"output data"))
 
-    with bigfoot:
+    with tripwire:
         proc = subprocess.Popen(["cmd"], stdout=subprocess.PIPE)
         data = proc.stdout.read()
 
@@ -432,16 +432,16 @@ sending/greeted/authenticated --quit--> closed
 
 `starttls` and `login` are optional steps. Skip them in your session script for an unauthenticated flow.
 
-**Proxy:** `bigfoot.smtp_mock`
+**Proxy:** `tripwire.smtp_mock`
 
 ### Full authenticated flow (ehlo + starttls + login + sendmail + quit)
 
 ```python
 import smtplib
-import bigfoot
+import tripwire
 
 def test_send_authenticated_email():
-    (bigfoot.smtp_mock
+    (tripwire.smtp_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
@@ -450,7 +450,7 @@ def test_send_authenticated_email():
         .expect("sendmail", returns={})
         .expect("quit",     returns=(221, b"Bye")))
 
-    with bigfoot:
+    with tripwire:
         smtp = smtplib.SMTP("mail.example.com", 587)
         smtp.ehlo()
         smtp.starttls()
@@ -467,14 +467,14 @@ def test_send_authenticated_email():
 
 ```python
 def test_send_unauthenticated_email():
-    (bigfoot.smtp_mock
+    (tripwire.smtp_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("ehlo",     returns=(250, b"OK"))
         .expect("sendmail", returns={})
         .expect("quit",     returns=(221, b"Bye")))
 
-    with bigfoot:
+    with tripwire:
         smtp = smtplib.SMTP("mail.example.com", 25)
         smtp.ehlo()
         smtp.sendmail(
@@ -493,20 +493,20 @@ The state machine validates that `sendmail` is called from `greeted` (after `ehl
 
 `RedisPlugin` intercepts `redis.Redis.execute_command` at the class level. Unlike the other stateful plugins, Redis commands carry no inherent ordering constraint — GET and SET do not depend on each other's state. `RedisPlugin` therefore extends `BasePlugin` directly and uses a per-command FIFO queue rather than a session handle.
 
-**Requires:** `pip install bigfoot[redis]`
+**Requires:** `pip install tripwire[redis]`
 
-**Proxy:** `bigfoot.redis_mock`
+**Proxy:** `tripwire.redis_mock`
 
 ### Quickstart
 
 ```python
 import redis
-import bigfoot
+import tripwire
 
 def test_cache_lookup():
-    bigfoot.redis_mock.mock_command("GET", returns="cached_value")
+    tripwire.redis_mock.mock_command("GET", returns="cached_value")
 
-    with bigfoot:
+    with tripwire:
         r = redis.Redis()
         value = r.execute_command("GET", "mykey")
 
@@ -519,11 +519,11 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_get_set():
-    bigfoot.redis_mock.mock_command("SET", returns=True)
-    bigfoot.redis_mock.mock_command("GET", returns="first")
-    bigfoot.redis_mock.mock_command("GET", returns="second")
+    tripwire.redis_mock.mock_command("SET", returns=True)
+    tripwire.redis_mock.mock_command("GET", returns="first")
+    tripwire.redis_mock.mock_command("GET", returns="second")
 
-    with bigfoot:
+    with tripwire:
         r = redis.Redis()
         r.execute_command("SET", "k", "v")
         v1 = r.execute_command("GET", "key1")
@@ -540,13 +540,13 @@ Command names are case-insensitive: `mock_command("get", ...)` matches `execute_
 ```python
 def test_redis_error():
     import redis as redis_lib
-    bigfoot.redis_mock.mock_command(
+    tripwire.redis_mock.mock_command(
         "GET",
         returns=None,
         raises=redis_lib.exceptions.ResponseError("WRONGTYPE"),
     )
 
-    with bigfoot:
+    with tripwire:
         r = redis.Redis()
         with pytest.raises(redis_lib.exceptions.ResponseError):
             r.execute_command("GET", "badkey")
@@ -561,7 +561,7 @@ def test_redis_error():
 Raised when a method is called from a state it is not valid in. The error carries `source_id`, `method`, `current_state`, and `valid_states`.
 
 ```
-bigfoot.InvalidStateError: 'recv' called in state 'disconnected'; valid from: frozenset({'connected'})
+tripwire.InvalidStateError: 'recv' called in state 'disconnected'; valid from: frozenset({'connected'})
 ```
 
 **Fix:** Check the state machine diagram for the plugin. You likely have a missing step in your session script (e.g., no `connect` step before the first `recv`), or the code under test is calling methods out of order.
@@ -574,10 +574,10 @@ Raised when a connection entry point fires (e.g., `socket.connect()`, `sqlite3.c
 UnmockedInteractionError: source_id='socket:connect'
 hint='socket.socket.connect(...) was called but no session was queued.
 Register a session with:
-    bigfoot.socket_mock.new_session().expect("connect", returns=...)'
+    tripwire.socket_mock.new_session().expect("connect", returns=...)'
 ```
 
-**Fix:** Call `bigfoot.socket_mock.new_session()` (or the appropriate proxy) before entering the sandbox.
+**Fix:** Call `tripwire.socket_mock.new_session()` (or the appropriate proxy) before entering the sandbox.
 
 Also raised when the session script is exhausted but the code under test makes another call. In this case the hint shows the method that ran out of steps.
 

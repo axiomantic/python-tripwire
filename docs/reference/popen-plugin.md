@@ -1,3 +1,3 @@
 # PopenPlugin
 
-::: bigfoot.plugins.popen_plugin.PopenPlugin
+::: tripwire.plugins.popen_plugin.PopenPlugin

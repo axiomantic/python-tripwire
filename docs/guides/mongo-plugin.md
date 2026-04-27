@@ -5,29 +5,29 @@
 ## Installation
 
 ```bash
-pip install bigfoot[pymongo]
+pip install tripwire[pymongo]
 ```
 
 This installs `pymongo`.
 
 ## Setup
 
-In pytest, access `MongoPlugin` through the `bigfoot.mongo_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `MongoPlugin` through the `tripwire.mongo_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_find_user():
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
+    tripwire.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
 
-    with bigfoot:
+    with tripwire:
         import pymongo
         client = pymongo.MongoClient("mongodb://localhost:27017")
         user = client.mydb.users.find_one({"email": "alice@example.com"})
 
     assert user == {"_id": "abc", "name": "Alice"}
 
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb",
         collection="users",
         filter={"email": "alice@example.com"},
@@ -38,8 +38,8 @@ def test_find_user():
 For manual use outside pytest, construct `MongoPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.mongo_plugin import MongoPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.mongo_plugin import MongoPlugin
 
 verifier = StrictVerifier()
 mongo_mock = MongoPlugin(verifier)
@@ -49,11 +49,11 @@ Each verifier may have at most one `MongoPlugin`. A second `MongoPlugin(verifier
 
 ## Registering mock operations
 
-Use `bigfoot.mongo_mock.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
+Use `tripwire.mongo_mock.mock_operation(operation, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "1", "status": "active"})
-bigfoot.mongo_mock.mock_operation("insert_one", returns=type("Result", (), {"inserted_id": "2"})())
+tripwire.mongo_mock.mock_operation("find_one", returns={"_id": "1", "status": "active"})
+tripwire.mongo_mock.mock_operation("insert_one", returns=type("Result", (), {"inserted_id": "2"})())
 ```
 
 ### Parameters
@@ -86,10 +86,10 @@ Each operation name has its own independent FIFO queue. Multiple `mock_operation
 
 ```python
 def test_sequential_queries():
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "1", "role": "admin"})
-    bigfoot.mongo_mock.mock_operation("find_one", returns=None)
+    tripwire.mongo_mock.mock_operation("find_one", returns={"_id": "1", "role": "admin"})
+    tripwire.mongo_mock.mock_operation("find_one", returns=None)
 
-    with bigfoot:
+    with tripwire:
         import pymongo
         client = pymongo.MongoClient()
         db = client.mydb
@@ -100,11 +100,11 @@ def test_sequential_queries():
     assert admin == {"_id": "1", "role": "admin"}
     assert ghost is None
 
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb", collection="users",
         filter={"role": "admin"}, projection=None,
     )
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb", collection="users",
         filter={"role": "ghost"}, projection=None,
     )
@@ -112,12 +112,12 @@ def test_sequential_queries():
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.mongo_mock`. Each helper requires `database` and `collection` plus the operation-specific fields.
+Use the typed assertion helpers on `tripwire.mongo_mock`. Each helper requires `database` and `collection` plus the operation-specific fields.
 
 ### `assert_find(database, collection, filter, projection=None)`
 
 ```python
-bigfoot.mongo_mock.assert_find(
+tripwire.mongo_mock.assert_find(
     database="mydb", collection="users",
     filter={"active": True}, projection=None,
 )
@@ -126,7 +126,7 @@ bigfoot.mongo_mock.assert_find(
 ### `assert_find_one(database, collection, filter, projection=None)`
 
 ```python
-bigfoot.mongo_mock.assert_find_one(
+tripwire.mongo_mock.assert_find_one(
     database="mydb", collection="users",
     filter={"_id": "abc"}, projection=None,
 )
@@ -135,7 +135,7 @@ bigfoot.mongo_mock.assert_find_one(
 ### `assert_insert_one(database, collection, document)`
 
 ```python
-bigfoot.mongo_mock.assert_insert_one(
+tripwire.mongo_mock.assert_insert_one(
     database="mydb", collection="users",
     document={"name": "Alice", "email": "alice@example.com"},
 )
@@ -144,7 +144,7 @@ bigfoot.mongo_mock.assert_insert_one(
 ### `assert_insert_many(database, collection, documents)`
 
 ```python
-bigfoot.mongo_mock.assert_insert_many(
+tripwire.mongo_mock.assert_insert_many(
     database="mydb", collection="events",
     documents=[{"type": "click"}, {"type": "view"}],
 )
@@ -153,7 +153,7 @@ bigfoot.mongo_mock.assert_insert_many(
 ### `assert_update_one(database, collection, filter, update)`
 
 ```python
-bigfoot.mongo_mock.assert_update_one(
+tripwire.mongo_mock.assert_update_one(
     database="mydb", collection="users",
     filter={"_id": "abc"},
     update={"$set": {"last_login": "2025-01-15"}},
@@ -163,7 +163,7 @@ bigfoot.mongo_mock.assert_update_one(
 ### `assert_update_many(database, collection, filter, update)`
 
 ```python
-bigfoot.mongo_mock.assert_update_many(
+tripwire.mongo_mock.assert_update_many(
     database="mydb", collection="sessions",
     filter={"expired": True},
     update={"$set": {"cleaned": True}},
@@ -173,7 +173,7 @@ bigfoot.mongo_mock.assert_update_many(
 ### `assert_delete_one(database, collection, filter)`
 
 ```python
-bigfoot.mongo_mock.assert_delete_one(
+tripwire.mongo_mock.assert_delete_one(
     database="mydb", collection="users",
     filter={"_id": "abc"},
 )
@@ -182,7 +182,7 @@ bigfoot.mongo_mock.assert_delete_one(
 ### `assert_delete_many(database, collection, filter)`
 
 ```python
-bigfoot.mongo_mock.assert_delete_many(
+tripwire.mongo_mock.assert_delete_many(
     database="mydb", collection="sessions",
     filter={"expired": True},
 )
@@ -191,7 +191,7 @@ bigfoot.mongo_mock.assert_delete_many(
 ### `assert_aggregate(database, collection, pipeline)`
 
 ```python
-bigfoot.mongo_mock.assert_aggregate(
+tripwire.mongo_mock.assert_aggregate(
     database="mydb", collection="orders",
     pipeline=[{"$match": {"status": "complete"}}, {"$group": {"_id": "$customer", "total": {"$sum": "$amount"}}}],
 )
@@ -200,7 +200,7 @@ bigfoot.mongo_mock.assert_aggregate(
 ### `assert_count_documents(database, collection, filter)`
 
 ```python
-bigfoot.mongo_mock.assert_count_documents(
+tripwire.mongo_mock.assert_count_documents(
     database="mydb", collection="users",
     filter={"active": True},
 )
@@ -212,22 +212,22 @@ Use the `raises` parameter to simulate MongoDB errors:
 
 ```python
 import pymongo.errors
-import bigfoot
+import tripwire
 
 def test_duplicate_key():
-    bigfoot.mongo_mock.mock_operation(
+    tripwire.mongo_mock.mock_operation(
         "insert_one",
         returns=None,
         raises=pymongo.errors.DuplicateKeyError("E11000 duplicate key error"),
     )
 
-    with bigfoot:
+    with tripwire:
         import pymongo
         client = pymongo.MongoClient()
         with pytest.raises(pymongo.errors.DuplicateKeyError):
             client.mydb.users.insert_one({"_id": "abc", "name": "Alice"})
 
-    bigfoot.mongo_mock.assert_insert_one(
+    tripwire.mongo_mock.assert_insert_one(
         database="mydb", collection="users",
         document={"_id": "abc", "name": "Alice"},
     )
@@ -252,17 +252,17 @@ def test_duplicate_key():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.mongo_mock.mock_operation("count_documents", returns=0, required=False)
+tripwire.mongo_mock.mock_operation("count_documents", returns=0, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls a MongoDB collection method that has no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code calls a MongoDB collection method that has no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 mongo.find_one(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.mongo_mock.mock_operation('find_one', returns=...)
+    tripwire.mongo_mock.mock_operation('find_one', returns=...)
 ```

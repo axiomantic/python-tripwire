@@ -6,12 +6,12 @@ import asyncio
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.async_subprocess_plugin import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.async_subprocess_plugin import (
     _ORIGINAL_CREATE_SUBPROCESS_EXEC,
     _ORIGINAL_CREATE_SUBPROCESS_SHELL,
     AsyncSubprocessPlugin,
@@ -529,26 +529,26 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.async_subprocess_mock
+# Module-level proxy: tripwire.async_subprocess_mock
 # ---------------------------------------------------------------------------
 
 
-def test_async_subprocess_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_async_subprocess_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.async_subprocess_mock.new_session()
+    session = tripwire.async_subprocess_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("spawn", returns=None, required=False)
     assert result is session
 
 
 def test_async_subprocess_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.async_subprocess_mock.new_session
+            _ = tripwire.async_subprocess_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -561,7 +561,7 @@ def test_async_subprocess_mock_proxy_raises_outside_context() -> None:
 def test_conflict_error_exec_already_patched() -> None:
     from unittest.mock import MagicMock
 
-    from bigfoot._errors import ConflictError
+    from tripwire._errors import ConflictError
 
     v, p = _make_verifier_with_plugin()
     foreign_patch = MagicMock()
@@ -578,7 +578,7 @@ def test_conflict_error_exec_already_patched() -> None:
 def test_conflict_error_shell_already_patched() -> None:
     from unittest.mock import MagicMock
 
-    from bigfoot._errors import ConflictError
+    from tripwire._errors import ConflictError
 
     v, p = _make_verifier_with_plugin()
     foreign_patch = MagicMock()
@@ -597,34 +597,34 @@ def test_conflict_error_shell_already_patched() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_assertion_helpers_via_proxy(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+async def test_assertion_helpers_via_proxy(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.async_subprocess_mock.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"output", b"", 0))
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         proc = await asyncio.create_subprocess_exec("make", "all")
         stdout, stderr = await proc.communicate()
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    tripwire.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
+    tripwire.async_subprocess_mock.assert_communicate(input=None)
 
     assert stdout == b"output"
     assert stderr == b""
     assert proc.returncode == 0
 
 
-async def test_assertion_helpers_wait_via_proxy(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+async def test_assertion_helpers_wait_via_proxy(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.async_subprocess_mock.new_session()
     session.expect("spawn", returns=None)
     session.expect("wait", returns=0)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         proc = await asyncio.create_subprocess_exec("cmd")
         await proc.wait()
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["cmd"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_wait()
+    tripwire.async_subprocess_mock.assert_spawn(command=["cmd"], stdin=None)
+    tripwire.async_subprocess_mock.assert_wait()
 
 
 # ---------------------------------------------------------------------------
@@ -632,36 +632,36 @@ async def test_assertion_helpers_wait_via_proxy(bigfoot_verifier: StrictVerifier
 # ---------------------------------------------------------------------------
 
 
-async def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+async def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.async_subprocess_mock.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"build output", b"", 0))
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         proc = await asyncio.create_subprocess_exec("make", "all")
         stdout, stderr = await proc.communicate()
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    tripwire.async_subprocess_mock.assert_spawn(command=["make", "all"], stdin=None)
+    tripwire.async_subprocess_mock.assert_communicate(input=None)
 
     assert stdout == b"build output"
     assert stderr == b""
     assert proc.returncode == 0
 
 
-async def test_full_shell_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.async_subprocess_mock.new_session()
+async def test_full_shell_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.async_subprocess_mock.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"shell output", b"", 0))
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         proc = await asyncio.create_subprocess_shell("echo hello | tr a-z A-Z")
         stdout, stderr = await proc.communicate()
 
-    bigfoot.async_subprocess_mock.assert_spawn(
+    tripwire.async_subprocess_mock.assert_spawn(
         command="echo hello | tr a-z A-Z", stdin=None
     )
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    tripwire.async_subprocess_mock.assert_communicate(input=None)
 
     assert stdout == b"shell output"
     assert stderr == b""

@@ -1,3 +1,3 @@
 # CeleryPlugin
 
-::: bigfoot.plugins.celery_plugin.CeleryPlugin
+::: tripwire.plugins.celery_plugin.CeleryPlugin

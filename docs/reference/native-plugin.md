@@ -1,3 +1,3 @@
 # NativePlugin
 
-::: bigfoot.plugins.native_plugin.NativePlugin
+::: tripwire.plugins.native_plugin.NativePlugin

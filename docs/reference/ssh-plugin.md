@@ -1,3 +1,3 @@
 # SshPlugin
 
-::: bigfoot.plugins.ssh_plugin.SshPlugin
+::: tripwire.plugins.ssh_plugin.SshPlugin

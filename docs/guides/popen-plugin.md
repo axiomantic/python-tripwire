@@ -1,6 +1,6 @@
 # PopenPlugin Guide
 
-`PopenPlugin` intercepts `subprocess.Popen` by replacing the class with a fake that routes process lifecycle through a session script. It is included in core bigfoot -- no extra required.
+`PopenPlugin` intercepts `subprocess.Popen` by replacing the class with a fake that routes process lifecycle through a session script. It is included in core tripwire -- no extra required.
 
 ## Coexistence with SubprocessPlugin
 
@@ -8,18 +8,18 @@
 
 ## Setup
 
-In pytest, access `PopenPlugin` through the `bigfoot.popen_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `PopenPlugin` through the `tripwire.popen_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_run_command():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
 
-    with bigfoot:
+    with tripwire:
         import subprocess
         proc = subprocess.Popen(["echo", "hello"], stdout=subprocess.PIPE)
         stdout, stderr = proc.communicate()
@@ -27,15 +27,15 @@ def test_run_command():
     assert stdout == b"hello\n"
     assert proc.returncode == 0
 
-    bigfoot.popen_mock.assert_spawn(command=["echo", "hello"], stdin=None)
-    bigfoot.popen_mock.assert_communicate(input=None)
+    tripwire.popen_mock.assert_spawn(command=["echo", "hello"], stdin=None)
+    tripwire.popen_mock.assert_communicate(input=None)
 ```
 
 For manual use outside pytest, construct `PopenPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.popen_plugin import PopenPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.popen_plugin import PopenPlugin
 
 verifier = StrictVerifier()
 popen = PopenPlugin(verifier)
@@ -57,7 +57,7 @@ The `spawn` step fires automatically during `subprocess.Popen(...)` construction
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to build the script:
 
 ```python
-(bigfoot.popen_mock
+(tripwire.popen_mock
     .new_session()
     .expect("spawn",       returns=None)
     .expect("communicate", returns=(b"output", b"errors", 0)))
@@ -82,14 +82,14 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to b
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.popen_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.popen_mock`:
 
 ### `assert_spawn(*, command, stdin)`
 
 Asserts the next spawn interaction. Both `command` and `stdin` are required fields.
 
 ```python
-bigfoot.popen_mock.assert_spawn(command=["git", "status"], stdin=None)
+tripwire.popen_mock.assert_spawn(command=["git", "status"], stdin=None)
 ```
 
 ### `assert_communicate(*, input)`
@@ -97,7 +97,7 @@ bigfoot.popen_mock.assert_spawn(command=["git", "status"], stdin=None)
 Asserts the next communicate interaction. The `input` field is required.
 
 ```python
-bigfoot.popen_mock.assert_communicate(input=None)
+tripwire.popen_mock.assert_communicate(input=None)
 ```
 
 ### `assert_wait()`
@@ -105,7 +105,7 @@ bigfoot.popen_mock.assert_communicate(input=None)
 Asserts the next wait interaction. No fields are required.
 
 ```python
-bigfoot.popen_mock.assert_wait()
+tripwire.popen_mock.assert_wait()
 ```
 
 ## Full example
@@ -126,47 +126,47 @@ bigfoot.popen_mock.assert_wait()
 
 ```python
 def test_failing_command():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"", b"command not found\n", 127)))
 
-    with bigfoot:
+    with tripwire:
         proc = subprocess.Popen(["bogus-cmd"])
         stdout, stderr = proc.communicate()
 
     assert proc.returncode == 127
     assert stderr == b"command not found\n"
 
-    bigfoot.popen_mock.assert_spawn(command=["bogus-cmd"], stdin=None)
-    bigfoot.popen_mock.assert_communicate(input=None)
+    tripwire.popen_mock.assert_spawn(command=["bogus-cmd"], stdin=None)
+    tripwire.popen_mock.assert_communicate(input=None)
 ```
 
 ## Passing input to communicate()
 
 ```python
 def test_communicate_with_input():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"response\n", b"", 0)))
 
-    with bigfoot:
+    with tripwire:
         proc = subprocess.Popen(["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         stdout, stderr = proc.communicate(input=b"hello\n")
 
     assert stdout == b"response\n"
 
-    bigfoot.popen_mock.assert_spawn(command=["cat"], stdin=None)
-    bigfoot.popen_mock.assert_communicate(input=b"hello\n")
+    tripwire.popen_mock.assert_spawn(command=["cat"], stdin=None)
+    tripwire.popen_mock.assert_communicate(input=b"hello\n")
 ```
 
 ## ConflictError
 
-At sandbox entry, `PopenPlugin` checks whether `subprocess.Popen` has already been patched by another library. If it has been modified by a third party (unittest.mock, pytest-mock, or an unknown library), bigfoot raises `ConflictError`:
+At sandbox entry, `PopenPlugin` checks whether `subprocess.Popen` has already been patched by another library. If it has been modified by a third party (unittest.mock, pytest-mock, or an unknown library), tripwire raises `ConflictError`:
 
 ```
 ConflictError: target='subprocess.Popen', patcher='unittest.mock'
 ```
 
-Nested bigfoot sandboxes use reference counting and do not conflict with each other.
+Nested tripwire sandboxes use reference counting and do not conflict with each other.

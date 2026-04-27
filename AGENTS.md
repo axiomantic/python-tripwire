@@ -1,4 +1,4 @@
-# bigfoot - Agent Instructions
+# tripwire - Agent Instructions
 
 ## Build & Test Commands
 
@@ -13,19 +13,19 @@ uv run mkdocs serve                   # Serve docs locally at localhost:8000
 
 ## Architecture Overview
 
-bigfoot is a deterministic test interaction auditor for Python. It intercepts external calls (HTTP, DB, subprocess, etc.) via monkeypatching and enforces three guarantees: every call must be pre-authorized (mocked), every recorded interaction must be explicitly asserted, and every registered mock must be triggered.
+tripwire is a deterministic test interaction auditor for Python. It intercepts external calls (HTTP, DB, subprocess, etc.) via monkeypatching and enforces three guarantees: every call must be pre-authorized (mocked), every recorded interaction must be explicitly asserted, and every registered mock must be triggered.
 
 ### Key Modules
 
 | Path | Purpose |
 |------|---------|
-| `src/bigfoot/_verifier.py` | `StrictVerifier` - the core orchestrator |
-| `src/bigfoot/_base_plugin.py` | `BasePlugin` ABC for stateless intercept plugins |
-| `src/bigfoot/_state_machine_plugin.py` | `StateMachinePlugin` ABC for lifecycle plugins |
-| `src/bigfoot/_registry.py` | `PLUGIN_REGISTRY` with `PluginEntry` dataclasses |
-| `src/bigfoot/__init__.py` | Proxy singletons, `__all__` exports |
-| `src/bigfoot/plugins/` | All plugin implementations |
-| `src/bigfoot/pytest_plugin.py` | Auto-use fixture for pytest integration |
+| `src/tripwire/_verifier.py` | `StrictVerifier` - the core orchestrator |
+| `src/tripwire/_base_plugin.py` | `BasePlugin` ABC for stateless intercept plugins |
+| `src/tripwire/_state_machine_plugin.py` | `StateMachinePlugin` ABC for lifecycle plugins |
+| `src/tripwire/_registry.py` | `PLUGIN_REGISTRY` with `PluginEntry` dataclasses |
+| `src/tripwire/__init__.py` | Proxy singletons, `__all__` exports |
+| `src/tripwire/plugins/` | All plugin implementations |
+| `src/tripwire/pytest_plugin.py` | Auto-use fixture for pytest integration |
 
 ### Plugin Patterns
 
@@ -41,13 +41,13 @@ bigfoot is a deterministic test interaction auditor for Python. It intercepts ex
 
 ## Guard Mode
 
-Guard mode is enabled by default (`[tool.bigfoot] guard = true`). It installs I/O plugin interceptors at session startup and blocks any real external call that happens outside a sandbox.
+Guard mode is enabled by default (`[tool.tripwire] guard = true`). It installs I/O plugin interceptors at session startup and blocks any real external call that happens outside a sandbox.
 
-- Tests that need real network access (e.g., boto3 setup making DNS/socket calls) should use `@pytest.mark.allow("dns", "socket")` or `with bigfoot.allow("dns", "socket"):`.
-- To narrow the allowlist and re-guard specific plugins, use `@pytest.mark.deny(...)` or `with bigfoot.deny(...)`. Deny removes plugins from the current allowlist; it nests and restores on exit.
+- Tests that need real network access (e.g., boto3 setup making DNS/socket calls) should use `@pytest.mark.allow("dns", "socket")` or `with tripwire.allow("dns", "socket"):`.
+- To narrow the allowlist and re-guard specific plugins, use `@pytest.mark.deny(...)` or `with tripwire.deny(...)`. Deny removes plugins from the current allowlist; it nests and restores on exit.
 - Non-I/O plugins must set `supports_guard: ClassVar[bool] = False` (e.g., LoggingPlugin, JwtPlugin, CryptoPlugin, CeleryPlugin, MockPlugin).
 - Guard-eligible interceptors must handle `_GuardPassThrough` (catch it and call the original function).
-- Allowed calls are invisible to bigfoot and are not recorded on the timeline.
+- Allowed calls are invisible to tripwire and are not recorded on the timeline.
 
 ## Testable Documentation Examples
 
@@ -57,8 +57,8 @@ All code examples shown in plugin guide documentation MUST be runnable and teste
 
 1. **Example files** live in `examples/{name}/` with:
    - `__init__.py` (empty package marker)
-   - `app.py` (production code - the function under test, NO bigfoot imports)
-   - `test_app.py` (bigfoot test following the standard pattern)
+   - `app.py` (production code - the function under test, NO tripwire imports)
+   - `test_app.py` (tripwire test following the standard pattern)
 
 2. **Guide pages** include these files via `pymdownx.snippets` in their "Full example" sections:
    ````markdown
@@ -84,23 +84,23 @@ All code examples shown in plugin guide documentation MUST be runnable and teste
 ```python
 """Brief description."""
 
-import bigfoot
+import tripwire
 
 from .app import production_function
 
 
 def test_something():
     # Register mocks BEFORE the sandbox
-    bigfoot.plugin_proxy.mock_xxx(...)
+    tripwire.plugin_proxy.mock_xxx(...)
 
-    with bigfoot:
+    with tripwire:
         result = production_function(...)
 
     # Value assertions
     assert result == expected
 
     # Interaction assertions (AFTER the sandbox)
-    bigfoot.plugin_proxy.assert_xxx(...)
+    tripwire.plugin_proxy.assert_xxx(...)
 ```
 
 ### Rules
@@ -108,7 +108,7 @@ def test_something():
 - **Never** put inline code examples in guide "Full example" sections. Always use snippet includes from `examples/`.
 - **Every** new plugin guide must have a corresponding `examples/` directory with working tests.
 - If a library generates DEBUG logs (boto3, pymongo, celery, etc.), add an autouse fixture to silence them so they don't interfere with LoggingPlugin.
-- **Never** use `pytest.importorskip()` in tests. All optional dependencies are included in `bigfoot[dev]` and are expected to be installed. Skipping on missing imports is a green mirage.
+- **Never** use `pytest.importorskip()` in tests. All optional dependencies are included in `tripwire[dev]` and are expected to be installed. Skipping on missing imports is a green mirage.
 - The `.claude/skills/adding-plugins/SKILL.md` skill automates the full plugin creation lifecycle including examples and docs.
 
 ## Selective Installation
@@ -116,10 +116,10 @@ def test_something():
 Core plugins (subprocess, logging, database, socket, file-io, native, dns) require no extras. Optional plugins need:
 
 ```bash
-pip install bigfoot[all]        # Everything
-pip install bigfoot[http]       # httpx, requests, urllib
-pip install bigfoot[redis]      # redis
-pip install bigfoot[boto3]      # botocore
-pip install bigfoot[pymongo]    # pymongo
+pip install tripwire[all]        # Everything
+pip install tripwire[http]       # httpx, requests, urllib
+pip install tripwire[redis]      # redis
+pip install tripwire[boto3]      # botocore
+pip install tripwire[pymongo]    # pymongo
 # ... see pyproject.toml [project.optional-dependencies] for full list
 ```

@@ -5,29 +5,29 @@
 ## Installation
 
 ```bash
-pip install bigfoot[celery]
+pip install tripwire[celery]
 ```
 
 This installs `celery`.
 
 ## Setup
 
-In pytest, access `CeleryPlugin` through the `bigfoot.celery_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `CeleryPlugin` through the `tripwire.celery_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_send_welcome_email():
-    bigfoot.celery_mock.mock_delay(
+    tripwire.celery_mock.mock_delay(
         "myapp.tasks.send_email",
         returns=None,
     )
 
-    with bigfoot:
+    with tripwire:
         from myapp.tasks import send_email
         send_email.delay("user@example.com", "Welcome!")
 
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("user@example.com", "Welcome!"),
         kwargs={},
@@ -38,8 +38,8 @@ def test_send_welcome_email():
 For manual use outside pytest, construct `CeleryPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.celery_plugin import CeleryPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.celery_plugin import CeleryPlugin
 
 verifier = StrictVerifier()
 celery_mock = CeleryPlugin(verifier)
@@ -54,7 +54,7 @@ CeleryPlugin provides two mock registration methods, one for each dispatch metho
 ### `mock_delay(task_name, *, returns, ...)`
 
 ```python
-bigfoot.celery_mock.mock_delay("myapp.tasks.process_order", returns=None)
+tripwire.celery_mock.mock_delay("myapp.tasks.process_order", returns=None)
 ```
 
 | Parameter | Type | Default | Description |
@@ -67,7 +67,7 @@ bigfoot.celery_mock.mock_delay("myapp.tasks.process_order", returns=None)
 ### `mock_apply_async(task_name, *, returns, ...)`
 
 ```python
-bigfoot.celery_mock.mock_apply_async("myapp.tasks.generate_report", returns=None)
+tripwire.celery_mock.mock_apply_async("myapp.tasks.generate_report", returns=None)
 ```
 
 | Parameter | Type | Default | Description |
@@ -83,21 +83,21 @@ Each task_name:dispatch_method pair has its own independent FIFO queue. Multiple
 
 ```python
 def test_multiple_email_dispatches():
-    bigfoot.celery_mock.mock_delay("myapp.tasks.send_email", returns=None)
-    bigfoot.celery_mock.mock_delay("myapp.tasks.send_email", returns=None)
+    tripwire.celery_mock.mock_delay("myapp.tasks.send_email", returns=None)
+    tripwire.celery_mock.mock_delay("myapp.tasks.send_email", returns=None)
 
-    with bigfoot:
+    with tripwire:
         from myapp.tasks import send_email
         send_email.delay("alice@example.com", "Hello Alice")
         send_email.delay("bob@example.com", "Hello Bob")
 
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("alice@example.com", "Hello Alice"),
         kwargs={},
         options={},
     )
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("bob@example.com", "Hello Bob"),
         kwargs={},
@@ -107,12 +107,12 @@ def test_multiple_email_dispatches():
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.celery_mock`. All four fields (`task_name`, `args`, `kwargs`, `options`) are required:
+Use the typed assertion helpers on `tripwire.celery_mock`. All four fields (`task_name`, `args`, `kwargs`, `options`) are required:
 
 ### `assert_delay(task_name, args, kwargs, options)`
 
 ```python
-bigfoot.celery_mock.assert_delay(
+tripwire.celery_mock.assert_delay(
     task_name="myapp.tasks.send_email",
     args=("user@example.com", "Welcome!"),
     kwargs={},
@@ -130,7 +130,7 @@ bigfoot.celery_mock.assert_delay(
 ### `assert_apply_async(task_name, args, kwargs, options)`
 
 ```python
-bigfoot.celery_mock.assert_apply_async(
+tripwire.celery_mock.assert_apply_async(
     task_name="myapp.tasks.generate_report",
     args=("q1", 2024),
     kwargs={"format": "pdf"},
@@ -150,21 +150,21 @@ bigfoot.celery_mock.assert_apply_async(
 Use the `raises` parameter to simulate Celery dispatch failures:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_celery_dispatch_error():
-    bigfoot.celery_mock.mock_delay(
+    tripwire.celery_mock.mock_delay(
         "myapp.tasks.send_email",
         returns=None,
         raises=ConnectionError("Broker unavailable"),
     )
 
-    with bigfoot:
+    with tripwire:
         from myapp.tasks import send_email
         with pytest.raises(ConnectionError):
             send_email.delay("user@example.com", "Hello")
 
-    bigfoot.celery_mock.assert_delay(
+    tripwire.celery_mock.assert_delay(
         task_name="myapp.tasks.send_email",
         args=("user@example.com", "Hello"),
         kwargs={},
@@ -191,17 +191,17 @@ def test_celery_dispatch_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.celery_mock.mock_delay("myapp.tasks.update_metrics", returns=None, required=False)
+tripwire.celery_mock.mock_delay("myapp.tasks.update_metrics", returns=None, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls `delay()` or `apply_async()` on a task that has no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code calls `delay()` or `apply_async()` on a task that has no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 celery.delay('myapp.tasks.send_email', ...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.celery_mock.mock_delay('myapp.tasks.send_email', returns=...)
+    tripwire.celery_mock.mock_delay('myapp.tasks.send_email', returns=...)
 ```

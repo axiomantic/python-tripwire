@@ -1,3 +1,3 @@
 # CryptoPlugin
 
-::: bigfoot.plugins.crypto_plugin.CryptoPlugin
+::: tripwire.plugins.crypto_plugin.CryptoPlugin

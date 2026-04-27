@@ -1,21 +1,21 @@
-"""Test run_linter using bigfoot popen_mock."""
+"""Test run_linter using tripwire popen_mock."""
 
-import bigfoot
+import tripwire
 
 from .app import run_linter
 
 
 def test_linter_clean():
-    (bigfoot.popen_mock
+    (tripwire.popen_mock
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"All checks passed.\n", b"", 0)))
 
-    with bigfoot:
+    with tripwire:
         rc, output = run_linter("src/")
 
     assert rc == 0
     assert output == "All checks passed.\n"
 
-    bigfoot.popen_mock.assert_spawn(command=["ruff", "check", "src/"], stdin=None)
-    bigfoot.popen_mock.assert_communicate(input=None)
+    tripwire.popen_mock.assert_spawn(command=["ruff", "check", "src/"], stdin=None)
+    tripwire.popen_mock.assert_communicate(input=None)

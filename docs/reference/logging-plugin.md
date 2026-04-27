@@ -1,3 +1,3 @@
 # LoggingPlugin
 
-::: bigfoot.plugins.logging_plugin.LoggingPlugin
+::: tripwire.plugins.logging_plugin.LoggingPlugin

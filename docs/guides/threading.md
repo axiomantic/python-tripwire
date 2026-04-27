@@ -2,9 +2,9 @@
 
 ## Overview
 
-bigfoot uses `ContextVar` instances to track sandbox state, guard mode, and test verifiers. By default, Python threads do not inherit `ContextVar` values from their parent (per [PEP 567](https://peps.python.org/pep-0567/)). This means a child thread would not see the active sandbox or guard state, and intercepted calls in that thread would raise `SandboxNotActiveError` or bypass guard mode entirely.
+tripwire uses `ContextVar` instances to track sandbox state, guard mode, and test verifiers. By default, Python threads do not inherit `ContextVar` values from their parent (per [PEP 567](https://peps.python.org/pep-0567/)). This means a child thread would not see the active sandbox or guard state, and intercepted calls in that thread would raise `SandboxNotActiveError` or bypass guard mode entirely.
 
-bigfoot solves this automatically. At test session startup, it installs context propagation patches that copy all `ContextVar` values to child threads. No configuration is required.
+tripwire solves this automatically. At test session startup, it installs context propagation patches that copy all `ContextVar` values to child threads. No configuration is required.
 
 ## How it works
 
@@ -16,7 +16,7 @@ The `_context_propagation` module patches two thread-creation mechanisms:
 
 3. **`ThreadPoolExecutor.submit`** -- the standard library executor. Submitted callables are wrapped to run inside the copied context.
 
-When either path creates a thread, bigfoot calls `contextvars.copy_context()` at creation time. This captures a snapshot of all active `ContextVar` values. The child thread's callable then runs inside that copied context via `Context.run()`.
+When either path creates a thread, tripwire calls `contextvars.copy_context()` at creation time. This captures a snapshot of all active `ContextVar` values. The child thread's callable then runs inside that copied context via `Context.run()`.
 
 The patches are installed at `pytest_configure` and removed at `pytest_unconfigure`. They are idempotent and thread-safe (guarded by a module-level lock).
 
@@ -24,7 +24,7 @@ On Python 3.14+ free-threaded builds where `sys.flags.thread_inherit_context` is
 
 ## What gets propagated
 
-bigfoot defines nine `ContextVar` instances. All of them are captured by `copy_context()`:
+tripwire defines nine `ContextVar` instances. All of them are captured by `copy_context()`:
 
 | ContextVar | Module | Purpose |
 |---|---|---|
@@ -46,7 +46,7 @@ Context propagation matters whenever code under test (or a test utility) creates
 
 **ThreadPoolExecutor in production code.** If your application dispatches work to a thread pool, those worker threads need the sandbox context to route intercepted calls correctly.
 
-**Custom threading.Thread usage.** Any code that creates `threading.Thread` instances benefits from propagation. bigfoot patches both `threading.Thread.start()` and the lower-level `_thread.start_new_thread()` to cover all thread-creation paths.
+**Custom threading.Thread usage.** Any code that creates `threading.Thread` instances benefits from propagation. tripwire patches both `threading.Thread.start()` and the lower-level `_thread.start_new_thread()` to cover all thread-creation paths.
 
 **Libraries that create threads internally.** Some libraries spawn threads for connection pools, background polling, or heartbeats. The low-level `_thread.start_new_thread` patch catches these without needing per-library workarounds.
 
@@ -66,22 +66,22 @@ The only blind spot is C code that calls `PyThread_start_new_thread` directly fr
 
 ## Free-threaded Python (3.14t)
 
-bigfoot supports free-threaded Python (the `t` suffix builds with `Py_GIL_DISABLED`). On these builds, `sys.flags.thread_inherit_context` is `True` and threads natively inherit `ContextVar` values, so bigfoot skips the `Thread.start` patch.
+tripwire supports free-threaded Python (the `t` suffix builds with `Py_GIL_DISABLED`). On these builds, `sys.flags.thread_inherit_context` is `True` and threads natively inherit `ContextVar` values, so tripwire skips the `Thread.start` patch.
 
-When developing or testing bigfoot on free-threaded Python, use the `dev-ft` extra instead of `dev`:
+When developing or testing tripwire on free-threaded Python, use the `dev-ft` extra instead of `dev`:
 
 ```bash
 pip install -e ".[dev-ft]"
 ```
 
-The `dev-ft` extra excludes `psycopg2-binary`, which does not ship prebuilt wheels for free-threaded Python and fails to build from source without `libpq` development headers. All other bigfoot plugins and test dependencies are included. Tests for `Psycopg2Plugin` will be skipped due to the missing import.
+The `dev-ft` extra excludes `psycopg2-binary`, which does not ship prebuilt wheels for free-threaded Python and fails to build from source without `libpq` development headers. All other tripwire plugins and test dependencies are included. Tests for `Psycopg2Plugin` will be skipped due to the missing import.
 
 ## Interaction with guard mode
 
 Firewall state (`_guard_active`, `_guard_allowlist`, `_guard_level`, `_guard_patches_installed`) propagates to child threads through the same mechanism. This means:
 
 - If a test is running with guard mode active, calls in child threads are guarded.
-- If a test uses `@pytest.mark.allow("http")` or `bigfoot.allow("http")`, the allowlist propagates to child threads.
+- If a test uses `@pytest.mark.allow("http")` or `tripwire.allow("http")`, the allowlist propagates to child threads.
 - Guard warnings and errors fire correctly in child threads, with the same level and allowlist as the parent.
 
 For full details on guard mode, see [Guard Mode](guard-mode.md).

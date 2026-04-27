@@ -5,35 +5,35 @@
 ## Installation
 
 ```bash
-pip install bigfoot[mcp]
+pip install tripwire[mcp]
 ```
 
 This installs the `mcp` SDK.
 
 ## Setup
 
-In pytest, access `McpPlugin` through the `bigfoot.mcp_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `McpPlugin` through the `tripwire.mcp_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import pytest
-import bigfoot
+import tripwire
 
 @pytest.mark.asyncio
 async def test_call_tool():
     from mcp.client.session import ClientSession
 
-    bigfoot.mcp_mock.mock_call_tool(
+    tripwire.mcp_mock.mock_call_tool(
         "my_tool",
         returns={"result": "ok"},
     )
 
-    with bigfoot:
+    with tripwire:
         session = object.__new__(ClientSession)
         result = await session.call_tool("my_tool", {"key": "value"})
 
     assert result == {"result": "ok"}
 
-    bigfoot.mcp_mock.assert_call_tool(
+    tripwire.mcp_mock.assert_call_tool(
         "my_tool",
         arguments={"key": "value"},
         direction="client",
@@ -43,8 +43,8 @@ async def test_call_tool():
 For manual use outside pytest, construct `McpPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.mcp_plugin import McpPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.mcp_plugin import McpPlugin
 
 verifier = StrictVerifier()
 mcp_mock = McpPlugin(verifier)
@@ -68,7 +68,7 @@ Client mocks intercept `ClientSession` method calls. Three methods are available
 ### `mock_call_tool(tool_name, *, returns, ...)`
 
 ```python
-bigfoot.mcp_mock.mock_call_tool("get_weather", returns={"temp": "72F"})
+tripwire.mcp_mock.mock_call_tool("get_weather", returns={"temp": "72F"})
 ```
 
 | Parameter | Type | Default | Description |
@@ -81,7 +81,7 @@ bigfoot.mcp_mock.mock_call_tool("get_weather", returns={"temp": "72F"})
 ### `mock_read_resource(uri, *, returns, ...)`
 
 ```python
-bigfoot.mcp_mock.mock_read_resource("file:///data.json", returns={"contents": "[1,2,3]"})
+tripwire.mcp_mock.mock_read_resource("file:///data.json", returns={"contents": "[1,2,3]"})
 ```
 
 | Parameter | Type | Default | Description |
@@ -94,7 +94,7 @@ bigfoot.mcp_mock.mock_read_resource("file:///data.json", returns={"contents": "[
 ### `mock_get_prompt(prompt_name, *, returns, ...)`
 
 ```python
-bigfoot.mcp_mock.mock_get_prompt("summarize", returns={"messages": [{"role": "user", "content": "..."}]})
+tripwire.mcp_mock.mock_get_prompt("summarize", returns={"messages": [{"role": "user", "content": "..."}]})
 ```
 
 | Parameter | Type | Default | Description |
@@ -111,19 +111,19 @@ Server mocks intercept incoming requests handled by `Server._handle_request`. Th
 ### `mock_server_call_tool(tool_name, *, returns, ...)`
 
 ```python
-bigfoot.mcp_mock.mock_server_call_tool("calculate", returns={"result": 42})
+tripwire.mcp_mock.mock_server_call_tool("calculate", returns={"result": 42})
 ```
 
 ### `mock_server_read_resource(uri, *, returns, ...)`
 
 ```python
-bigfoot.mcp_mock.mock_server_read_resource("db://users/1", returns={"name": "Alice"})
+tripwire.mcp_mock.mock_server_read_resource("db://users/1", returns={"name": "Alice"})
 ```
 
 ### `mock_server_get_prompt(prompt_name, *, returns, ...)`
 
 ```python
-bigfoot.mcp_mock.mock_server_get_prompt("greet", returns={"messages": [{"role": "assistant", "content": "Hello!"}]})
+tripwire.mcp_mock.mock_server_get_prompt("greet", returns={"messages": [{"role": "assistant", "content": "Hello!"}]})
 ```
 
 All three accept the same parameters as their client counterparts (`returns`, `raises`, `required`).
@@ -135,10 +135,10 @@ Each (direction, method, key) triple has its own independent FIFO queue. Multipl
 ```python
 @pytest.mark.asyncio
 async def test_multiple_tool_calls():
-    bigfoot.mcp_mock.mock_call_tool("search", returns={"results": ["a"]})
-    bigfoot.mcp_mock.mock_call_tool("search", returns={"results": ["b"]})
+    tripwire.mcp_mock.mock_call_tool("search", returns={"results": ["a"]})
+    tripwire.mcp_mock.mock_call_tool("search", returns={"results": ["b"]})
 
-    with bigfoot:
+    with tripwire:
         from mcp.client.session import ClientSession
         session = object.__new__(ClientSession)
         r1 = await session.call_tool("search", {"query": "first"})
@@ -147,18 +147,18 @@ async def test_multiple_tool_calls():
     assert r1 == {"results": ["a"]}
     assert r2 == {"results": ["b"]}
 
-    bigfoot.mcp_mock.assert_call_tool("search", arguments={"query": "first"})
-    bigfoot.mcp_mock.assert_call_tool("search", arguments={"query": "second"})
+    tripwire.mcp_mock.assert_call_tool("search", arguments={"query": "first"})
+    tripwire.mcp_mock.assert_call_tool("search", arguments={"query": "second"})
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.mcp_mock`. All recorded fields are required.
+Use the typed assertion helpers on `tripwire.mcp_mock`. All recorded fields are required.
 
 ### `assert_call_tool(tool_name, *, arguments, direction)`
 
 ```python
-bigfoot.mcp_mock.assert_call_tool(
+tripwire.mcp_mock.assert_call_tool(
     "get_weather",
     arguments={"city": "San Francisco"},
     direction="client",
@@ -174,7 +174,7 @@ bigfoot.mcp_mock.assert_call_tool(
 ### `assert_read_resource(uri, *, direction)`
 
 ```python
-bigfoot.mcp_mock.assert_read_resource(
+tripwire.mcp_mock.assert_read_resource(
     "file:///data.json",
     direction="client",
 )
@@ -188,7 +188,7 @@ bigfoot.mcp_mock.assert_read_resource(
 ### `assert_get_prompt(prompt_name, *, arguments, direction)`
 
 ```python
-bigfoot.mcp_mock.assert_get_prompt(
+tripwire.mcp_mock.assert_get_prompt(
     "summarize",
     arguments={"length": "short"},
     direction="client",
@@ -208,19 +208,19 @@ Use the `raises` parameter to simulate MCP errors:
 ```python
 @pytest.mark.asyncio
 async def test_tool_error():
-    bigfoot.mcp_mock.mock_call_tool(
+    tripwire.mcp_mock.mock_call_tool(
         "flaky_tool",
         returns=None,
         raises=RuntimeError("MCP server unavailable"),
     )
 
-    with bigfoot:
+    with tripwire:
         from mcp.client.session import ClientSession
         session = object.__new__(ClientSession)
         with pytest.raises(RuntimeError, match="MCP server unavailable"):
             await session.call_tool("flaky_tool", {"input": "data"})
 
-    bigfoot.mcp_mock.assert_call_tool(
+    tripwire.mcp_mock.assert_call_tool(
         "flaky_tool",
         arguments={"input": "data"},
         direction="client",
@@ -246,17 +246,17 @@ async def test_tool_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.mcp_mock.mock_call_tool("analytics_ping", returns={"status": "ok"}, required=False)
+tripwire.mcp_mock.mock_call_tool("analytics_ping", returns={"status": "ok"}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code makes an MCP call that has no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code makes an MCP call that has no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 mcp client call_tool('get_weather') was called but no mock was registered.
 Register a mock with:
-    bigfoot.mcp_mock.mock_call_tool('get_weather', returns=...)
+    tripwire.mcp_mock.mock_call_tool('get_weather', returns=...)
 ```

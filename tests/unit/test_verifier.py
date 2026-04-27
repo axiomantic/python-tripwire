@@ -8,16 +8,16 @@ import pytest
 if sys.version_info < (3, 11):
     from exceptiongroup import BaseExceptionGroup
 
-from bigfoot._context import _active_verifier, _any_order_depth
-from bigfoot._errors import (
+from tripwire._context import _active_verifier, _any_order_depth
+from tripwire._errors import (
     AssertionInsideSandboxError,
     InteractionMismatchError,
     UnassertedInteractionsError,
     UnusedMocksError,
     VerificationError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
 
 # --- Helpers ---
 
@@ -71,7 +71,7 @@ def test_register_plugin_idempotent() -> None:
     v = StrictVerifier()
     initial_count = len(v._plugins)
     # Create a plugin of a type that's already auto-registered
-    from bigfoot.plugins.subprocess import SubprocessPlugin
+    from tripwire.plugins.subprocess import SubprocessPlugin
 
     SubprocessPlugin(v)  # Should NOT raise, should be silently skipped
     assert len(v._plugins) == initial_count  # count unchanged
@@ -80,7 +80,7 @@ def test_register_plugin_idempotent() -> None:
 def test_verifier_respects_disabled_plugins(monkeypatch: pytest.MonkeyPatch) -> None:
     """disabled_plugins config excludes named plugins from auto-instantiation."""
     monkeypatch.setattr(
-        "bigfoot._verifier.load_bigfoot_config",
+        "tripwire._verifier.load_tripwire_config",
         lambda: {"disabled_plugins": ["subprocess"]},
     )
     v = StrictVerifier()
@@ -93,7 +93,7 @@ def test_verifier_respects_disabled_plugins(monkeypatch: pytest.MonkeyPatch) -> 
 def test_verifier_respects_enabled_plugins(monkeypatch: pytest.MonkeyPatch) -> None:
     """enabled_plugins config includes only named plugins."""
     monkeypatch.setattr(
-        "bigfoot._verifier.load_bigfoot_config",
+        "tripwire._verifier.load_tripwire_config",
         lambda: {"enabled_plugins": ["subprocess"]},
     )
     v = StrictVerifier()
@@ -300,7 +300,7 @@ def test_in_any_order_depth_resets_after_exit() -> None:
 
 def test_mock_reuses_existing_mock_plugin() -> None:
     """verifier.mock() called twice finds the existing MockPlugin and doesn't create a second."""
-    from bigfoot._mock_plugin import MockPlugin
+    from tripwire._mock_plugin import MockPlugin
 
     v = StrictVerifier()
     # First call creates MockPlugin and mock
@@ -321,7 +321,7 @@ def test_mock_reuses_existing_mock_plugin() -> None:
 
 def test_mock_skips_non_mock_plugins_when_searching() -> None:
     """verifier.mock() iterates past non-MockPlugin entries to find an existing MockPlugin."""
-    from bigfoot._mock_plugin import MockPlugin
+    from tripwire._mock_plugin import MockPlugin
 
     v = StrictVerifier()
     # Register a non-MockPlugin first (a raw MagicMock that passes type() check)
@@ -345,7 +345,7 @@ def test_sandbox_activation_failure_deactivates_already_activated_plugins() -> N
     p2 = _make_mock_plugin(v)
     p2.activate.side_effect = RuntimeError("activation failed")
 
-    with pytest.raises(BaseExceptionGroup, match="bigfoot sandbox activation failed"):
+    with pytest.raises(BaseExceptionGroup, match="tripwire sandbox activation failed"):
         with v.sandbox():
             pass  # pragma: no cover - never reached
 
@@ -393,7 +393,7 @@ def test_sandbox_deactivation_failure_still_resets_context_var() -> None:
     p = _make_mock_plugin(v)
     p.deactivate.side_effect = RuntimeError("deactivate failed")
 
-    with pytest.raises(BaseExceptionGroup, match="bigfoot sandbox deactivation failed"):
+    with pytest.raises(BaseExceptionGroup, match="tripwire sandbox deactivation failed"):
         with v.sandbox():
             pass
 
@@ -500,7 +500,7 @@ def test_verify_all_raises_if_sandbox_active() -> None:
 
 def test_assert_interaction_raises_missing_fields_when_assertable_field_omitted() -> None:
     """assert_interaction() raises MissingAssertionFieldsError when a required field is absent."""
-    from bigfoot._errors import MissingAssertionFieldsError
+    from tripwire._errors import MissingAssertionFieldsError
 
     v = StrictVerifier()
     plugin = _make_mock_plugin(v)
@@ -548,7 +548,7 @@ def test_assert_interaction_missing_fields_fires_after_source_id_match() -> None
 
 def test_assert_interaction_in_any_order_raises_missing_fields() -> None:
     """in_any_order path also enforces completeness before field-value matching."""
-    from bigfoot._errors import MissingAssertionFieldsError
+    from tripwire._errors import MissingAssertionFieldsError
 
     v = StrictVerifier()
     plugin = _make_mock_plugin(v)
@@ -565,7 +565,7 @@ def test_assert_interaction_in_any_order_raises_missing_fields() -> None:
 
 def test_assert_interaction_in_any_order_no_source_raises_mismatch_not_missing() -> None:
     """In in_any_order, if source_id not found, InteractionMismatchError fires before completeness."""
-    from bigfoot._errors import MissingAssertionFieldsError  # noqa: F401 — imported for clarity
+    from tripwire._errors import MissingAssertionFieldsError  # noqa: F401 — imported for clarity
 
     v = StrictVerifier()
     plugin = _make_mock_plugin(v)
@@ -587,7 +587,7 @@ def test_assert_interaction_in_any_order_no_source_raises_mismatch_not_missing()
 
 def test_verifier_spy_returns_import_site_mock_with_spy_flag() -> None:
     """verifier.spy() creates an ImportSiteMock with spy=True."""
-    from bigfoot._mock_plugin import ImportSiteMock
+    from tripwire._mock_plugin import ImportSiteMock
 
     v = StrictVerifier()
     spy = v.spy("os.path:sep")
@@ -635,10 +635,10 @@ class TestEntryPointPluginDiscovery:
     """_load_entrypoint_plugins discovers 3rd-party plugins via entry points."""
 
     def test_entrypoint_plugin_is_instantiated(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """A plugin registered via bigfoot.plugins entry point is auto-instantiated."""
+        """A plugin registered via tripwire.plugins entry point is auto-instantiated."""
         from unittest.mock import MagicMock
 
-        from bigfoot._base_plugin import BasePlugin
+        from tripwire._base_plugin import BasePlugin
 
         class FakeEntryPointPlugin(BasePlugin):
             activated = False
@@ -678,8 +678,8 @@ class TestEntryPointPluginDiscovery:
         fake_ep.load.return_value = FakeEntryPointPlugin
 
         monkeypatch.setattr(
-            "bigfoot._verifier.entry_points",
-            lambda group: [fake_ep] if group == "bigfoot.plugins" else [],
+            "tripwire._verifier.entry_points",
+            lambda group: [fake_ep] if group == "tripwire.plugins" else [],
         )
 
         v = StrictVerifier()
@@ -695,8 +695,8 @@ class TestEntryPointPluginDiscovery:
         fake_ep.load.side_effect = ImportError("broken")
 
         monkeypatch.setattr(
-            "bigfoot._verifier.entry_points",
-            lambda group: [fake_ep] if group == "bigfoot.plugins" else [],
+            "tripwire._verifier.entry_points",
+            lambda group: [fake_ep] if group == "tripwire.plugins" else [],
         )
 
         # Should not raise
@@ -707,15 +707,15 @@ class TestEntryPointPluginDiscovery:
         """An entry point plugin of a type already registered is silently skipped."""
         from unittest.mock import MagicMock
 
-        from bigfoot.plugins.subprocess import SubprocessPlugin
+        from tripwire.plugins.subprocess import SubprocessPlugin
 
         fake_ep = MagicMock()
         fake_ep.name = "subprocess_again"
         fake_ep.load.return_value = SubprocessPlugin
 
         monkeypatch.setattr(
-            "bigfoot._verifier.entry_points",
-            lambda group: [fake_ep] if group == "bigfoot.plugins" else [],
+            "tripwire._verifier.entry_points",
+            lambda group: [fake_ep] if group == "tripwire.plugins" else [],
         )
 
         v = StrictVerifier()

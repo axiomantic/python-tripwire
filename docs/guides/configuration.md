@@ -1,14 +1,14 @@
 # Configuration Guide
 
-bigfoot reads project-level configuration from `pyproject.toml` under the `[tool.bigfoot]` table. Configuration is optional; bigfoot works with sensible defaults when no configuration is present.
+tripwire reads project-level configuration from `pyproject.toml` under the `[tool.tripwire]` table. Configuration is optional; tripwire works with sensible defaults when no configuration is present.
 
 ## Config file discovery
 
-bigfoot walks up from the current working directory to find the nearest `pyproject.toml`. It checks each directory from `Path.cwd()` through all parent directories, stopping at the first `pyproject.toml` it finds. If no file is found, all configuration values use their defaults.
+tripwire walks up from the current working directory to find the nearest `pyproject.toml`. It checks each directory from `Path.cwd()` through all parent directories, stopping at the first `pyproject.toml` it finds. If no file is found, all configuration values use their defaults.
 
 ```
 my-project/
-    pyproject.toml       <-- bigfoot finds this
+    pyproject.toml       <-- tripwire finds this
     src/
         myapp/
             client.py
@@ -18,25 +18,25 @@ my-project/
 
 ## Configuration format
 
-Plugin configuration lives under `[tool.bigfoot.<plugin_key>]`. Each plugin declares its own `config_key()` class method that determines which sub-table it reads from.
+Plugin configuration lives under `[tool.tripwire.<plugin_key>]`. Each plugin declares its own `config_key()` class method that determines which sub-table it reads from.
 
 ```toml
-[tool.bigfoot.http]
+[tool.tripwire.http]
 require_response = true
 ```
 
-The top-level `[tool.bigfoot]` table can contain plugin sub-tables. Unknown keys at any level are silently ignored for forward-compatibility.
+The top-level `[tool.tripwire]` table can contain plugin sub-tables. Unknown keys at any level are silently ignored for forward-compatibility.
 
 ## HTTP plugin configuration
 
-The `HttpPlugin` is currently the only plugin that reads configuration. It maps to the `[tool.bigfoot.http]` section.
+The `HttpPlugin` is currently the only plugin that reads configuration. It maps to the `[tool.tripwire.http]` section.
 
 ### `require_response`
 
 When `true`, `assert_request()` returns an `HttpAssertionBuilder` that requires a chained `.assert_response()` call to complete the assertion. When `false` (the default), `assert_request()` is terminal and asserts only the request fields.
 
 ```toml
-[tool.bigfoot.http]
+[tool.tripwire.http]
 require_response = true
 ```
 
@@ -47,7 +47,7 @@ This setting can be overridden on a per-call basis:
 
 ```python
 # Project config sets require_response = true, but override for this one call:
-bigfoot.http.assert_request("GET", "https://api.example.com/health", require_response=False)
+tripwire.http.assert_request("GET", "https://api.example.com/health", require_response=False)
 ```
 
 See the [HttpPlugin Guide](http-plugin.md) for details on the `require_response` feature.
@@ -60,11 +60,11 @@ For example, with `require_response = true` in `pyproject.toml`:
 
 ```python
 # Uses the project default (require_response=True) -- must chain assert_response()
-bigfoot.http.assert_request("GET", "https://api.example.com/users") \
+tripwire.http.assert_request("GET", "https://api.example.com/users") \
     .assert_response(200, {}, "[]")
 
 # Overrides the project default for this call only
-bigfoot.http.assert_request("GET", "https://api.example.com/health", require_response=False)
+tripwire.http.assert_request("GET", "https://api.example.com/health", require_response=False)
 ```
 
 ## Error handling
@@ -76,14 +76,14 @@ If `pyproject.toml` exists but contains invalid TOML syntax, `tomllib.TOMLDecode
 # pyproject.toml with syntax errors
 ```
 
-If `pyproject.toml` is valid but has no `[tool.bigfoot]` section, an empty dict is returned and all plugins use their defaults.
+If `pyproject.toml` is valid but has no `[tool.tripwire]` section, an empty dict is returned and all plugins use their defaults.
 
 ## How config loading works internally
 
 Configuration loading follows this flow:
 
-1. `StrictVerifier.__init__()` calls `load_bigfoot_config()` to find and parse `pyproject.toml`
-2. The result is stored as `verifier._bigfoot_config`
+1. `StrictVerifier.__init__()` calls `load_tripwire_config()` to find and parse `pyproject.toml`
+2. The result is stored as `verifier._tripwire_config`
 3. Each plugin's `__init__()` checks its `config_key()` and calls `self.load_config(config_dict)` with the matching sub-table
 4. `load_config()` validates and applies the configuration values
 
@@ -93,13 +93,13 @@ If you are writing a custom plugin that needs configuration, implement two metho
 
 ### `config_key()` class method
 
-Return a string that maps to `[tool.bigfoot.<key>]`, or `None` to opt out of configuration:
+Return a string that maps to `[tool.tripwire.<key>]`, or `None` to opt out of configuration:
 
 ```python
 class MyPlugin(BasePlugin):
     @classmethod
     def config_key(cls) -> str | None:
-        return "my_plugin"  # reads from [tool.bigfoot.my_plugin]
+        return "my_plugin"  # reads from [tool.tripwire.my_plugin]
 ```
 
 ### `load_config()` method
@@ -113,7 +113,7 @@ class MyPlugin(BasePlugin):
             val = config["timeout"]
             if not isinstance(val, (int, float)):
                 raise TypeError(
-                    f"[tool.bigfoot.my_plugin] timeout must be a number, "
+                    f"[tool.tripwire.my_plugin] timeout must be a number, "
                     f"got {type(val).__name__}"
                 )
             self._timeout = val
@@ -126,7 +126,7 @@ The `load_config()` method is called as the last step of the plugin's `__init__(
 If built-in plugins interfere with your custom plugin's tests, disable them:
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 disabled_plugins = ["socket", "subprocess"]
 ```
 
@@ -139,6 +139,6 @@ See [Writing Plugins](writing-plugins.md) for the plugin authoring guide.
 name = "my-app"
 version = "1.0.0"
 
-[tool.bigfoot.http]
+[tool.tripwire.http]
 require_response = true
 ```

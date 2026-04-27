@@ -5,15 +5,15 @@ from __future__ import annotations
 import jwt  # noqa: F401
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.jwt_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.jwt_plugin import (
     _JWT_AVAILABLE,
     JwtMockConfig,
     JwtPlugin,
@@ -57,14 +57,14 @@ def test_jwt_available_flag() -> None:
 
 
 def test_activate_raises_when_jwt_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.jwt_plugin as _jp
+    import tripwire.plugins.jwt_plugin as _jp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_jp, "_JWT_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[jwt] to use JwtPlugin: pip install bigfoot[jwt]"
+        "Install tripwire[jwt] to use JwtPlugin: pip install tripwire[jwt]"
     )
 
 
@@ -389,7 +389,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.jwt_mock.mock_encode(returns=...)"
+    assert result == "    tripwire.jwt_mock.mock_encode(returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -398,7 +398,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "jwt.encode(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.jwt_mock.mock_encode(returns=...)"
+        "    tripwire.jwt_mock.mock_encode(returns=...)"
     )
 
 
@@ -413,32 +413,32 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.jwt_mock
+# Module-level proxy: tripwire.jwt_mock
 # ---------------------------------------------------------------------------
 
 
-def test_jwt_mock_proxy_mock_encode(bigfoot_verifier: StrictVerifier) -> None:
+def test_jwt_mock_proxy_mock_encode(tripwire_verifier: StrictVerifier) -> None:
     import jwt as jwt_mod
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.jwt_mock.mock_encode(returns="proxied_token")
+    tripwire.jwt_mock.mock_encode(returns="proxied_token")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         result = jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
     assert result == "proxied_token"
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
 def test_jwt_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.jwt_mock.mock_encode
+            _ = tripwire.jwt_mock.mock_encode
     finally:
         _current_test_verifier.reset(token)
 
@@ -449,11 +449,11 @@ def test_jwt_mock_proxy_raises_outside_context() -> None:
 
 
 def test_jwt_plugin_in_all() -> None:
-    import bigfoot
-    from bigfoot.plugins.jwt_plugin import JwtPlugin as _JwtPlugin
+    import tripwire
+    from tripwire.plugins.jwt_plugin import JwtPlugin as _JwtPlugin
 
-    assert bigfoot.JwtPlugin is _JwtPlugin
-    assert type(bigfoot.jwt_mock).__name__ == "_JwtProxy"
+    assert tripwire.JwtPlugin is _JwtPlugin
+    assert type(tripwire.jwt_mock).__name__ == "_JwtProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -461,69 +461,69 @@ def test_jwt_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_jwt_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
+def test_jwt_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     import jwt as jwt_mod
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
-    with bigfoot.sandbox():
+    tripwire.jwt_mock.mock_encode(returns="token")
+    with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "jwt:encode"
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
-def test_assert_encode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_encode_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import jwt as jwt_mod
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
-    with bigfoot.sandbox():
+    tripwire.jwt_mock.mock_encode(returns="token")
+    with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
-def test_assert_decode_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_decode_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     import jwt as jwt_mod
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.jwt_mock.mock_decode(returns={"sub": "1"})
-    with bigfoot.sandbox():
+    tripwire.jwt_mock.mock_decode(returns={"sub": "1"})
+    with tripwire.sandbox():
         jwt_mod.decode("tok", "secret", algorithms=["HS256"])
-    bigfoot.jwt_mock.assert_decode(token="tok", algorithms=["HS256"], options=None)
+    tripwire.jwt_mock.assert_decode(token="tok", algorithms=["HS256"], options=None)
 
 
-def test_assert_encode_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_encode_wrong_params_raises(tripwire_verifier: StrictVerifier) -> None:
     import jwt as jwt_mod
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
-    with bigfoot.sandbox():
+    tripwire.jwt_mock.mock_encode(returns="token")
+    with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
     with pytest.raises(InteractionMismatchError):
-        bigfoot.jwt_mock.assert_encode(payload={"sub": "wrong"}, algorithm="HS256", extra_kwargs={})
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+        tripwire.jwt_mock.assert_encode(payload={"sub": "wrong"}, algorithm="HS256", extra_kwargs={})
+    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
 
 
-def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
     import jwt as jwt_mod
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.jwt_mock.mock_encode(returns="token")
-    with bigfoot.sandbox():
+    tripwire.jwt_mock.mock_encode(returns="token")
+    with tripwire.sandbox():
         jwt_mod.encode({"sub": "1"}, "secret", algorithm="HS256")
 
-    from bigfoot.plugins.jwt_plugin import _JwtSentinel
+    from tripwire.plugins.jwt_plugin import _JwtSentinel
 
     sentinel = _JwtSentinel("encode")
     with pytest.raises(MissingAssertionFieldsError):
-        bigfoot.assert_interaction(sentinel, payload={"sub": "1"})
-    bigfoot.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})
+        tripwire.assert_interaction(sentinel, payload={"sub": "1"})
+    tripwire.jwt_mock.assert_encode(payload={"sub": "1"}, algorithm="HS256", extra_kwargs={})

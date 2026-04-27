@@ -5,12 +5,12 @@ from __future__ import annotations
 import paramiko
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.ssh_plugin import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.ssh_plugin import (
     _PARAMIKO_AVAILABLE,
     SshPlugin,
     _FakeSFTPClient,
@@ -622,7 +622,7 @@ def test_get_unused_mocks_queued_session_never_bound() -> None:
 #   MUTATION: Returning frozenset() from assertable_fields would skip field validation.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_interaction_missing_fields_raises() -> None:
-    from bigfoot._errors import MissingAssertionFieldsError
+    from tripwire._errors import MissingAssertionFieldsError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -650,20 +650,20 @@ def test_assert_interaction_missing_fields_raises() -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong hostname/port/username/auth_method would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_connect_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_assert_exec_command_helper
@@ -672,23 +672,23 @@ def test_assert_connect_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong command would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_exec_command_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_exec_command_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("exec_command", returns=("stdin", "stdout", "stderr"))
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         client.exec_command("uptime")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_exec_command(command="uptime")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_exec_command(command="uptime")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_assert_sftp_get_helper
@@ -697,26 +697,26 @@ def test_assert_exec_command_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong remotepath/localpath would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_sftp_get_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_sftp_get_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_get", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         sftp = client.open_sftp()
         sftp.get("/remote/data.csv", "/local/data.csv")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_assert_sftp_put_helper
@@ -725,26 +725,26 @@ def test_assert_sftp_get_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong localpath/remotepath would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_sftp_put_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_sftp_put_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_put", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         sftp = client.open_sftp()
         sftp.put("/local/upload.txt", "/remote/upload.txt")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_put(localpath="/local/upload.txt", remotepath="/remote/upload.txt")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_put(localpath="/local/upload.txt", remotepath="/remote/upload.txt")
+    tripwire.ssh_mock.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -760,7 +760,7 @@ def test_assert_sftp_put_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   MUTATION: A no-op assert_connect that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_interaction_connect_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -786,7 +786,7 @@ def test_assert_interaction_connect_rejects_wrong_values() -> None:
 #   MUTATION: A no-op assert_exec_command that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_interaction_exec_command_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -815,7 +815,7 @@ def test_assert_interaction_exec_command_rejects_wrong_values() -> None:
 #   MUTATION: A no-op assert_sftp_get that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_interaction_sftp_get_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -849,7 +849,7 @@ def test_assert_interaction_sftp_get_rejects_wrong_values() -> None:
 #   MUTATION: A no-op assert_sftp_put that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_interaction_sftp_put_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -920,7 +920,7 @@ def test_paramiko_available_flag() -> None:
 
 
 # ESCAPE: test_ssh_mock_proxy_raises_import_error_when_unavailable
-#   CLAIM: Accessing bigfoot.ssh_mock raises ImportError when paramiko is not installed.
+#   CLAIM: Accessing tripwire.ssh_mock raises ImportError when paramiko is not installed.
 #   PATH:  _SshProxy.__getattr__ -> checks _PARAMIKO_AVAILABLE -> raises ImportError.
 #   CHECK: ImportError raised with exact expected message.
 #   MUTATION: Not checking _PARAMIKO_AVAILABLE would defer the error.
@@ -928,16 +928,16 @@ def test_paramiko_available_flag() -> None:
 def test_ssh_mock_proxy_raises_import_error_when_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import bigfoot.plugins.ssh_plugin as ssh_mod
+    import tripwire.plugins.ssh_plugin as ssh_mod
 
     monkeypatch.setattr(ssh_mod, "_PARAMIKO_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = bigfoot.ssh_mock.new_session  # noqa: B018
+        _ = tripwire.ssh_mock.new_session  # noqa: B018
 
     assert str(exc_info.value) == (
-        "bigfoot[ssh] is required to use bigfoot.ssh_mock. "
-        "Install it with: pip install bigfoot[ssh]"
+        "tripwire[ssh] is required to use tripwire.ssh_mock. "
+        "Install it with: pip install tripwire[ssh]"
     )
 
 
@@ -1242,7 +1242,7 @@ def test_connect_without_key_sets_auth_method_password() -> None:
 #   MUTATION: Wrong source_id string fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality on each.
 def test_sentinel_properties() -> None:
-    from bigfoot._state_machine_plugin import _StepSentinel
+    from tripwire._state_machine_plugin import _StepSentinel
 
     v, p = _make_verifier_with_plugin()
 
@@ -1278,39 +1278,39 @@ def test_sentinel_properties() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.ssh_mock
+# Module-level proxy: tripwire.ssh_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_ssh_mock_proxy_new_session
-#   CLAIM: bigfoot.ssh_mock.new_session() returns a SessionHandle.
+#   CLAIM: tripwire.ssh_mock.new_session() returns a SessionHandle.
 #   PATH:  _SshProxy.__getattr__("new_session") -> get verifier -> find/create SshPlugin ->
 #          return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() does not raise.
 #   MUTATION: Returning None instead of a SessionHandle would fail isinstance check.
 #   ESCAPE: Nothing reasonable -- both the isinstance and the chained .expect() call check it.
-def test_ssh_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_ssh_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.ssh_mock.new_session()
+    session = tripwire.ssh_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_ssh_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.ssh_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.ssh_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _SshProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_ssh_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.ssh_mock.new_session  # noqa: B018
+            _ = tripwire.ssh_mock.new_session  # noqa: B018
     finally:
         _current_test_verifier.reset(token)
 
@@ -1326,23 +1326,23 @@ def test_ssh_mock_proxy_raises_outside_context() -> None:
 #   CHECK: assert_interaction verifies every assertable field for every step.
 #   MUTATION: Wrong detail values in any step fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
-def test_full_exec_command_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_full_exec_command_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("exec_command", returns=("stdin", "stdout", "stderr"))
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=2222, username="admin")
         client.exec_command("whoami")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=2222, username="admin", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_exec_command(command="whoami")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_exec_command(command="whoami")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_sftp_flow_assertions
@@ -1351,15 +1351,15 @@ def test_full_exec_command_flow_assertions(bigfoot_verifier: StrictVerifier) -> 
 #   CHECK: assert_interaction verifies every assertable field for every step.
 #   MUTATION: Wrong detail values in any step fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
-def test_sftp_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_sftp_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_get", returns=None)
     session.expect("sftp_put", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("sftp.example.com", port=22, username="transfer")
         sftp = client.open_sftp()
@@ -1367,13 +1367,13 @@ def test_sftp_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
         sftp.put("/local/results.csv", "/remote/results.csv")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="sftp.example.com", port=22, username="transfer", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
-    bigfoot.ssh_mock.assert_sftp_put(localpath="/local/results.csv", remotepath="/remote/results.csv")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_get(remotepath="/remote/data.csv", localpath="/local/data.csv")
+    tripwire.ssh_mock.assert_sftp_put(localpath="/local/results.csv", remotepath="/remote/results.csv")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_multiple_sequential_sessions_assertions
@@ -1383,21 +1383,21 @@ def test_sftp_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: assert_interaction verifies fields for every step in both sessions.
 #   MUTATION: Wrong hostname or command values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on both sessions.
-def test_multiple_sequential_sessions_assertions(bigfoot_verifier: StrictVerifier) -> None:
+def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifier) -> None:
     # First session
-    s1 = bigfoot.ssh_mock.new_session()
+    s1 = tripwire.ssh_mock.new_session()
     s1.expect("connect", returns=None)
     s1.expect("exec_command", returns=("stdin", "stdout", "stderr"))
     s1.expect("close", returns=None)
 
     # Second session
-    s2 = bigfoot.ssh_mock.new_session()
+    s2 = tripwire.ssh_mock.new_session()
     s2.expect("connect", returns=None)
     s2.expect("open_sftp", returns=None)
     s2.expect("sftp_get", returns=None)
     s2.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         # First connection
         client1 = paramiko.SSHClient()
         client1.connect("host1", port=22, username="user1")
@@ -1412,19 +1412,19 @@ def test_multiple_sequential_sessions_assertions(bigfoot_verifier: StrictVerifie
         client2.close()
 
     # Assert first session interactions
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="host1", port=22, username="user1", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_exec_command(command="ls")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_exec_command(command="ls")
+    tripwire.ssh_mock.assert_close()
 
     # Assert second session interactions
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="host2", port=22, username="user2", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_get(remotepath="/remote/file.txt", localpath="/local/file.txt")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_get(remotepath="/remote/file.txt", localpath="/local/file.txt")
+    tripwire.ssh_mock.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -1439,7 +1439,7 @@ def test_multiple_sequential_sessions_assertions(bigfoot_verifier: StrictVerifie
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_connect() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1459,7 +1459,7 @@ def test_format_interaction_connect() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_exec_command() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1479,7 +1479,7 @@ def test_format_interaction_exec_command() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_open_sftp() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1499,7 +1499,7 @@ def test_format_interaction_open_sftp() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_sftp_get() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1519,7 +1519,7 @@ def test_format_interaction_sftp_get() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_sftp_put() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1539,7 +1539,7 @@ def test_format_interaction_sftp_put() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_sftp_listdir() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1559,7 +1559,7 @@ def test_format_interaction_sftp_listdir() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_sftp_stat() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1579,7 +1579,7 @@ def test_format_interaction_sftp_stat() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_sftp_mkdir() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1599,7 +1599,7 @@ def test_format_interaction_sftp_mkdir() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_sftp_remove() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1619,7 +1619,7 @@ def test_format_interaction_sftp_remove() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_close() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1639,7 +1639,7 @@ def test_format_interaction_close() -> None:
 #   MUTATION: Wrong fallback format fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_unknown() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1659,7 +1659,7 @@ def test_format_interaction_unknown() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_mock_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1669,7 +1669,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.new_session().expect('exec_command', returns=...)"
+    assert result == "    tripwire.ssh_mock.new_session().expect('exec_command', returns=...)"
 
 
 # ESCAPE: test_format_mock_hint_connect
@@ -1679,7 +1679,7 @@ def test_format_mock_hint() -> None:
 #   MUTATION: Wrong method name in hint fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_mock_hint_connect() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1689,7 +1689,7 @@ def test_format_mock_hint_connect() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.new_session().expect('connect', returns=...)"
+    assert result == "    tripwire.ssh_mock.new_session().expect('connect', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -1704,7 +1704,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "paramiko.SSHClient.connect(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    bigfoot.ssh_mock.new_session().expect('connect', returns=...)"
+        "    tripwire.ssh_mock.new_session().expect('connect', returns=...)"
     )
 
 
@@ -1720,7 +1720,7 @@ def test_format_unmocked_hint_exec_command() -> None:
     assert result == (
         "paramiko.SSHClient.exec_command(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    bigfoot.ssh_mock.new_session().expect('exec_command', returns=...)"
+        "    tripwire.ssh_mock.new_session().expect('exec_command', returns=...)"
     )
 
 
@@ -1731,7 +1731,7 @@ def test_format_unmocked_hint_exec_command() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_connect() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1742,7 +1742,7 @@ def test_format_assert_hint_connect() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.ssh_mock.assert_connect("
+        "    tripwire.ssh_mock.assert_connect("
         "hostname='myhost', port=22, username='user', auth_method='password')"
     )
 
@@ -1754,7 +1754,7 @@ def test_format_assert_hint_connect() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_exec_command() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1764,7 +1764,7 @@ def test_format_assert_hint_exec_command() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_exec_command(command='uptime')"
+    assert result == "    tripwire.ssh_mock.assert_exec_command(command='uptime')"
 
 
 # ESCAPE: test_format_assert_hint_open_sftp
@@ -1774,7 +1774,7 @@ def test_format_assert_hint_exec_command() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_open_sftp() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1784,7 +1784,7 @@ def test_format_assert_hint_open_sftp() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_open_sftp()"
+    assert result == "    tripwire.ssh_mock.assert_open_sftp()"
 
 
 # ESCAPE: test_format_assert_hint_sftp_get
@@ -1794,7 +1794,7 @@ def test_format_assert_hint_open_sftp() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_sftp_get() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1805,7 +1805,7 @@ def test_format_assert_hint_sftp_get() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.ssh_mock.assert_sftp_get("
+        "    tripwire.ssh_mock.assert_sftp_get("
         "remotepath='/remote/file.txt', localpath='/local/file.txt')"
     )
 
@@ -1817,7 +1817,7 @@ def test_format_assert_hint_sftp_get() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_sftp_put() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1828,7 +1828,7 @@ def test_format_assert_hint_sftp_put() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.ssh_mock.assert_sftp_put("
+        "    tripwire.ssh_mock.assert_sftp_put("
         "localpath='/local/file.txt', remotepath='/remote/file.txt')"
     )
 
@@ -1840,7 +1840,7 @@ def test_format_assert_hint_sftp_put() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_close() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1850,7 +1850,7 @@ def test_format_assert_hint_close() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_close()"
+    assert result == "    tripwire.ssh_mock.assert_close()"
 
 
 # ESCAPE: test_format_assert_hint_unknown
@@ -1860,7 +1860,7 @@ def test_format_assert_hint_close() -> None:
 #   MUTATION: Wrong fallback format fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_unknown() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1870,7 +1870,7 @@ def test_format_assert_hint_unknown() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    # bigfoot.ssh_mock: unknown source_id='ssh:unknown_op'"
+    assert result == "    # tripwire.ssh_mock: unknown source_id='ssh:unknown_op'"
 
 
 # ESCAPE: test_format_unused_mock_hint
@@ -1902,7 +1902,7 @@ def test_format_unused_mock_hint() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_sftp_listdir() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1912,7 +1912,7 @@ def test_format_assert_hint_sftp_listdir() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_sftp_listdir(path='/remote/dir')"
+    assert result == "    tripwire.ssh_mock.assert_sftp_listdir(path='/remote/dir')"
 
 
 # ESCAPE: test_format_assert_hint_sftp_stat
@@ -1922,7 +1922,7 @@ def test_format_assert_hint_sftp_listdir() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_sftp_stat() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1932,7 +1932,7 @@ def test_format_assert_hint_sftp_stat() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_sftp_stat(path='/remote/file.txt')"
+    assert result == "    tripwire.ssh_mock.assert_sftp_stat(path='/remote/file.txt')"
 
 
 # ESCAPE: test_format_assert_hint_sftp_mkdir
@@ -1942,7 +1942,7 @@ def test_format_assert_hint_sftp_stat() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_sftp_mkdir() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1952,7 +1952,7 @@ def test_format_assert_hint_sftp_mkdir() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_sftp_mkdir(path='/remote/newdir')"
+    assert result == "    tripwire.ssh_mock.assert_sftp_mkdir(path='/remote/newdir')"
 
 
 # ESCAPE: test_format_assert_hint_sftp_remove
@@ -1962,7 +1962,7 @@ def test_format_assert_hint_sftp_mkdir() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_sftp_remove() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1972,7 +1972,7 @@ def test_format_assert_hint_sftp_remove() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.ssh_mock.assert_sftp_remove(path='/remote/oldfile.txt')"
+    assert result == "    tripwire.ssh_mock.assert_sftp_remove(path='/remote/oldfile.txt')"
 
 
 # ---------------------------------------------------------------------------
@@ -1986,26 +1986,26 @@ def test_format_assert_hint_sftp_remove() -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_sftp_listdir_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_sftp_listdir_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_listdir", returns=["file1.txt", "file2.txt"])
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         sftp = client.open_sftp()
         sftp.listdir("/remote/dir")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_listdir(path="/remote/dir")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_listdir(path="/remote/dir")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_assert_sftp_stat_helper
@@ -2014,26 +2014,26 @@ def test_assert_sftp_listdir_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_sftp_stat_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_sftp_stat_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_stat", returns="fake_stat_result")
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         sftp = client.open_sftp()
         sftp.stat("/remote/file.txt")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_stat(path="/remote/file.txt")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_stat(path="/remote/file.txt")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_assert_sftp_mkdir_helper
@@ -2042,26 +2042,26 @@ def test_assert_sftp_stat_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_sftp_mkdir_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_sftp_mkdir_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_mkdir", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         sftp = client.open_sftp()
         sftp.mkdir("/remote/newdir")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_mkdir(path="/remote/newdir")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_mkdir(path="/remote/newdir")
+    tripwire.ssh_mock.assert_close()
 
 
 # ESCAPE: test_assert_sftp_remove_helper
@@ -2070,26 +2070,26 @@ def test_assert_sftp_mkdir_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong path would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_sftp_remove_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.ssh_mock.new_session()
+def test_assert_sftp_remove_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.ssh_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("open_sftp", returns=None)
     session.expect("sftp_remove", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         client = paramiko.SSHClient()
         client.connect("server.example.com", port=22, username="deploy")
         sftp = client.open_sftp()
         sftp.remove("/remote/oldfile.txt")
         client.close()
 
-    bigfoot.ssh_mock.assert_connect(
+    tripwire.ssh_mock.assert_connect(
         hostname="server.example.com", port=22, username="deploy", auth_method="password"
     )
-    bigfoot.ssh_mock.assert_open_sftp()
-    bigfoot.ssh_mock.assert_sftp_remove(path="/remote/oldfile.txt")
-    bigfoot.ssh_mock.assert_close()
+    tripwire.ssh_mock.assert_open_sftp()
+    tripwire.ssh_mock.assert_sftp_remove(path="/remote/oldfile.txt")
+    tripwire.ssh_mock.assert_close()
 
 
 # ---------------------------------------------------------------------------

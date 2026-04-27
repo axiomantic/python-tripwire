@@ -5,36 +5,36 @@
 ## Installation
 
 ```bash
-pip install bigfoot[pymemcache]
+pip install tripwire[pymemcache]
 ```
 
 This installs `pymemcache`.
 
 ## Setup
 
-In pytest, access `MemcachePlugin` through the `bigfoot.memcache_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `MemcachePlugin` through the `tripwire.memcache_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_session_cache():
-    bigfoot.memcache_mock.mock_command("GET", returns=b"user:42")
+    tripwire.memcache_mock.mock_command("GET", returns=b"user:42")
 
-    with bigfoot:
+    with tripwire:
         from pymemcache.client.base import Client
         client = Client(("localhost", 11211))
         value = client.get("session:abc")
 
     assert value == b"user:42"
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="session:abc")
+    tripwire.memcache_mock.assert_get(command="GET", key="session:abc")
 ```
 
 For manual use outside pytest, construct `MemcachePlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.memcache_plugin import MemcachePlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.memcache_plugin import MemcachePlugin
 
 verifier = StrictVerifier()
 memcache_mock = MemcachePlugin(verifier)
@@ -44,11 +44,11 @@ Each verifier may have at most one `MemcachePlugin`. A second `MemcachePlugin(ve
 
 ## Registering mock commands
 
-Use `bigfoot.memcache_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
+Use `tripwire.memcache_mock.mock_command(command, *, returns, ...)` to register a mock before entering the sandbox:
 
 ```python
-bigfoot.memcache_mock.mock_command("SET", returns=True)
-bigfoot.memcache_mock.mock_command("GET", returns=b"cached")
+tripwire.memcache_mock.mock_command("SET", returns=True)
+tripwire.memcache_mock.mock_command("GET", returns=b"cached")
 ```
 
 ### Parameters
@@ -80,10 +80,10 @@ Each command name has its own independent FIFO queue. Multiple `mock_command("GE
 
 ```python
 def test_multiple_gets():
-    bigfoot.memcache_mock.mock_command("GET", returns=b"first")
-    bigfoot.memcache_mock.mock_command("GET", returns=b"second")
+    tripwire.memcache_mock.mock_command("GET", returns=b"first")
+    tripwire.memcache_mock.mock_command("GET", returns=b"second")
 
-    with bigfoot:
+    with tripwire:
         from pymemcache.client.base import Client
         client = Client(("localhost", 11211))
         v1 = client.get("key1")
@@ -92,22 +92,22 @@ def test_multiple_gets():
     assert v1 == b"first"
     assert v2 == b"second"
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="key1")
-    bigfoot.memcache_mock.assert_get(command="GET", key="key2")
+    tripwire.memcache_mock.assert_get(command="GET", key="key1")
+    tripwire.memcache_mock.assert_get(command="GET", key="key2")
 ```
 
 Command names are case-insensitive: `mock_command("get", ...)` matches a `client.get(...)` call.
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.memcache_mock`. Each helper requires all detail fields for its operation type.
+Use the typed assertion helpers on `tripwire.memcache_mock`. Each helper requires all detail fields for its operation type.
 
 ### `assert_get(command, key)`
 
 Asserts the next read interaction (GET, GETS, DELETE).
 
 ```python
-bigfoot.memcache_mock.assert_get(command="GET", key="session:abc")
+tripwire.memcache_mock.assert_get(command="GET", key="session:abc")
 ```
 
 | Parameter | Type | Description |
@@ -120,7 +120,7 @@ bigfoot.memcache_mock.assert_get(command="GET", key="session:abc")
 Asserts the next write interaction (SET, ADD, REPLACE, CAS, APPEND, PREPEND).
 
 ```python
-bigfoot.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user:42", expire=3600)
+tripwire.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user:42", expire=3600)
 ```
 
 | Parameter | Type | Default | Description |
@@ -135,7 +135,7 @@ bigfoot.memcache_mock.assert_set(command="SET", key="session:abc", value=b"user:
 Asserts the next delete interaction.
 
 ```python
-bigfoot.memcache_mock.assert_delete(command="DELETE", key="session:abc")
+tripwire.memcache_mock.assert_delete(command="DELETE", key="session:abc")
 ```
 
 | Parameter | Type | Description |
@@ -148,7 +148,7 @@ bigfoot.memcache_mock.assert_delete(command="DELETE", key="session:abc")
 Asserts the next counter interaction (INCR, DECR).
 
 ```python
-bigfoot.memcache_mock.assert_incr(command="INCR", key="page_views", value=1)
+tripwire.memcache_mock.assert_incr(command="INCR", key="page_views", value=1)
 ```
 
 | Parameter | Type | Default | Description |
@@ -162,22 +162,22 @@ bigfoot.memcache_mock.assert_incr(command="INCR", key="page_views", value=1)
 Use the `raises` parameter to simulate memcache errors:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_memcache_connection_error():
-    bigfoot.memcache_mock.mock_command(
+    tripwire.memcache_mock.mock_command(
         "GET",
         returns=None,
         raises=ConnectionError("memcached unreachable"),
     )
 
-    with bigfoot:
+    with tripwire:
         from pymemcache.client.base import Client
         client = Client(("localhost", 11211))
         with pytest.raises(ConnectionError):
             client.get("mykey")
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
 ```
 
 ## Full example
@@ -199,17 +199,17 @@ def test_memcache_connection_error():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.memcache_mock.mock_command("DELETE", returns=True, required=False)
+tripwire.memcache_mock.mock_command("DELETE", returns=True, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls a memcache method that has no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code calls a memcache method that has no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 memcache.GET(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.memcache_mock.mock_command('GET', returns=...)
+    tripwire.memcache_mock.mock_command('GET', returns=...)
 ```

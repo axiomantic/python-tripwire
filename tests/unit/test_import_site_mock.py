@@ -5,9 +5,9 @@ import types
 
 import pytest
 
-from bigfoot._errors import ConflictError
-from bigfoot._mock_plugin import ImportSiteMock, MockPlugin, ObjectMock
-from bigfoot._verifier import StrictVerifier
+from tripwire._errors import ConflictError
+from tripwire._mock_plugin import ImportSiteMock, MockPlugin, ObjectMock
+from tripwire._verifier import StrictVerifier
 
 # --- Test fixtures ---
 
@@ -64,7 +64,7 @@ def test_import_site_mock_display_name() -> None:
 
 
 def test_import_site_mock_getattr_returns_method_proxy() -> None:
-    from bigfoot._mock_plugin import MethodProxy
+    from tripwire._mock_plugin import MethodProxy
     v = StrictVerifier()
     plugin = MockPlugin(v)
     mock = ImportSiteMock(path="os.path:join", plugin=plugin)
@@ -111,11 +111,11 @@ def test_object_mock_display_name() -> None:
 
 # --- Activation / Deactivation tests ---
 
-def test_import_site_mock_activate_patches_target(bigfoot_verifier: StrictVerifier) -> None:
+def test_import_site_mock_activate_patches_target(tripwire_verifier: StrictVerifier) -> None:
     """Activating an ImportSiteMock replaces the target via setattr."""
     mod = _create_fake_module("_test_mod_activate", process=lambda x: x * 2)
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         mock = ImportSiteMock(path="_test_mod_activate:process", plugin=plugin)
         mock.returns(42)
         original = mod.process
@@ -130,10 +130,10 @@ def test_import_site_mock_activate_patches_target(bigfoot_verifier: StrictVerifi
         del sys.modules["_test_mod_activate"]
 
 
-def test_object_mock_activate_patches_target(bigfoot_verifier: StrictVerifier) -> None:
+def test_object_mock_activate_patches_target(tripwire_verifier: StrictVerifier) -> None:
     """Activating an ObjectMock replaces the attr via setattr."""
     target = _FakeService()
-    plugin = MockPlugin(bigfoot_verifier)
+    plugin = MockPlugin(tripwire_verifier)
     mock = ObjectMock(target=target, attr="process", plugin=plugin)
     mock.returns(42)
     original = target.process
@@ -146,11 +146,11 @@ def test_object_mock_activate_patches_target(bigfoot_verifier: StrictVerifier) -
     _drain_unused_mocks(plugin)
 
 
-def test_mock_deactivate_restores_original(bigfoot_verifier: StrictVerifier) -> None:
+def test_mock_deactivate_restores_original(tripwire_verifier: StrictVerifier) -> None:
     """Deactivation restores the original attribute value."""
     mod = _create_fake_module("_test_mod_restore", value="original")
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         mock = ImportSiteMock(path="_test_mod_restore:value", plugin=plugin)
         mock.returns("mocked")
 
@@ -166,11 +166,11 @@ def test_mock_deactivate_restores_original(bigfoot_verifier: StrictVerifier) -> 
 
 # --- Context manager tests ---
 
-def test_mock_context_manager_sets_enforce_false(bigfoot_verifier: StrictVerifier) -> None:
+def test_mock_context_manager_sets_enforce_false(tripwire_verifier: StrictVerifier) -> None:
     """Individual context manager (with mock:) sets enforce=False."""
     mod = _create_fake_module("_test_mod_cm", fn=lambda: "real")
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         mock = ImportSiteMock(path="_test_mod_cm:fn", plugin=plugin)
         mock.returns("mocked")
 
@@ -209,11 +209,11 @@ def test_base_mock_calls_shortcut() -> None:
 
 # --- Conflict detection tests ---
 
-def test_conflict_detection_same_target(bigfoot_verifier: StrictVerifier) -> None:
+def test_conflict_detection_same_target(tripwire_verifier: StrictVerifier) -> None:
     """Two mocks on the same resolved target raise ConflictError."""
     mod = _create_fake_module("_test_mod_conflict", fn=lambda: "real")
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         m1 = ImportSiteMock(path="_test_mod_conflict:fn", plugin=plugin)
         m1.returns("one")
         m2 = ImportSiteMock(path="_test_mod_conflict:fn", plugin=plugin)

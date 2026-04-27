@@ -2,7 +2,7 @@
 
 import pytest
 
-from bigfoot._path_resolution import resolve_target
+from tripwire._path_resolution import resolve_target
 
 
 def test_resolve_simple_module_attr() -> None:

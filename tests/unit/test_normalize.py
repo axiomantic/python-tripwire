@@ -1,6 +1,6 @@
-"""Tests for bigfoot._normalize -- URL/host/path normalization."""
+"""Tests for tripwire._normalize -- URL/host/path normalization."""
 
-from bigfoot._normalize import normalize_host, normalize_path, normalize_url
+from tripwire._normalize import normalize_host, normalize_path, normalize_url
 
 
 class TestNormalizeHost:

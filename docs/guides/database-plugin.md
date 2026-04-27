@@ -1,22 +1,22 @@
 # DatabasePlugin Guide
 
-`DatabasePlugin` intercepts `sqlite3.connect()` and returns a fake connection object that routes all operations through a session script. It is included in core bigfoot -- no extra required.
+`DatabasePlugin` intercepts `sqlite3.connect()` and returns a fake connection object that routes all operations through a session script. It is included in core tripwire -- no extra required.
 
 ## Setup
 
-In pytest, access `DatabasePlugin` through the `bigfoot.db_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `DatabasePlugin` through the `tripwire.db_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_select_users():
-    (bigfoot.db_mock
+    (tripwire.db_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[[1, "Alice"], [2, "Bob"]])
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         import sqlite3
         conn = sqlite3.connect(":memory:")
         cursor = conn.execute("SELECT id, name FROM users")
@@ -25,16 +25,16 @@ def test_select_users():
 
     assert rows == [[1, "Alice"], [2, "Bob"]]
 
-    bigfoot.db_mock.assert_connect(database=":memory:")
-    bigfoot.db_mock.assert_execute(sql="SELECT id, name FROM users", parameters=())
-    bigfoot.db_mock.assert_close()
+    tripwire.db_mock.assert_connect(database=":memory:")
+    tripwire.db_mock.assert_execute(sql="SELECT id, name FROM users", parameters=())
+    tripwire.db_mock.assert_close()
 ```
 
 For manual use outside pytest, construct `DatabasePlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.database_plugin import DatabasePlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.database_plugin import DatabasePlugin
 
 verifier = StrictVerifier()
 db = DatabasePlugin(verifier)
@@ -60,7 +60,7 @@ in_transaction --close--> closed
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.db_mock
+(tripwire.db_mock
     .new_session()
     .expect("connect",  returns=None)
     .expect("execute",  returns=[["row1"], ["row2"]])
@@ -92,13 +92,13 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 The fake connection's `execute()` method returns a cursor proxy. The rows you specify in `returns=` are available through the standard cursor methods:
 
 ```python
-(bigfoot.db_mock
+(tripwire.db_mock
     .new_session()
     .expect("connect",  returns=None)
     .expect("execute",  returns=[[1, "Alice"], [2, "Bob"], [3, "Carol"]])
     .expect("close",    returns=None))
 
-with bigfoot:
+with tripwire:
     conn = sqlite3.connect(":memory:")
     cursor = conn.execute("SELECT id, name FROM users")
 
@@ -117,7 +117,7 @@ with bigfoot:
 You can also use `conn.cursor()` to create a cursor first, then call `cursor.execute()`:
 
 ```python
-with bigfoot:
+with tripwire:
     conn = sqlite3.connect(":memory:")
     cur = conn.cursor()
     cur.execute("SELECT val FROM t")
@@ -129,14 +129,14 @@ Both styles produce the same interactions on the timeline.
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.db_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.db_mock`:
 
 ### `assert_connect(*, database)`
 
 Asserts the next connect interaction. The `database` field is required.
 
 ```python
-bigfoot.db_mock.assert_connect(database=":memory:")
+tripwire.db_mock.assert_connect(database=":memory:")
 ```
 
 ### `assert_execute(*, sql, parameters)`
@@ -144,7 +144,7 @@ bigfoot.db_mock.assert_connect(database=":memory:")
 Asserts the next execute interaction. Both `sql` and `parameters` are required.
 
 ```python
-bigfoot.db_mock.assert_execute(sql="INSERT INTO users (name) VALUES (?)", parameters=("Alice",))
+tripwire.db_mock.assert_execute(sql="INSERT INTO users (name) VALUES (?)", parameters=("Alice",))
 ```
 
 ### `assert_commit()`
@@ -152,7 +152,7 @@ bigfoot.db_mock.assert_execute(sql="INSERT INTO users (name) VALUES (?)", parame
 Asserts the next commit interaction. No fields are required.
 
 ```python
-bigfoot.db_mock.assert_commit()
+tripwire.db_mock.assert_commit()
 ```
 
 ### `assert_rollback()`
@@ -160,7 +160,7 @@ bigfoot.db_mock.assert_commit()
 Asserts the next rollback interaction. No fields are required.
 
 ```python
-bigfoot.db_mock.assert_rollback()
+tripwire.db_mock.assert_rollback()
 ```
 
 ### `assert_close()`
@@ -168,7 +168,7 @@ bigfoot.db_mock.assert_rollback()
 Asserts the next close interaction. No fields are required.
 
 ```python
-bigfoot.db_mock.assert_close()
+tripwire.db_mock.assert_close()
 ```
 
 ## Commit and rollback
@@ -177,7 +177,7 @@ Each `execute()` moves the connection into `in_transaction`. `commit()` and `rol
 
 ```python
 def test_commit_then_execute():
-    (bigfoot.db_mock
+    (tripwire.db_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[])
@@ -185,18 +185,18 @@ def test_commit_then_execute():
         .expect("execute",  returns=[])
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         conn = sqlite3.connect(":memory:")
         conn.execute("INSERT INTO t VALUES (1)")
         conn.commit()
         conn.execute("INSERT INTO t VALUES (2)")
         conn.close()
 
-    bigfoot.db_mock.assert_connect(database=":memory:")
-    bigfoot.db_mock.assert_execute(sql="INSERT INTO t VALUES (1)", parameters=())
-    bigfoot.db_mock.assert_commit()
-    bigfoot.db_mock.assert_execute(sql="INSERT INTO t VALUES (2)", parameters=())
-    bigfoot.db_mock.assert_close()
+    tripwire.db_mock.assert_connect(database=":memory:")
+    tripwire.db_mock.assert_execute(sql="INSERT INTO t VALUES (1)", parameters=())
+    tripwire.db_mock.assert_commit()
+    tripwire.db_mock.assert_execute(sql="INSERT INTO t VALUES (2)", parameters=())
+    tripwire.db_mock.assert_close()
 ```
 
 Calling `commit()` from `connected` (before any `execute()`) raises `InvalidStateError`.

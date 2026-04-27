@@ -1,36 +1,36 @@
-"""Test build_and_run using bigfoot subprocess mocking."""
+"""Test build_and_run using tripwire subprocess mocking."""
 
-import bigfoot
+import tripwire
 
 from .app import build_and_run
 
 
 def test_build_and_run_compiles_and_executes():
-    bigfoot.subprocess_mock.mock_which("gcc", returns="/usr/bin/gcc")
-    bigfoot.subprocess_mock.mock_run(
+    tripwire.subprocess_mock.mock_which("gcc", returns="/usr/bin/gcc")
+    tripwire.subprocess_mock.mock_run(
         ["/usr/bin/gcc", "-o", "/tmp/out", "hello.c"], returncode=0
     )
-    bigfoot.subprocess_mock.mock_run(
+    tripwire.subprocess_mock.mock_run(
         ["/tmp/out"], returncode=0, stdout="Hello, world!\n"
     )
 
-    with bigfoot:
+    with tripwire:
         output = build_and_run("hello.c")
 
     assert output == "Hello, world!\n"
 
-    bigfoot.assert_interaction(
-        bigfoot.subprocess_mock.which, name="gcc", returns="/usr/bin/gcc"
+    tripwire.assert_interaction(
+        tripwire.subprocess_mock.which, name="gcc", returns="/usr/bin/gcc"
     )
-    bigfoot.assert_interaction(
-        bigfoot.subprocess_mock.run,
+    tripwire.assert_interaction(
+        tripwire.subprocess_mock.run,
         command=["/usr/bin/gcc", "-o", "/tmp/out", "hello.c"],
         returncode=0,
         stdout="",
         stderr="",
     )
-    bigfoot.assert_interaction(
-        bigfoot.subprocess_mock.run,
+    tripwire.assert_interaction(
+        tripwire.subprocess_mock.run,
         command=["/tmp/out"],
         returncode=0,
         stdout="Hello, world!\n",
@@ -39,9 +39,9 @@ def test_build_and_run_compiles_and_executes():
 
 
 def test_build_and_run_raises_when_gcc_missing():
-    bigfoot.subprocess_mock.mock_which("gcc", returns=None)
+    tripwire.subprocess_mock.mock_which("gcc", returns=None)
 
-    with bigfoot:
+    with tripwire:
         try:
             build_and_run("hello.c")
         except RuntimeError as exc:
@@ -49,6 +49,6 @@ def test_build_and_run_raises_when_gcc_missing():
         else:
             raise AssertionError("Expected RuntimeError")
 
-    bigfoot.assert_interaction(
-        bigfoot.subprocess_mock.which, name="gcc", returns=None
+    tripwire.assert_interaction(
+        tripwire.subprocess_mock.which, name="gcc", returns=None
     )

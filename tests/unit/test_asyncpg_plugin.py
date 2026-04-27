@@ -6,12 +6,12 @@ asyncpg = __import__("pytest").importorskip("asyncpg")
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.asyncpg_plugin import AsyncpgPlugin
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.asyncpg_plugin import AsyncpgPlugin
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -327,26 +327,26 @@ async def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.asyncpg_mock
+# Module-level proxy: tripwire.asyncpg_mock
 # ---------------------------------------------------------------------------
 
 
-def test_asyncpg_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_asyncpg_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.asyncpg_mock.new_session()
+    session = tripwire.asyncpg_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("execute", returns="", required=False)
     assert result is session
 
 
 def test_asyncpg_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.asyncpg_mock.new_session
+            _ = tripwire.asyncpg_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -557,9 +557,9 @@ async def test_connect_with_dsn() -> None:
 
 
 # ---------------------------------------------------------------------------
-# AsyncpgPlugin is exposed as bigfoot.AsyncpgPlugin
+# AsyncpgPlugin is exposed as tripwire.AsyncpgPlugin
 # ---------------------------------------------------------------------------
 
 
 def test_asyncpg_plugin_exported() -> None:
-    assert bigfoot.AsyncpgPlugin is AsyncpgPlugin
+    assert tripwire.AsyncpgPlugin is AsyncpgPlugin

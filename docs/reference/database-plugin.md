@@ -1,3 +1,3 @@
 # DatabasePlugin
 
-::: bigfoot.plugins.database_plugin.DatabasePlugin
+::: tripwire.plugins.database_plugin.DatabasePlugin

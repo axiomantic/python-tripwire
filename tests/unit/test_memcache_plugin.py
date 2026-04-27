@@ -5,15 +5,15 @@ from __future__ import annotations
 import pymemcache  # noqa: F401
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.memcache_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.memcache_plugin import (
     _PYMEMCACHE_AVAILABLE,
     MemcacheMockConfig,
     MemcachePlugin,
@@ -60,14 +60,14 @@ def test_pymemcache_available_flag() -> None:
 
 
 def test_activate_raises_when_pymemcache_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.memcache_plugin as _mp
+    import tripwire.plugins.memcache_plugin as _mp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_mp, "_PYMEMCACHE_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[pymemcache] to use MemcachePlugin: pip install bigfoot[pymemcache]"
+        "Install tripwire[pymemcache] to use MemcachePlugin: pip install tripwire[pymemcache]"
     )
 
 
@@ -176,32 +176,32 @@ def test_mock_command_set_returns_value() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_assert_get_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_get_full_assertion(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("GET", returns=b"value")
+    tripwire.memcache_mock.mock_command("GET", returns=b"value")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         client.get("mykey")
 
-    bigfoot.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
 
 
-def test_assert_set_full_assertion(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_set_full_assertion(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("SET", returns=True)
+    tripwire.memcache_mock.mock_command("SET", returns=True)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         client.set("mykey", b"myvalue", expire=300)
 
-    bigfoot.memcache_mock.assert_set(
+    tripwire.memcache_mock.assert_set(
         command="SET", key="mykey", value=b"myvalue", expire=300,
     )
 
@@ -339,13 +339,13 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
-    from bigfoot.plugins.memcache_plugin import _MemcacheSentinel
+def test_missing_assertion_fields(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
+    from tripwire.plugins.memcache_plugin import _MemcacheSentinel
 
-    bigfoot.memcache_mock.mock_command("SET", returns=True)
+    tripwire.memcache_mock.mock_command("SET", returns=True)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
@@ -354,11 +354,11 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
     sentinel = _MemcacheSentinel("memcache:set")
     with pytest.raises(MissingAssertionFieldsError) as exc_info:
         # Only pass command, omit key/value/expire
-        bigfoot_verifier.assert_interaction(sentinel, command="SET")
+        tripwire_verifier.assert_interaction(sentinel, command="SET")
 
     assert "key" in exc_info.value.missing_fields
     # Now assert fully so teardown passes
-    bigfoot.memcache_mock.assert_set(
+    tripwire.memcache_mock.assert_set(
         command="SET", key="mykey", value=b"myvalue", expire=300,
     )
 
@@ -368,23 +368,23 @@ def test_missing_assertion_fields(bigfoot_verifier: StrictVerifier) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_memcache_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_memcache_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("GET", returns=b"value")
+    tripwire.memcache_mock.mock_command("GET", returns=b"value")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         client.get("mykey")
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "memcache:get"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache_mock.assert_get(command="GET", key="mykey")
 
 
 # ---------------------------------------------------------------------------
@@ -442,7 +442,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.memcache_mock.mock_command('GET', returns=...)"
+    assert result == "    tripwire.memcache_mock.mock_command('GET', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -451,7 +451,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "memcache.GET(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.memcache_mock.mock_command('GET', returns=...)"
+        "    tripwire.memcache_mock.mock_command('GET', returns=...)"
     )
 
 
@@ -465,7 +465,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.memcache_mock.assert_get(\n"
+        "    tripwire.memcache_mock.assert_get(\n"
         "        command='GET',\n"
         "        key='mykey',\n"
         "    )"
@@ -484,33 +484,33 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.memcache_mock
+# Module-level proxy: tripwire.memcache_mock
 # ---------------------------------------------------------------------------
 
 
-def test_memcache_mock_proxy_mock_command(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_memcache_mock_proxy_mock_command(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("GET", returns=b"proxy_value")
+    tripwire.memcache_mock.mock_command("GET", returns=b"proxy_value")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         result = client.get("somekey")
 
     assert result == b"proxy_value"
-    bigfoot.memcache_mock.assert_get(command="GET", key="somekey")
+    tripwire.memcache_mock.assert_get(command="GET", key="somekey")
 
 
 def test_memcache_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.memcache_mock.mock_command
+            _ = tripwire.memcache_mock.mock_command
     finally:
         _current_test_verifier.reset(token)
 
@@ -521,11 +521,11 @@ def test_memcache_mock_proxy_raises_outside_context() -> None:
 
 
 def test_memcache_plugin_in_all() -> None:
-    import bigfoot
+    import tripwire
 
-    assert "MemcachePlugin" in bigfoot.__all__
-    assert "memcache_mock" in bigfoot.__all__
-    assert type(bigfoot.memcache_mock).__name__ == "_MemcacheProxy"
+    assert "MemcachePlugin" in tripwire.__all__
+    assert "memcache_mock" in tripwire.__all__
+    assert type(tripwire.memcache_mock).__name__ == "_MemcacheProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -533,46 +533,46 @@ def test_memcache_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_assert_delete(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_delete(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("DELETE", returns=True)
+    tripwire.memcache_mock.mock_command("DELETE", returns=True)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         client.delete("mykey")
 
-    bigfoot.memcache_mock.assert_delete(command="DELETE", key="mykey")
+    tripwire.memcache_mock.assert_delete(command="DELETE", key="mykey")
 
 
-def test_assert_incr(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_incr(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("INCR", returns=42)
+    tripwire.memcache_mock.mock_command("INCR", returns=42)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         client.incr("counter", 1)
 
-    bigfoot.memcache_mock.assert_incr(command="INCR", key="counter", value=1)
+    tripwire.memcache_mock.assert_incr(command="INCR", key="counter", value=1)
 
 
-def test_assert_get_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_get_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.memcache_mock.mock_command("GET", returns=b"val")
+    tripwire.memcache_mock.mock_command("GET", returns=b"val")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         from pymemcache.client.base import Client
 
         client = Client(("localhost", 11211))
         client.get("mykey")
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.memcache_mock.assert_get(command="GET", key="wrongkey")
+        tripwire.memcache_mock.assert_get(command="GET", key="wrongkey")
     # Assert correctly so teardown passes
-    bigfoot.memcache_mock.assert_get(command="GET", key="mykey")
+    tripwire.memcache_mock.assert_get(command="GET", key="mykey")

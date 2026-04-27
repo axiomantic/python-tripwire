@@ -1,17 +1,17 @@
 """Tests for TOML firewall rule parsing."""
 
-from bigfoot._firewall_request import (
+from tripwire._firewall_request import (
     HttpFirewallRequest,
     RedisFirewallRequest,
     SubprocessFirewallRequest,
 )
-from bigfoot.pytest_plugin import _parse_toml_rule
+from tripwire.pytest_plugin import _parse_toml_rule
 
 
 class TestParseTomlRule:
     def test_protocol_wildcard(self) -> None:
         m = _parse_toml_rule("dns:*")
-        from bigfoot._firewall_request import DnsFirewallRequest
+        from tripwire._firewall_request import DnsFirewallRequest
         req = DnsFirewallRequest(hostname="example.com")
         assert m.matches(req) is True
 
@@ -37,18 +37,18 @@ class TestParseTomlRule:
 
     def test_boto3_service_operation(self) -> None:
         m = _parse_toml_rule("boto3:s3:GetObject")
-        from bigfoot._firewall_request import Boto3FirewallRequest
+        from tripwire._firewall_request import Boto3FirewallRequest
         req = Boto3FirewallRequest(service="s3", operation="GetObject")
         assert m.matches(req) is True
 
     def test_memcache_command(self) -> None:
         m = _parse_toml_rule("memcache:get")
-        from bigfoot._firewall_request import MemcacheFirewallRequest
+        from tripwire._firewall_request import MemcacheFirewallRequest
         req = MemcacheFirewallRequest(host="localhost", port=11211, command="get")
         assert m.matches(req) is True
 
     def test_file_io_path(self) -> None:
         m = _parse_toml_rule("file_io:/tmp/**")
-        from bigfoot._firewall_request import FileIoFirewallRequest
+        from tripwire._firewall_request import FileIoFirewallRequest
         req = FileIoFirewallRequest(path="/tmp/foo/bar")
         assert m.matches(req) is True

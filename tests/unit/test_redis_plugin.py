@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InteractionMismatchError, UnmockedInteractionError
-from bigfoot._verifier import StrictVerifier
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InteractionMismatchError, UnmockedInteractionError
+from tripwire._verifier import StrictVerifier
 
 redis = pytest.importorskip("redis")
 
-from bigfoot.plugins.redis_plugin import (  # noqa: E402
+from tripwire.plugins.redis_plugin import (  # noqa: E402
     _REDIS_AVAILABLE,
     RedisMockConfig,
     RedisPlugin,
@@ -74,14 +74,14 @@ def test_redis_available_flag() -> None:
 #   MUTATION: Not checking the flag and proceeding normally would not raise.
 #   ESCAPE: Raising ImportError with a different message fails the exact string check.
 def test_activate_raises_when_redis_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.redis_plugin as _rp
+    import tripwire.plugins.redis_plugin as _rp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_rp, "_REDIS_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[redis] to use RedisPlugin: pip install bigfoot[redis]"
+        "Install tripwire[redis] to use RedisPlugin: pip install tripwire[redis]"
     )
 
 
@@ -125,7 +125,7 @@ def test_redis_mock_config_defaults() -> None:
 
 
 # ESCAPE: test_activate_installs_patch
-#   CLAIM: After activate(), redis.Redis.execute_command is replaced with bigfoot interceptor.
+#   CLAIM: After activate(), redis.Redis.execute_command is replaced with tripwire interceptor.
 #   PATH:  activate() -> _install_count == 0 -> store original -> install interceptor.
 #   CHECK: redis.Redis.execute_command is not the original after activate().
 #   MUTATION: Skipping patch installation leaves original in place; identity check fails.
@@ -142,7 +142,7 @@ def test_activate_installs_patch() -> None:
 #   CLAIM: After activate() then deactivate(), redis.Redis.execute_command is restored.
 #   PATH:  deactivate() -> _install_count reaches 0 -> restore original.
 #   CHECK: redis.Redis.execute_command is the original after deactivate().
-#   MUTATION: Not restoring in deactivate() leaves bigfoot's interceptor in place.
+#   MUTATION: Not restoring in deactivate() leaves tripwire's interceptor in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against saved original.
 def test_deactivate_restores_patch() -> None:
     original = redis.Redis.execute_command
@@ -399,7 +399,7 @@ def test_unmocked_error_after_queue_exhausted() -> None:
 #   MUTATION: Returning True always fails the non-matching field check.
 #   ESCAPE: Nothing reasonable -- exact boolean equality on distinct cases.
 def test_matches_field_comparison() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -425,7 +425,7 @@ def test_matches_field_comparison() -> None:
 #   MUTATION: Returning frozenset() skips completeness enforcement entirely.
 #   ESCAPE: Nothing reasonable -- exact equality.
 def test_assertable_fields_all_three() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(source_id="redis:get", sequence=0, details={}, plugin=p)
@@ -444,7 +444,7 @@ def test_assertable_fields_all_three() -> None:
 #   MUTATION: Returning wrong format string fails equality check.
 #   ESCAPE: Different order or missing fields in format string fails the equality check.
 def test_format_interaction() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -464,7 +464,7 @@ def test_format_interaction() -> None:
 #   MUTATION: Crashing on empty args fails the test.
 #   ESCAPE: Returning wrong format fails equality.
 def test_format_interaction_no_args() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -484,7 +484,7 @@ def test_format_interaction_no_args() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Different format fails the equality check.
 def test_format_mock_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -494,7 +494,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.redis_mock.mock_command('GET', returns=...)"
+    assert result == "    tripwire.redis_mock.mock_command('GET', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -509,7 +509,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "redis.GET(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.redis_mock.mock_command('GET', returns=...)"
+        "    tripwire.redis_mock.mock_command('GET', returns=...)"
     )
 
 
@@ -520,7 +520,7 @@ def test_format_unmocked_hint() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Different format fails the equality check.
 def test_format_assert_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -531,7 +531,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.redis_mock.assert_command(\n"
+        "    tripwire.redis_mock.assert_command(\n"
         "        command='GET',\n"
         "        args=('mykey',),\n"
         "        kwargs={},\n"
@@ -556,44 +556,44 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.redis_mock
+# Module-level proxy: tripwire.redis_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_redis_mock_proxy_mock_command
-#   CLAIM: bigfoot.redis_mock.mock_command("GET", returns="v") works when verifier is active.
+#   CLAIM: tripwire.redis_mock.mock_command("GET", returns="v") works when verifier is active.
 #   PATH:  _RedisProxy.__getattr__("mock_command") -> get verifier ->
 #          find/create RedisPlugin -> return plugin.mock_command.
 #   CHECK: The proxy call does not raise and the mock is registered.
 #   MUTATION: Returning None instead of the plugin fails with AttributeError on mock_command.
 #   ESCAPE: Nothing reasonable -- call succeeds or raises.
-def test_redis_mock_proxy_mock_command(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_redis_mock_proxy_mock_command(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.redis_mock.mock_command("GET", returns="proxy_value", required=True)
+    tripwire.redis_mock.mock_command("GET", returns="proxy_value", required=True)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         r = redis.Redis()
         result = r.execute_command("GET", "somekey")
 
     assert result == "proxy_value"
-    bigfoot.redis_mock.assert_command("GET", args=("somekey",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("somekey",), kwargs={})
 
 
 # ESCAPE: test_redis_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.redis_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.redis_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _RedisProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_redis_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.redis_mock.mock_command
+            _ = tripwire.redis_mock.mock_command
     finally:
         _current_test_verifier.reset(token)
 
@@ -604,17 +604,17 @@ def test_redis_mock_proxy_raises_outside_context() -> None:
 
 
 # ESCAPE: test_redis_plugin_in_all
-#   CLAIM: RedisPlugin and redis_mock are exported from bigfoot.__all__.
-#   PATH:  bigfoot.__all__ contains "RedisPlugin" and "redis_mock".
-#   CHECK: "RedisPlugin" in bigfoot.__all__; "redis_mock" in bigfoot.__all__.
+#   CLAIM: RedisPlugin and redis_mock are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ contains "RedisPlugin" and "redis_mock".
+#   CHECK: "RedisPlugin" in tripwire.__all__; "redis_mock" in tripwire.__all__.
 #   MUTATION: Omitting either from __all__ fails the membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_redis_plugin_in_all() -> None:
-    import bigfoot
-    from bigfoot.plugins.redis_plugin import RedisPlugin as _RedisPlugin
+    import tripwire
+    from tripwire.plugins.redis_plugin import RedisPlugin as _RedisPlugin
 
-    assert bigfoot.RedisPlugin is _RedisPlugin
-    assert type(bigfoot.redis_mock).__name__ == "_RedisProxy"
+    assert tripwire.RedisPlugin is _RedisPlugin
+    assert type(tripwire.redis_mock).__name__ == "_RedisProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -622,43 +622,43 @@ def test_redis_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_redis_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
+def test_redis_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     """Redis interactions are NOT auto-asserted — they land on the timeline unasserted."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.redis_mock.mock_command("GET", returns=b"value")
-    with bigfoot.sandbox():
+    tripwire.redis_mock.mock_command("GET", returns=b"value")
+    with tripwire.sandbox():
         client = redis.Redis()
         client.execute_command("GET", "key")
     # At this point the interaction is on the timeline but NOT asserted
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "redis:get"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.redis_mock.assert_command("GET", args=("key",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("key",), kwargs={})
 
 
-def test_assert_command_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_command_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     """assert_command() asserts the next Redis interaction."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.redis_mock.mock_command("SET", returns=True)
-    with bigfoot.sandbox():
+    tripwire.redis_mock.mock_command("SET", returns=True)
+    with tripwire.sandbox():
         client = redis.Redis()
         client.execute_command("SET", "key", "value")
-    bigfoot.redis_mock.assert_command("SET", args=("key", "value"), kwargs={})
+    tripwire.redis_mock.assert_command("SET", args=("key", "value"), kwargs={})
 
 
-def test_assert_command_wrong_args_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_command_wrong_args_raises(tripwire_verifier: StrictVerifier) -> None:
     """assert_command() with wrong args raises InteractionMismatchError."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.redis_mock.mock_command("GET", returns=b"val")
-    with bigfoot.sandbox():
+    tripwire.redis_mock.mock_command("GET", returns=b"val")
+    with tripwire.sandbox():
         client = redis.Redis()
         client.execute_command("GET", "key")
     with pytest.raises(InteractionMismatchError):
-        bigfoot.redis_mock.assert_command("GET", args=("wrong_key",), kwargs={})
+        tripwire.redis_mock.assert_command("GET", args=("wrong_key",), kwargs={})
     # Now assert correctly so teardown passes
-    bigfoot.redis_mock.assert_command("GET", args=("key",), kwargs={})
+    tripwire.redis_mock.assert_command("GET", args=("key",), kwargs={})

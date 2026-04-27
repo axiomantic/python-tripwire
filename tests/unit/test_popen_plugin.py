@@ -7,12 +7,12 @@ import subprocess
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.popen_plugin import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.popen_plugin import (
     _ORIGINAL_POPEN,
     PopenPlugin,
     _FakePopen,
@@ -557,40 +557,40 @@ def test_popen_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.popen_mock
+# Module-level proxy: tripwire.popen_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_popen_mock_proxy_new_session
-#   CLAIM: bigfoot.popen_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.popen_mock.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing PopenPlugin directly.
 #   PATH:  _PopenProxy.__getattr__("new_session") -> get verifier -> find/create PopenPlugin ->
 #          return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() does not raise.
 #   MUTATION: Returning None instead of a SessionHandle would fail isinstance check.
 #   ESCAPE: Nothing reasonable -- both the isinstance and the chained .expect() call check it.
-def test_popen_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_popen_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.popen_mock.new_session()
+    session = tripwire.popen_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("spawn", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_popen_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.popen_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.popen_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _PopenProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_popen_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.popen_mock.new_session
+            _ = tripwire.popen_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -613,8 +613,8 @@ def test_popen_mock_proxy_raises_outside_context() -> None:
 #   MUTATION: PopenPlugin clobbering subprocess.run would make run-original check fail.
 #   ESCAPE: Nothing reasonable -- four identity checks cover all four states.
 def test_popen_and_subprocess_coexist() -> None:
-    import bigfoot.plugins.subprocess as _sp_mod
-    from bigfoot.plugins.subprocess import (
+    import tripwire.plugins.subprocess as _sp_mod
+    from tripwire.plugins.subprocess import (
         _SUBPROCESS_RUN_ORIGINAL,
         SubprocessPlugin,
     )
@@ -623,8 +623,8 @@ def test_popen_and_subprocess_coexist() -> None:
     saved_count = SubprocessPlugin._install_count
     saved_original_run = SubprocessPlugin._original_subprocess_run
     saved_original_which = SubprocessPlugin._original_shutil_which
-    saved_bigfoot_run = _sp_mod._bigfoot_subprocess_run
-    saved_bigfoot_which = _sp_mod._bigfoot_shutil_which
+    saved_tripwire_run = _sp_mod._tripwire_subprocess_run
+    saved_tripwire_which = _sp_mod._tripwire_shutil_which
     saved_run = subprocess.run
     saved_which = shutil.which
 
@@ -655,8 +655,8 @@ def test_popen_and_subprocess_coexist() -> None:
         SubprocessPlugin._install_count = saved_count
         SubprocessPlugin._original_subprocess_run = saved_original_run
         SubprocessPlugin._original_shutil_which = saved_original_which
-        _sp_mod._bigfoot_subprocess_run = saved_bigfoot_run
-        _sp_mod._bigfoot_shutil_which = saved_bigfoot_which
+        _sp_mod._tripwire_subprocess_run = saved_tripwire_run
+        _sp_mod._tripwire_shutil_which = saved_tripwire_which
         subprocess.run = saved_run
         shutil.which = saved_which  # type: ignore[assignment]
 
@@ -677,7 +677,7 @@ def test_popen_and_subprocess_coexist() -> None:
 def test_conflict_error_popen_already_patched() -> None:
     from unittest.mock import MagicMock
 
-    from bigfoot._errors import ConflictError
+    from tripwire._errors import ConflictError
 
     v, p = _make_verifier_with_plugin()
     foreign_patch = MagicMock()
@@ -692,28 +692,28 @@ def test_conflict_error_popen_already_patched() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Full session via module-level API: bigfoot.sandbox()
+# Full session via module-level API: tripwire.sandbox()
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_full_session_via_sandbox
 #   CLAIM: A complete Popen session (spawn -> communicate) runs end-to-end through
-#          the module-level bigfoot.sandbox() API, returning the scripted values.
-#   PATH:  bigfoot.popen_mock.new_session() -> sandbox -> _FakePopen.__init__ -> communicate.
+#          the module-level tripwire.sandbox() API, returning the scripted values.
+#   PATH:  tripwire.popen_mock.new_session() -> sandbox -> _FakePopen.__init__ -> communicate.
 #   CHECK: stdout == b"build output"; stderr == b""; proc.returncode == 0.
 #   MUTATION: Returning wrong stdout bytes would fail the equality check.
 #   ESCAPE: Nothing reasonable -- exact bytes equality on all three fields.
-def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.popen_mock.new_session()
+def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.popen_mock.new_session()
     session.expect("spawn", returns=None)
     session.expect("communicate", returns=(b"build output", b"", 0))
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         proc = subprocess.Popen(["make", "all"])
         stdout, stderr = proc.communicate()
 
-    bigfoot.popen_mock.assert_spawn(command=["make", "all"], stdin=None)
-    bigfoot.popen_mock.assert_communicate(input=None)
+    tripwire.popen_mock.assert_spawn(command=["make", "all"], stdin=None)
+    tripwire.popen_mock.assert_communicate(input=None)
 
     assert stdout == b"build output"
     assert stderr == b""

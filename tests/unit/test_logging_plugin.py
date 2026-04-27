@@ -1,22 +1,22 @@
-"""Unit tests for bigfoot LoggingPlugin."""
+"""Unit tests for tripwire LoggingPlugin."""
 
 import logging
 from unittest.mock import MagicMock
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     ConflictError,
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnassertedInteractionsError,
     UnusedMocksError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.logging_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.logging_plugin import (
     _LOGGER_LOG_ORIGINAL,
     LoggingPlugin,
 )
@@ -502,7 +502,7 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert "bigfoot.log_mock.assert_log" in result
+    assert "tripwire.log_mock.assert_log" in result
     assert "'INFO'" in result
     assert "'started'" in result
     assert "'myapp'" in result
@@ -517,7 +517,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert "bigfoot.log_mock.mock_log" in result
+    assert "tripwire.log_mock.mock_log" in result
     assert "'WARNING'" in result
     assert "'low memory'" in result
     assert "'system'" in result
@@ -534,7 +534,7 @@ def test_format_unused_mock_hint() -> None:
 def test_format_unmocked_hint() -> None:
     v, p = _make_verifier_with_plugin()
     result = p.format_unmocked_hint("logging:log", ("INFO", "hello"), {})
-    assert "bigfoot.log_mock.mock_log" in result
+    assert "tripwire.log_mock.mock_log" in result
 
 
 # ---------------------------------------------------------------------------
@@ -555,25 +555,25 @@ def test_conflict_error_logger_log_already_patched() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level API via bigfoot.log_mock proxy
+# Module-level API via tripwire.log_mock proxy
 # ---------------------------------------------------------------------------
 
 
-def test_log_mock_proxy_in_sandbox(bigfoot_verifier: StrictVerifier) -> None:
+def test_log_mock_proxy_in_sandbox(tripwire_verifier: StrictVerifier) -> None:
     logger = logging.getLogger("test.proxy")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         logger.info("via proxy")
 
-    bigfoot.log_mock.assert_info("via proxy", "test.proxy")
+    tripwire.log_mock.assert_info("via proxy", "test.proxy")
 
 
 def test_log_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.log_mock.mock_log
+            _ = tripwire.log_mock.mock_log
     finally:
         _current_test_verifier.reset(token)

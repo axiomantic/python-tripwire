@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bigfoot._timeline import Interaction
+from tripwire._timeline import Interaction
 
 # ---------------------------------------------------------------------------
 # Stubs for StrictVerifier (not yet implemented; we only need duck-typed interface)
@@ -30,7 +30,7 @@ class _StubVerifier:
     def __init__(self) -> None:
         self._timeline = _StubTimeline()
         self.registered_plugins: list[Any] = []
-        self._bigfoot_config: dict[str, Any] = {}
+        self._tripwire_config: dict[str, Any] = {}
 
     def _register_plugin(self, plugin: Any) -> None:
         self.registered_plugins.append(plugin)
@@ -68,7 +68,7 @@ class ConcretePlugin:
 # ---------------------------------------------------------------------------
 
 
-from bigfoot._base_plugin import BasePlugin  # noqa: E402
+from tripwire._base_plugin import BasePlugin  # noqa: E402
 
 
 class ConcretePlugin(BasePlugin):  # type: ignore[no-redef]
@@ -661,7 +661,7 @@ def test_record_appends_multiple_interactions_in_order() -> None:
 
 def test_assertable_fields_has_concrete_default() -> None:
     """A concrete subclass that omits assertable_fields() CAN be instantiated; it inherits the default."""
-    from bigfoot._base_plugin import BasePlugin
+    from tripwire._base_plugin import BasePlugin
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -685,7 +685,7 @@ def test_assertable_fields_has_concrete_default() -> None:
                 return ""
             # assertable_fields deliberately omitted — should use default
 
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
     v = StrictVerifier()
     p = _PluginWithoutAssertableFields(v)
     # Default implementation returns frozenset of details keys
@@ -696,7 +696,7 @@ def test_assertable_fields_has_concrete_default() -> None:
 
 def test_assertable_fields_contract_returns_frozenset() -> None:
     """A complete concrete plugin's assertable_fields() returns a frozenset."""
-    from bigfoot._base_plugin import BasePlugin
+    from tripwire._base_plugin import BasePlugin
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -728,7 +728,7 @@ def test_assertable_fields_contract_returns_frozenset() -> None:
             def assertable_fields(self, interaction: Interaction) -> frozenset:
                 return frozenset()
 
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
 
     v = StrictVerifier()
     p = _CompletePlugin(v)
@@ -812,7 +812,7 @@ def test_subclass_gets_own_install_lock() -> None:
 
 def test_default_activate_increments_count() -> None:
     """Default activate() increments _install_count."""
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
     v = StrictVerifier()
     plugin = _RefCountPlugin(v)
     initial = type(plugin)._install_count
@@ -823,7 +823,7 @@ def test_default_activate_increments_count() -> None:
 
 def test_default_deactivate_decrements_count() -> None:
     """Default deactivate() decrements _install_count."""
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
     v = StrictVerifier()
     plugin = _RefCountPlugin(v)
     plugin.activate()
@@ -837,7 +837,7 @@ def test_default_deactivate_decrements_count() -> None:
 
 def test_default_deactivate_floors_at_zero() -> None:
     """Default deactivate() does not go below 0."""
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
     v = StrictVerifier()
     plugin = _RefCountPlugin(v)
     plugin.deactivate()
@@ -846,7 +846,7 @@ def test_default_deactivate_floors_at_zero() -> None:
 
 def test_default_activate_calls_install_patches_on_first() -> None:
     """Default activate() calls _install_patches() on first activation only."""
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
 
     call_count = 0
 
@@ -867,7 +867,7 @@ def test_default_activate_calls_install_patches_on_first() -> None:
 
 def test_default_deactivate_calls_restore_patches_on_last() -> None:
     """Default deactivate() calls _restore_patches() when count reaches 0."""
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
 
     call_count = 0
 
@@ -888,7 +888,7 @@ def test_default_deactivate_calls_restore_patches_on_last() -> None:
 
 def test_default_activate_calls_check_conflicts_before_install() -> None:
     """Default activate() calls _check_conflicts() before _install_patches()."""
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
 
     call_order: list[str] = []
 
@@ -908,7 +908,7 @@ def test_default_activate_calls_check_conflicts_before_install() -> None:
 
 def test_assertable_fields_default_returns_details_keys() -> None:
     """Default assertable_fields() returns frozenset of all keys in interaction.details."""
-    from bigfoot._base_plugin import BasePlugin
+    from tripwire._base_plugin import BasePlugin
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -924,7 +924,7 @@ def test_assertable_fields_default_returns_details_keys() -> None:
             def get_unused_mocks(self) -> list: return []
             def format_unused_mock_hint(self, m: object) -> str: return ""
 
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
     v = StrictVerifier()
     p = _DefaultPlugin(v)
     interaction2 = Interaction(source_id="x", sequence=0, details={"x": 1, "y": 2}, plugin=p)

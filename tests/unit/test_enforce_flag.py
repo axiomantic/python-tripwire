@@ -1,8 +1,8 @@
 """Tests for the enforce flag on Interaction."""
 
-from bigfoot._base_plugin import BasePlugin
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
+from tripwire._base_plugin import BasePlugin
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
 
 
 class _MinimalPlugin(BasePlugin):
@@ -62,9 +62,9 @@ def test_interaction_enforce_can_be_set_to_false() -> None:
     assert interaction.enforce is False
 
 
-def test_verify_all_skips_non_enforced_interactions(bigfoot_verifier: StrictVerifier) -> None:
+def test_verify_all_skips_non_enforced_interactions(tripwire_verifier: StrictVerifier) -> None:
     """verify_all() does not raise for unasserted interactions with enforce=False."""
-    plugin = _MinimalPlugin(bigfoot_verifier)
+    plugin = _MinimalPlugin(tripwire_verifier)
     interaction = Interaction(
         source_id="test:op",
         sequence=0,
@@ -72,19 +72,19 @@ def test_verify_all_skips_non_enforced_interactions(bigfoot_verifier: StrictVeri
         plugin=plugin,
     )
     interaction.enforce = False
-    bigfoot_verifier._timeline.append(interaction)
+    tripwire_verifier._timeline.append(interaction)
 
     # Should not raise -- the interaction is unasserted but enforce=False
-    bigfoot_verifier.verify_all()
+    tripwire_verifier.verify_all()
 
 
-def test_verify_all_raises_for_enforced_unasserted(bigfoot_verifier: StrictVerifier) -> None:
+def test_verify_all_raises_for_enforced_unasserted(tripwire_verifier: StrictVerifier) -> None:
     """verify_all() raises for unasserted interactions with enforce=True (default)."""
     import pytest
 
-    from bigfoot._errors import UnassertedInteractionsError
+    from tripwire._errors import UnassertedInteractionsError
 
-    plugin = _MinimalPlugin(bigfoot_verifier)
+    plugin = _MinimalPlugin(tripwire_verifier)
     interaction = Interaction(
         source_id="test:op",
         sequence=0,
@@ -92,38 +92,38 @@ def test_verify_all_raises_for_enforced_unasserted(bigfoot_verifier: StrictVerif
         plugin=plugin,
     )
     # enforce defaults to True
-    bigfoot_verifier._timeline.append(interaction)
+    tripwire_verifier._timeline.append(interaction)
 
     with pytest.raises(UnassertedInteractionsError):
-        bigfoot_verifier.verify_all()
+        tripwire_verifier.verify_all()
 
     # Mark asserted so the auto-teardown verify_all() does not re-raise
-    bigfoot_verifier._timeline.mark_asserted(interaction)
+    tripwire_verifier._timeline.mark_asserted(interaction)
 
 
-def test_verify_all_mixed_enforce_flags(bigfoot_verifier: StrictVerifier) -> None:
+def test_verify_all_mixed_enforce_flags(tripwire_verifier: StrictVerifier) -> None:
     """verify_all() only reports enforced unasserted interactions."""
     import pytest
 
-    from bigfoot._errors import UnassertedInteractionsError
+    from tripwire._errors import UnassertedInteractionsError
 
-    plugin = _MinimalPlugin(bigfoot_verifier)
+    plugin = _MinimalPlugin(tripwire_verifier)
 
     # Non-enforced interaction
     i1 = Interaction(source_id="test:setup", sequence=0, details={}, plugin=plugin)
     i1.enforce = False
-    bigfoot_verifier._timeline.append(i1)
+    tripwire_verifier._timeline.append(i1)
 
     # Enforced interaction
     i2 = Interaction(source_id="test:real", sequence=0, details={"x": 1}, plugin=plugin)
-    bigfoot_verifier._timeline.append(i2)
+    tripwire_verifier._timeline.append(i2)
 
     with pytest.raises(UnassertedInteractionsError) as exc_info:
-        bigfoot_verifier.verify_all()
+        tripwire_verifier.verify_all()
 
     # Only the enforced interaction should be in the error
     assert len(exc_info.value.interactions) == 1
     assert exc_info.value.interactions[0].source_id == "test:real"
 
     # Mark asserted so the auto-teardown verify_all() does not re-raise
-    bigfoot_verifier._timeline.mark_asserted(i2)
+    tripwire_verifier._timeline.mark_asserted(i2)

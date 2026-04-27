@@ -4,17 +4,17 @@ from typing import Any
 
 import pytest
 
-from bigfoot._context import _active_verifier
-from bigfoot._errors import SandboxNotActiveError, UnmockedInteractionError
-from bigfoot._mock_plugin import (
+from tripwire._context import _active_verifier
+from tripwire._errors import SandboxNotActiveError, UnmockedInteractionError
+from tripwire._mock_plugin import (
     _ABSENT,
     MethodProxy,
     MockConfig,
     MockPlugin,
     MockProxy,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # _ABSENT sentinel
@@ -32,7 +32,7 @@ def test_absent_sentinel_is_unique_object() -> None:
     #            Setting `_ABSENT = _SENTINEL` would fail the identity check vs _SENTINEL.
     #   ESCAPE: Nothing reasonable -- exact identity checks against all common confusions.
     #   IMPACT: assert_call() could not distinguish "parameter not passed" from None.
-    from bigfoot._mock_plugin import _SENTINEL
+    from tripwire._mock_plugin import _SENTINEL
 
     assert _ABSENT is not None
     assert _ABSENT is not True
@@ -947,7 +947,7 @@ def test_format_mock_hint_returns_string() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == 'bigfoot.mock("Svc").method.returns(<value>)'
+    assert result == 'tripwire.mock("Svc").method.returns(<value>)'
 
 
 # ---------------------------------------------------------------------------
@@ -991,9 +991,9 @@ def test_format_unmocked_hint_returns_string() -> None:
         "Unexpected call to Svc.method\n\n"
         "  Called with: args=(), kwargs={}\n\n"
         "  To mock this interaction, add before your sandbox:\n"
-        '    bigfoot.mock("Svc").method.returns(<value>)\n\n'
+        '    tripwire.mock("Svc").method.returns(<value>)\n\n'
         "  Or to mark it optional:\n"
-        '    bigfoot.mock("Svc").method.required(False).returns(<value>)'
+        '    tripwire.mock("Svc").method.required(False).returns(<value>)'
     )
     assert result == expected
 
@@ -1022,7 +1022,7 @@ def test_format_assert_hint_returns_string() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'bigfoot.mock("Svc").method.assert_call(\n'
+        'tripwire.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         ")"
@@ -1043,7 +1043,7 @@ def test_method_proxy_assert_call_convenience_method() -> None:
     # MUTATION: Passing wrong source or swapping args/kwargs would cause InteractionMismatchError.
     # ESCAPE: If assert_call silently did nothing, this test would still pass; covered by next test.
     # IMPACT: Users have no convenience wrapper and must use raw verifier.assert_interaction().
-    from bigfoot._context import _current_test_verifier
+    from tripwire._context import _current_test_verifier
 
     v = StrictVerifier()
     p = MockPlugin(v)
@@ -1073,8 +1073,8 @@ def test_method_proxy_assert_call_raises_on_mismatch() -> None:
     # CHECK: pytest.raises(InteractionMismatchError) confirms assert_call is not a no-op.
     # MUTATION: A no-op assert_call would not raise, failing this test.
     # IMPACT: assert_call would silently pass even with wrong assertions, defeating certainty.
-    from bigfoot._context import _current_test_verifier
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._context import _current_test_verifier
+    from tripwire._errors import InteractionMismatchError
 
     v = StrictVerifier()
     p = MockPlugin(v)
@@ -1103,7 +1103,7 @@ def test_method_proxy_assert_call_defaults_kwargs_to_empty_dict() -> None:
     # CHECK: No error when calling assert_call with only args= for a call that had no kwargs.
     # MUTATION: If default were None instead of {}, MissingAssertionFieldsError or mismatch.
     # IMPACT: Users would always have to pass kwargs={} explicitly, reducing convenience.
-    from bigfoot._context import _current_test_verifier
+    from tripwire._context import _current_test_verifier
 
     v = StrictVerifier()
     p = MockPlugin(v)
@@ -1255,7 +1255,7 @@ def test_mock_plugin_implements_all_abstract_methods() -> None:
     # MUTATION: Removing any method implementation from MockPlugin would raise TypeError.
     # ESCAPE: If the test itself instantiates MockPlugin, a TypeError would prevent the test from running.
     # IMPACT: MockPlugin would be unusable if any abstract method is missing.
-    from bigfoot._base_plugin import BasePlugin
+    from tripwire._base_plugin import BasePlugin
 
     v = StrictVerifier()
     p = MockPlugin(v)  # Would raise TypeError if any abstract method unimplemented
@@ -1274,7 +1274,7 @@ def test_method_proxy_call_raises_runtime_error_on_unknown_side_effect() -> None
     somehow constructed with a side_effect that isn't _ReturnValue, _RaiseException,
     or _CallFn, the error surface is explicit rather than silent.
     """
-    from bigfoot._mock_plugin import MockConfig
+    from tripwire._mock_plugin import MockConfig
 
     v = StrictVerifier()
     p = MockPlugin(v)
@@ -1502,7 +1502,7 @@ def test_mock_plugin_format_assert_hint_includes_args_and_kwargs() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'bigfoot.mock("Logger").log.assert_call(\n'
+        'tripwire.mock("Logger").log.assert_call(\n'
         "    args=('event',),\n"
         "    kwargs={'level': 'info'},\n"
         ")"
@@ -1726,7 +1726,7 @@ def test_mock_plugin_assertable_fields_plain_call_unchanged() -> None:
 
 def test_assert_call_with_raised_parameter() -> None:
     """assert_call(raised=...) passes raised to assert_interaction."""
-    from bigfoot._context import _current_test_verifier
+    from tripwire._context import _current_test_verifier
 
     v = StrictVerifier()
     p = MockPlugin(v)
@@ -1751,7 +1751,7 @@ def test_assert_call_with_raised_parameter() -> None:
 
 def test_assert_call_with_returned_parameter() -> None:
     """assert_call(returned=...) passes returned to assert_interaction for spy mode."""
-    from bigfoot._context import _current_test_verifier
+    from tripwire._context import _current_test_verifier
 
     class _Real:
         def compute(self, x: int) -> int:
@@ -1788,8 +1788,8 @@ def test_assert_call_missing_raised_raises_missing_fields_error() -> None:
     certainty contract enforcement is in assertable_fields, and assert_call is just a
     convenience wrapper that constructs the expected dict.
     """
-    from bigfoot._context import _current_test_verifier
-    from bigfoot._errors import MissingAssertionFieldsError
+    from tripwire._context import _current_test_verifier
+    from tripwire._errors import MissingAssertionFieldsError
 
     v = StrictVerifier()
     p = MockPlugin(v)
@@ -1838,7 +1838,7 @@ def test_format_assert_hint_includes_raised_when_present() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'bigfoot.mock("Svc").method.assert_call(\n'
+        'tripwire.mock("Svc").method.assert_call(\n'
         "    args=('a',),\n"
         "    kwargs={},\n"
         f"    raised={exc!r},\n"
@@ -1865,7 +1865,7 @@ def test_format_assert_hint_includes_returned_when_present() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'bigfoot.mock("Svc").method.assert_call(\n'
+        'tripwire.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         "    returned={'data': 'value'},\n"
@@ -1891,7 +1891,7 @@ def test_format_assert_hint_plain_call_unchanged() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        'bigfoot.mock("Svc").method.assert_call(\n'
+        'tripwire.mock("Svc").method.assert_call(\n'
         "    args=(),\n"
         "    kwargs={},\n"
         ")"
@@ -1917,4 +1917,4 @@ def test_format_mock_hint_includes_raises_when_raised_in_details() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == f'bigfoot.mock("Svc").method.raises({exc!r})'
+    assert result == f'tripwire.mock("Svc").method.raises({exc!r})'

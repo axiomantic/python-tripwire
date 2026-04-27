@@ -5,24 +5,24 @@
 ## Installation
 
 ```bash
-pip install bigfoot[asyncpg]
+pip install tripwire[asyncpg]
 ```
 
 ## Setup
 
-In pytest, access `AsyncpgPlugin` through the `bigfoot.asyncpg_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `AsyncpgPlugin` through the `tripwire.asyncpg_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 async def test_fetch_users():
-    (bigfoot.asyncpg_mock
+    (tripwire.asyncpg_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("fetch",    returns=[{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         import asyncpg
         conn = await asyncpg.connect(host="localhost", database="myapp", user="admin")
         rows = await conn.fetch("SELECT id, name FROM users")
@@ -30,16 +30,16 @@ async def test_fetch_users():
 
     assert rows == [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
 
-    bigfoot.asyncpg_mock.assert_connect(host="localhost", database="myapp", user="admin")
-    bigfoot.asyncpg_mock.assert_fetch(query="SELECT id, name FROM users", args=[])
-    bigfoot.asyncpg_mock.assert_close()
+    tripwire.asyncpg_mock.assert_connect(host="localhost", database="myapp", user="admin")
+    tripwire.asyncpg_mock.assert_fetch(query="SELECT id, name FROM users", args=[])
+    tripwire.asyncpg_mock.assert_close()
 ```
 
 For manual use outside pytest, construct `AsyncpgPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.asyncpg_plugin import AsyncpgPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.asyncpg_plugin import AsyncpgPlugin
 
 verifier = StrictVerifier()
 apg = AsyncpgPlugin(verifier)
@@ -65,7 +65,7 @@ Unlike psycopg2/sqlite3, asyncpg does not have an explicit transaction state for
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.asyncpg_mock
+(tripwire.asyncpg_mock
     .new_session()
     .expect("connect",  returns=None)
     .expect("fetch",    returns=[{"id": 1}])
@@ -109,22 +109,22 @@ The `assert_connect()` helper accepts whichever parameters were used:
 
 ```python
 # For DSN connections
-bigfoot.asyncpg_mock.assert_connect(dsn="postgresql://admin@localhost/myapp")
+tripwire.asyncpg_mock.assert_connect(dsn="postgresql://admin@localhost/myapp")
 
 # For keyword connections
-bigfoot.asyncpg_mock.assert_connect(host="localhost", port=5432, database="myapp", user="admin")
+tripwire.asyncpg_mock.assert_connect(host="localhost", port=5432, database="myapp", user="admin")
 ```
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.asyncpg_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.asyncpg_mock`:
 
 ### `assert_connect(**kwargs)`
 
 Asserts the next connect interaction. Pass whichever connection fields were used.
 
 ```python
-bigfoot.asyncpg_mock.assert_connect(host="localhost", database="myapp", user="admin")
+tripwire.asyncpg_mock.assert_connect(host="localhost", database="myapp", user="admin")
 ```
 
 ### `assert_execute(*, query, args)`
@@ -132,7 +132,7 @@ bigfoot.asyncpg_mock.assert_connect(host="localhost", database="myapp", user="ad
 Asserts the next execute interaction. Both `query` and `args` are required.
 
 ```python
-bigfoot.asyncpg_mock.assert_execute(
+tripwire.asyncpg_mock.assert_execute(
     query="INSERT INTO users (name) VALUES ($1)",
     args=["Alice"],
 )
@@ -143,7 +143,7 @@ bigfoot.asyncpg_mock.assert_execute(
 Asserts the next fetch interaction. Both `query` and `args` are required.
 
 ```python
-bigfoot.asyncpg_mock.assert_fetch(query="SELECT id, name FROM users", args=[])
+tripwire.asyncpg_mock.assert_fetch(query="SELECT id, name FROM users", args=[])
 ```
 
 ### `assert_fetchrow(*, query, args)`
@@ -151,7 +151,7 @@ bigfoot.asyncpg_mock.assert_fetch(query="SELECT id, name FROM users", args=[])
 Asserts the next fetchrow interaction. Both `query` and `args` are required.
 
 ```python
-bigfoot.asyncpg_mock.assert_fetchrow(
+tripwire.asyncpg_mock.assert_fetchrow(
     query="SELECT id, name FROM users WHERE id = $1",
     args=[1],
 )
@@ -162,7 +162,7 @@ bigfoot.asyncpg_mock.assert_fetchrow(
 Asserts the next fetchval interaction. Both `query` and `args` are required.
 
 ```python
-bigfoot.asyncpg_mock.assert_fetchval(query="SELECT count(*) FROM users", args=[])
+tripwire.asyncpg_mock.assert_fetchval(query="SELECT count(*) FROM users", args=[])
 ```
 
 ### `assert_close()`
@@ -170,7 +170,7 @@ bigfoot.asyncpg_mock.assert_fetchval(query="SELECT count(*) FROM users", args=[]
 Asserts the next close interaction. No fields are required.
 
 ```python
-bigfoot.asyncpg_mock.assert_close()
+tripwire.asyncpg_mock.assert_close()
 ```
 
 ## Full example

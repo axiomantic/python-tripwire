@@ -1,3 +1,3 @@
 # MemcachePlugin
 
-::: bigfoot.plugins.memcache_plugin.MemcachePlugin
+::: tripwire.plugins.memcache_plugin.MemcachePlugin

@@ -1,3 +1,3 @@
 # MongoPlugin
 
-::: bigfoot.plugins.mongo_plugin.MongoPlugin
+::: tripwire.plugins.mongo_plugin.MongoPlugin

@@ -5,15 +5,15 @@ from __future__ import annotations
 import cryptography  # noqa: F401
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.crypto_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.crypto_plugin import (
     _CRYPTOGRAPHY_AVAILABLE,
     CryptoMockConfig,
     CryptoPlugin,
@@ -57,14 +57,14 @@ def test_cryptography_available_flag() -> None:
 
 
 def test_activate_raises_when_cryptography_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.crypto_plugin as _cp
+    import tripwire.plugins.crypto_plugin as _cp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_cp, "_CRYPTOGRAPHY_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[crypto] to use CryptoPlugin: pip install bigfoot[crypto]"
+        "Install tripwire[crypto] to use CryptoPlugin: pip install tripwire[crypto]"
     )
 
 
@@ -408,7 +408,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.crypto_mock.mock_encrypt(returns=...)"
+    assert result == "    tripwire.crypto_mock.mock_encrypt(returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -417,7 +417,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "crypto.fernet_encrypt(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.crypto_mock.mock_encrypt(returns=...)"
+        "    tripwire.crypto_mock.mock_encrypt(returns=...)"
     )
 
 
@@ -432,33 +432,33 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.crypto_mock
+# Module-level proxy: tripwire.crypto_mock
 # ---------------------------------------------------------------------------
 
 
-def test_crypto_mock_proxy_mock_encrypt(bigfoot_verifier: StrictVerifier) -> None:
+def test_crypto_mock_proxy_mock_encrypt(tripwire_verifier: StrictVerifier) -> None:
     from cryptography.fernet import Fernet
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"proxied_encrypted")
+    tripwire.crypto_mock.mock_encrypt(returns=b"proxied_encrypted")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         result = f.encrypt(b"hello")
 
     assert result == b"proxied_encrypted"
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=5)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=5)
 
 
 def test_crypto_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.crypto_mock.mock_encrypt
+            _ = tripwire.crypto_mock.mock_encrypt
     finally:
         _current_test_verifier.reset(token)
 
@@ -469,11 +469,11 @@ def test_crypto_mock_proxy_raises_outside_context() -> None:
 
 
 def test_crypto_plugin_in_all() -> None:
-    import bigfoot
-    from bigfoot.plugins.crypto_plugin import CryptoPlugin as _CryptoPlugin
+    import tripwire
+    from tripwire.plugins.crypto_plugin import CryptoPlugin as _CryptoPlugin
 
-    assert bigfoot.CryptoPlugin is _CryptoPlugin
-    assert type(bigfoot.crypto_mock).__name__ == "_CryptoProxy"
+    assert tripwire.CryptoPlugin is _CryptoPlugin
+    assert type(tripwire.crypto_mock).__name__ == "_CryptoProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -481,86 +481,86 @@ def test_crypto_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_crypto_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
+def test_crypto_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
     from cryptography.fernet import Fernet
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
-    with bigfoot.sandbox():
+    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted")
+    with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"data")
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "crypto:fernet_encrypt"
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=4)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=4)
 
 
-def test_assert_encrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_encrypt_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     from cryptography.fernet import Fernet
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
-    with bigfoot.sandbox():
+    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted")
+    with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"hello")
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=5)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=5)
 
 
-def test_assert_decrypt_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_decrypt_typed_helper(tripwire_verifier: StrictVerifier) -> None:
     from cryptography.fernet import Fernet
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.crypto_mock.mock_decrypt(returns=b"decrypted")
-    with bigfoot.sandbox():
+    tripwire.crypto_mock.mock_decrypt(returns=b"decrypted")
+    with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.decrypt(b"gAAAAABtoken")
-    bigfoot.crypto_mock.assert_decrypt(token=b"gAAAAABtoken", ttl=None)
+    tripwire.crypto_mock.assert_decrypt(token=b"gAAAAABtoken", ttl=None)
 
 
-def test_assert_generate_key_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_generate_key_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     mock_key = object()
-    bigfoot.crypto_mock.mock_generate_key(returns=mock_key)
-    with bigfoot.sandbox():
+    tripwire.crypto_mock.mock_generate_key(returns=mock_key)
+    with tripwire.sandbox():
         from cryptography.hazmat.primitives.asymmetric import rsa
 
         rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    bigfoot.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+    tripwire.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
 
 
-def test_assert_encrypt_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_assert_encrypt_wrong_params_raises(tripwire_verifier: StrictVerifier) -> None:
     from cryptography.fernet import Fernet
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted")
-    with bigfoot.sandbox():
+    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted")
+    with tripwire.sandbox():
         f = Fernet(Fernet.generate_key())
         f.encrypt(b"hello")
     with pytest.raises(InteractionMismatchError):
-        bigfoot.crypto_mock.assert_encrypt(plaintext_length=999)
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=5)
+        tripwire.crypto_mock.assert_encrypt(plaintext_length=999)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=5)
 
 
-def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     mock_key = object()
-    bigfoot.crypto_mock.mock_generate_key(returns=mock_key)
-    with bigfoot.sandbox():
+    tripwire.crypto_mock.mock_generate_key(returns=mock_key)
+    with tripwire.sandbox():
         from cryptography.hazmat.primitives.asymmetric import rsa
 
         rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-    from bigfoot.plugins.crypto_plugin import _CryptoSentinel
+    from tripwire.plugins.crypto_plugin import _CryptoSentinel
 
     sentinel = _CryptoSentinel("generate_key")
     with pytest.raises(MissingAssertionFieldsError):
-        bigfoot.assert_interaction(sentinel, algorithm="RSA")
-    bigfoot.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+        tripwire.assert_interaction(sentinel, algorithm="RSA")
+    tripwire.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)

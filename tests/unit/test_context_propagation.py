@@ -13,12 +13,12 @@ from unittest.mock import patch
 
 import pytest
 
-from bigfoot._context_propagation import (
+from tripwire._context_propagation import (
     install_context_propagation,
     uninstall_context_propagation,
 )
 
-# Use a fresh ContextVar for isolation from bigfoot's own vars
+# Use a fresh ContextVar for isolation from tripwire's own vars
 _test_var: contextvars.ContextVar[str] = contextvars.ContextVar("_test_var", default="unset")
 
 # Python 3.14t (free-threaded) natively inherits context to child threads,
@@ -31,7 +31,7 @@ _NATIVE_THREAD_CONTEXT = getattr(
 @pytest.fixture(autouse=True)
 def _ensure_uninstalled() -> Generator[None, None, None]:
     """Ensure context propagation is uninstalled for each test, then restore prior state."""
-    import bigfoot._context_propagation as cp
+    import tripwire._context_propagation as cp
     was_installed = cp._installed
     uninstall_context_propagation()
     yield
@@ -252,10 +252,10 @@ class TestInstallUninstall:
 
 
 # ---------------------------------------------------------------------------
-# Bigfoot-specific ContextVar propagation
+# Tripwire-specific ContextVar propagation
 # ---------------------------------------------------------------------------
 
-from bigfoot._context import (
+from tripwire._context import (
     _active_verifier,
     _any_order_depth,
     _current_test_verifier,
@@ -263,12 +263,12 @@ from bigfoot._context import (
     _guard_level,
     _guard_patches_installed,
 )
-from bigfoot._recording import _recording_in_progress
-from bigfoot.plugins.file_io_plugin import _file_io_bypass
+from tripwire._recording import _recording_in_progress
+from tripwire.plugins.file_io_plugin import _file_io_bypass
 
 
-class TestBigfootContextVarsPropagation:
-    """Verify all bigfoot ContextVars propagate to child threads."""
+class TestTripwireContextVarsPropagation:
+    """Verify all tripwire ContextVars propagate to child threads."""
 
     @pytest.mark.parametrize(
         "var,value",
@@ -293,12 +293,12 @@ class TestBigfootContextVarsPropagation:
             "file_io_bypass",
         ],
     )
-    def test_bigfoot_contextvar_propagates_to_thread(
+    def test_tripwire_contextvar_propagates_to_thread(
         self,
         var: contextvars.ContextVar[object],
         value: object,
     ) -> None:
-        """Each bigfoot ContextVar value is visible in a child thread after install."""
+        """Each tripwire ContextVar value is visible in a child thread after install."""
         install_context_propagation()
         token = var.set(value)
         captured: list[object] = []
@@ -318,8 +318,8 @@ class TestBigfootContextVarsPropagation:
 # Guard mode propagation
 # ---------------------------------------------------------------------------
 
-from bigfoot._context import GuardPassThrough, get_verifier_or_raise
-from bigfoot._errors import GuardedCallError
+from tripwire._context import GuardPassThrough, get_verifier_or_raise
+from tripwire._errors import GuardedCallError
 
 
 class TestGuardModePropagation:
@@ -350,14 +350,14 @@ class TestGuardModePropagation:
 
     def test_guard_firewall_allow_propagates_to_child_thread(self) -> None:
         """When a firewall allow rule matches, child thread passes through."""
-        from bigfoot._firewall import (
+        from tripwire._firewall import (
             Disposition,
             FirewallRule,
             FirewallStack,
             _firewall_stack,
         )
-        from bigfoot._firewall_request import HttpFirewallRequest
-        from bigfoot._match import M
+        from tripwire._firewall_request import HttpFirewallRequest
+        from tripwire._match import M
 
         install_context_propagation()
 
@@ -399,7 +399,7 @@ class TestPython314Detection:
     def test_thread_start_not_patched_when_runtime_handles_it(self) -> None:
         """When sys.flags.thread_inherit_context is True, Thread.start is not
         patched but _thread.start_new_thread IS (it doesn't natively inherit)."""
-        import bigfoot._context_propagation as cp
+        import tripwire._context_propagation as cp
 
         # Ensure clean state
         uninstall_context_propagation()
@@ -464,7 +464,7 @@ class TestThreadStartPatch:
     def test_thread_start_is_patched_and_restored(self) -> None:
         """After install, threading.Thread.start is patched;
         after uninstall it is restored to the original."""
-        import bigfoot._context_propagation as cp
+        import tripwire._context_propagation as cp
 
         original = threading.Thread.start
 

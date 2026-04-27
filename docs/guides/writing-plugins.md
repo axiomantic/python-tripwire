@@ -1,19 +1,19 @@
 # Writing Plugins
 
-> **Using pytest?** See [pytest integration](pytest-integration.md) for the standard `with bigfoot:` pattern. The manual `StrictVerifier()` pattern below is for use outside pytest only.
+> **Using pytest?** See [pytest integration](pytest-integration.md) for the standard `with tripwire:` pattern. The manual `StrictVerifier()` pattern below is for use outside pytest only.
 
-> **Do not use `bigfoot_verifier` fixture in your plugin fixtures.** Use `bigfoot.current_verifier()` instead.
+> **Do not use `tripwire_verifier` fixture in your plugin fixtures.** Use `tripwire.current_verifier()` instead.
 
-bigfoot's plugin system allows you to add interception for any type of interaction, not just HTTP or method calls. Custom plugins follow the `BasePlugin` abstract base class.
+tripwire's plugin system allows you to add interception for any type of interaction, not just HTTP or method calls. Custom plugins follow the `BasePlugin` abstract base class.
 
 ## BasePlugin contract
 
 All plugins must subclass `BasePlugin` and implement nine abstract methods. The `__init__` method must call `super().__init__(verifier)`, which registers the plugin with the verifier.
 
 ```python
-from bigfoot._base_plugin import BasePlugin
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
+from tripwire._base_plugin import BasePlugin
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
 ```
 
 ## Lifecycle methods
@@ -38,13 +38,13 @@ Called once when the install count reaches 0 (last deactivation). Restore origin
 
 ### Common mistakes
 
-bigfoot emits runtime warnings for two frequent plugin authoring errors:
+tripwire emits runtime warnings for two frequent plugin authoring errors:
 
 1. **Overriding `activate()` or `deactivate()` directly.** These methods own the reference counting logic. Overriding them bypasses ref counting and breaks nested sandboxes. Override `install_patches()` and `restore_patches()` instead.
 
 2. **Using private underscore names** (`_install_patches`, `_restore_patches`). `BasePlugin` calls `self.install_patches()`, not `self._install_patches()`. The private-name variant will never be called and your plugin will silently do nothing.
 
-If `install_patches()` is not overridden when `activate()` runs, bigfoot warns that the plugin may be misconfigured.
+If `install_patches()` is not overridden when `activate()` runs, tripwire warns that the plugin may be misconfigured.
 
 ## Abstract methods
 
@@ -88,7 +88,7 @@ def format_assert_hint(self, interaction: Interaction) -> str: ...
 
 Return copy-pasteable code that would assert this specific interaction. This hint appears in `UnassertedInteractionsError` when a test forgets to assert a recorded interaction. The goal is a snippet the developer can copy directly into their test.
 
-**If your plugin provides convenience assertion methods** (e.g., `assert_request`, `assert_command`, `assert_log`), the hint should show the convenience method, not raw `verifier.assert_interaction()`. Every built-in bigfoot plugin follows this pattern. Convenience wrappers are easier to read, match the API the developer actually uses, and use the plugin's own parameter names rather than the internal `details` keys.
+**If your plugin provides convenience assertion methods** (e.g., `assert_request`, `assert_command`, `assert_log`), the hint should show the convenience method, not raw `verifier.assert_interaction()`. Every built-in tripwire plugin follows this pattern. Convenience wrappers are easier to read, match the API the developer actually uses, and use the plugin's own parameter names rather than the internal `details` keys.
 
 For example, `HttpPlugin.format_assert_hint()` returns:
 
@@ -129,7 +129,7 @@ def assert_query(self, query: str) -> None:
 
     Convenience wrapper around verifier.assert_interaction().
     """
-    from bigfoot._context import _get_test_verifier_or_raise
+    from tripwire._context import _get_test_verifier_or_raise
     _get_test_verifier_or_raise().assert_interaction(self._sentinel, query=query)
 ```
 
@@ -137,7 +137,7 @@ def assert_query(self, query: str) -> None:
 
 - Name methods `assert_<action>` (e.g., `assert_connect`, `assert_send`, `assert_command`)
 - Accept the same fields returned by `assertable_fields()`, using domain-specific names
-- Import `_get_test_verifier_or_raise` from `bigfoot._context` to get the current verifier
+- Import `_get_test_verifier_or_raise` from `tripwire._context` to get the current verifier
 - Update `format_assert_hint()` to show the convenience method, not `verifier.assert_interaction()`
 
 All 14 built-in plugins follow this pattern. The raw `verifier.assert_interaction()` call still works and is documented as the low-level equivalent, but convenience methods are the recommended API.
@@ -183,10 +183,10 @@ Call `self.record(interaction)` from your interceptor after a call fires.
 ```python
 import threading
 from typing import Any
-from bigfoot._base_plugin import BasePlugin
-from bigfoot._errors import UnmockedInteractionError
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
+from tripwire._base_plugin import BasePlugin
+from tripwire._errors import UnmockedInteractionError
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
 
 
 class DbMockConfig:
@@ -280,7 +280,7 @@ class DatabasePlugin(BasePlugin):
 
         Convenience wrapper around verifier.assert_interaction().
         """
-        from bigfoot._context import _get_test_verifier_or_raise
+        from tripwire._context import _get_test_verifier_or_raise
         _get_test_verifier_or_raise().assert_interaction(self._sentinel, query=query)
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -304,16 +304,16 @@ class DatabasePlugin(BasePlugin):
 
 ## Registering and using the plugin
 
-In pytest, use `bigfoot.current_verifier()` to register the plugin against the autouse verifier:
+In pytest, use `tripwire.current_verifier()` to register the plugin against the autouse verifier:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_db_query():
-    db = DatabasePlugin(bigfoot.current_verifier(), my_connection)
+    db = DatabasePlugin(tripwire.current_verifier(), my_connection)
     db.mock_query("SELECT * FROM users", result=[{"id": 1}])
 
-    with bigfoot:
+    with tripwire:
         rows = my_connection.execute("SELECT * FROM users")
         assert rows == [{"id": 1}]
 
@@ -321,7 +321,7 @@ def test_db_query():
     db.assert_query(query="SELECT * FROM users")
 
     # Equivalent low-level call:
-    # bigfoot.assert_interaction(db_sentinel, query="SELECT * FROM users")
+    # tripwire.assert_interaction(db_sentinel, query="SELECT * FROM users")
 
     # verify_all() called automatically at teardown
 ```
@@ -329,7 +329,7 @@ def test_db_query():
 For manual use outside pytest:
 
 ```python
-from bigfoot import StrictVerifier
+from tripwire import StrictVerifier
 
 verifier = StrictVerifier()
 db = DatabasePlugin(verifier, my_connection)
@@ -415,7 +415,7 @@ def _unmocked_source_id(self) -> str:
 Before the sandbox runs, register one session per expected connection:
 
 ```python
-handle = bigfoot.socket_mock.new_session()
+handle = tripwire.socket_mock.new_session()
 handle.expect("connect", returns=None)
 handle.expect("recv",    returns=b"pong")
 handle.expect("close",   returns=None)
@@ -424,7 +424,7 @@ handle.expect("close",   returns=None)
 `new_session()` returns a `SessionHandle`. `expect()` appends one `ScriptStep` to the handle's FIFO script and returns the handle, so calls chain naturally:
 
 ```python
-(bigfoot.socket_mock
+(tripwire.socket_mock
     .new_session()
     .expect("connect", returns=None)
     .expect("send",    returns=4)
@@ -453,8 +453,8 @@ State machine plugins require explicit assertion like all other plugins. Each sc
 import threading
 from typing import Any, ClassVar
 
-from bigfoot._state_machine_plugin import StateMachinePlugin
-from bigfoot._timeline import Interaction
+from tripwire._state_machine_plugin import StateMachinePlugin
+from tripwire._timeline import Interaction
 
 
 class FtpPlugin(StateMachinePlugin):
@@ -507,14 +507,14 @@ class FtpPlugin(StateMachinePlugin):
 
     def format_mock_hint(self, interaction: Interaction) -> str:
         method = interaction.details.get("method", "?")
-        return f"    bigfoot.ftp_mock.new_session().expect({method!r}, returns=...)"
+        return f"    tripwire.ftp_mock.new_session().expect({method!r}, returns=...)"
 
     def format_unmocked_hint(self, source_id: str, args: tuple, kwargs: dict) -> str:
         method = source_id.split(":")[-1] if ":" in source_id else source_id
         return (
             f"ftp.{method}(...) was called but no session was queued.\n"
             f"Register a session with:\n"
-            f"    bigfoot.ftp_mock.new_session().expect({method!r}, returns=...)"
+            f"    tripwire.ftp_mock.new_session().expect({method!r}, returns=...)"
         )
 
     def format_assert_hint(self, interaction: Interaction) -> str:
@@ -547,7 +547,7 @@ Plugins declare whether they participate in firewall mode (formerly guard mode) 
 
 ### Default: `supports_guard = True`
 
-The default value in `BasePlugin` is `True`. This means bigfoot will activate the plugin at session startup during firewall mode, and any intercepted call outside a sandbox will be checked against the firewall rules (allow/deny/restrict with `M()` patterns). This is correct for any plugin that intercepts external I/O (HTTP, database, socket, etc.).
+The default value in `BasePlugin` is `True`. This means tripwire will activate the plugin at session startup during firewall mode, and any intercepted call outside a sandbox will be checked against the firewall rules (allow/deny/restrict with `M()` patterns). This is correct for any plugin that intercepts external I/O (HTTP, database, socket, etc.).
 
 ### Setting `supports_guard = False`
 
@@ -583,7 +583,7 @@ Populate all available fields so that user-defined `M()` patterns can match prec
 When firewall mode is active and a call is allowed (via `allow()`, `@pytest.mark.allow`, or an `M()` pattern match), `get_verifier_or_raise()` raises `GuardPassThrough` instead of returning a verifier. The allowlist can also be narrowed with `deny()`, `@pytest.mark.deny`, or `restrict()`. Firewall-eligible interceptors must catch `GuardPassThrough` and delegate to the original function:
 
 ```python
-from bigfoot import get_verifier_or_raise, GuardPassThrough
+from tripwire import get_verifier_or_raise, GuardPassThrough
 
 def _my_interceptor(original_self, *args, **kwargs):
     try:
@@ -603,46 +603,46 @@ If your plugin has `supports_guard = False`, you do not need `GuardPassThrough` 
 
 ## Using a coding assistant
 
-If you use Claude Code or another AI coding assistant, bigfoot includes a project skill at `.claude/skills/adding-plugins/SKILL.md` that automates the full plugin creation lifecycle: scaffolding, implementation, tests, documentation, and example creation. Invoke it with "add a plugin for X" or similar phrasing.
+If you use Claude Code or another AI coding assistant, tripwire includes a project skill at `.claude/skills/adding-plugins/SKILL.md` that automates the full plugin creation lifecycle: scaffolding, implementation, tests, documentation, and example creation. Invoke it with "add a plugin for X" or similar phrasing.
 
 ---
 
 ## 1st party vs 3rd party plugins
 
-bigfoot plugins don't depend on the libraries they intercept at install time. All library dependencies are optional extras (`pip install bigfoot[http]`, `pip install bigfoot[redis]`, etc.), so a 1st party plugin for any library costs nothing to users who don't install that extra. This means the usual "heavy dependencies" argument for splitting into a separate package doesn't apply.
+tripwire plugins don't depend on the libraries they intercept at install time. All library dependencies are optional extras (`pip install tripwire[http]`, `pip install tripwire[redis]`, etc.), so a 1st party plugin for any library costs nothing to users who don't install that extra. This means the usual "heavy dependencies" argument for splitting into a separate package doesn't apply.
 
 ### When to contribute a 1st party plugin
 
-Most plugins should be 1st party (in-tree). Contribute directly to bigfoot when:
+Most plugins should be 1st party (in-tree). Contribute directly to tripwire when:
 
-- **The library is widely used.** If a meaningful percentage of Python projects use it, bigfoot should support it out of the box. Examples: HTTP clients, database drivers, cloud SDKs, message queues, caching libraries.
-- **Interception is complex.** Plugins that need ContextVar routing, class-level ref counting, reentrancy guards, or factory replacement patterns benefit from living alongside bigfoot's internals where they can evolve together.
-- **Layer coexistence matters.** If the plugin participates in bigfoot's interception matrix (e.g., boto3 sits above HTTP, SSH sits above socket), coordinating `disabled_plugins` behavior is much easier in-tree.
-- **You want the core team to maintain it.** 1st party plugins are tested in CI against every bigfoot release.
+- **The library is widely used.** If a meaningful percentage of Python projects use it, tripwire should support it out of the box. Examples: HTTP clients, database drivers, cloud SDKs, message queues, caching libraries.
+- **Interception is complex.** Plugins that need ContextVar routing, class-level ref counting, reentrancy guards, or factory replacement patterns benefit from living alongside tripwire's internals where they can evolve together.
+- **Layer coexistence matters.** If the plugin participates in tripwire's interception matrix (e.g., boto3 sits above HTTP, SSH sits above socket), coordinating `disabled_plugins` behavior is much easier in-tree.
+- **You want the core team to maintain it.** 1st party plugins are tested in CI against every tripwire release.
 
 ### When to create a 3rd party plugin
 
 Create a separate package when:
 
-- **Independent release cycles are needed.** The target library changes its internals frequently and the plugin needs to release on its own schedule, decoupled from bigfoot releases.
+- **Independent release cycles are needed.** The target library changes its internals frequently and the plugin needs to release on its own schedule, decoupled from tripwire releases.
 - **The plugin is domain-specific.** It targets an internal company SDK, a proprietary protocol, or a library used by a very small community.
 - **The maintainer is outside the core team** and prefers to own the release process.
 
 ### Packaging a 3rd party plugin
 
-A 3rd party plugin is a standard Python package that depends on `bigfoot`. Users install it alongside bigfoot:
+A 3rd party plugin is a standard Python package that depends on `tripwire`. Users install it alongside tripwire:
 
 ```bash
-pip install bigfoot bigfoot-myservice
+pip install tripwire tripwire-myservice
 ```
 
 **Project structure:**
 
 ```
-bigfoot-myservice/
+tripwire-myservice/
 ├── pyproject.toml
 ├── src/
-│   └── bigfoot_myservice/
+│   └── tripwire_myservice/
 │       ├── __init__.py      # exports proxy, plugin class
 │       └── plugin.py        # MyServicePlugin(BasePlugin)
 └── tests/
@@ -651,18 +651,18 @@ bigfoot-myservice/
 
 **Entry point for auto-discovery:**
 
-Register your plugin using the `bigfoot.plugins` entry point group so bigfoot discovers and activates it automatically when installed:
+Register your plugin using the `tripwire.plugins` entry point group so tripwire discovers and activates it automatically when installed:
 
 ```toml
 # In your package's pyproject.toml
-[project.entry-points."bigfoot.plugins"]
-myservice = "bigfoot_myservice.plugin:MyServicePlugin"
+[project.entry-points."tripwire.plugins"]
+myservice = "tripwire_myservice.plugin:MyServicePlugin"
 ```
 
-With this entry point, users don't need to manually register the plugin. Installing the package is enough -- bigfoot's `StrictVerifier` discovers entry-point plugins alongside built-in ones.
+With this entry point, users don't need to manually register the plugin. Installing the package is enough -- tripwire's `StrictVerifier` discovers entry-point plugins alongside built-in ones.
 
 **Key points:**
 
-- Subclass `BasePlugin` or `StateMachinePlugin` from `bigfoot`
+- Subclass `BasePlugin` or `StateMachinePlugin` from `tripwire`
 - Follow the same conventions as built-in plugins (sentinel proxies, FIFO queues, `assertable_fields` returning `frozenset(interaction.details.keys())`)
-- Test against bigfoot's public API only; don't depend on private internals that may change
+- Test against tripwire's public API only; don't depend on private internals that may change

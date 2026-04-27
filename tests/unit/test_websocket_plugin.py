@@ -9,15 +9,15 @@ from __future__ import annotations
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import SessionHandle
-from bigfoot._verifier import StrictVerifier
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import SessionHandle
+from tripwire._verifier import StrictVerifier
 
 websockets = pytest.importorskip("websockets")
 websocket = pytest.importorskip("websocket")
 
-from bigfoot.plugins.websocket_plugin import (  # noqa: E402
+from tripwire.plugins.websocket_plugin import (  # noqa: E402
     _WEBSOCKET_CLIENT_AVAILABLE,
     _WEBSOCKETS_AVAILABLE,
     AsyncWebSocketPlugin,
@@ -136,7 +136,7 @@ def test_async_unmocked_source_id() -> None:
 
 
 # ESCAPE: test_async_activate_installs_patches
-#   CLAIM: After activate(), websockets.connect is replaced with bigfoot interceptor.
+#   CLAIM: After activate(), websockets.connect is replaced with tripwire interceptor.
 #   PATH:  activate() -> _install_count == 0 -> store original -> install interceptor.
 #   CHECK: websockets.connect is not the original after activate().
 #   MUTATION: Skipping patch installation leaves original in place; identity check fails.
@@ -155,7 +155,7 @@ def test_async_activate_installs_patches() -> None:
 #   CLAIM: After activate() then deactivate(), websockets.connect is restored.
 #   PATH:  deactivate() -> _install_count reaches 0 -> restore original.
 #   CHECK: websockets.connect is the original after deactivate().
-#   MUTATION: Not restoring in deactivate() leaves bigfoot's interceptor in place.
+#   MUTATION: Not restoring in deactivate() leaves tripwire's interceptor in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against saved original.
 def test_async_deactivate_restores_patches() -> None:
     import websockets as _ws
@@ -339,14 +339,14 @@ def test_async_importerror_flag() -> None:
 #   MUTATION: Not checking the flag and proceeding normally would not raise.
 #   ESCAPE: Raising ImportError with a different message fails the exact string check.
 def test_async_activate_raises_when_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.websocket_plugin as _wsp
+    import tripwire.plugins.websocket_plugin as _wsp
 
     v, p = _make_async_verifier_with_plugin()
     monkeypatch.setattr(_wsp, "_WEBSOCKETS_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[websockets] to use AsyncWebSocketPlugin: pip install bigfoot[websockets]"
+        "Install tripwire[websockets] to use AsyncWebSocketPlugin: pip install tripwire[websockets]"
     )
 
 
@@ -381,28 +381,28 @@ async def test_async_close_releases_session() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.async_websocket_mock
+# Module-level proxy: tripwire.async_websocket_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_async_websocket_mock_proxy_new_session
-#   CLAIM: bigfoot.async_websocket_mock.new_session() returns a SessionHandle.
+#   CLAIM: tripwire.async_websocket_mock.new_session() returns a SessionHandle.
 #   PATH:  _AsyncWebSocketProxy.__getattr__("new_session") -> get verifier ->
 #          find/create AsyncWebSocketPlugin -> return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() returns self.
 #   MUTATION: Returning None instead of a SessionHandle fails isinstance check.
 #   ESCAPE: Nothing reasonable -- both isinstance and chained .expect() call check it.
-def test_async_websocket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_async_websocket_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    session = bigfoot.async_websocket_mock.new_session()
+    session = tripwire.async_websocket_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session
 
 
 # ESCAPE: test_async_websocket_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.async_websocket_mock outside a test context raises
+#   CLAIM: Accessing tripwire.async_websocket_mock outside a test context raises
 #          NoActiveVerifierError.
 #   PATH:  _AsyncWebSocketProxy.__getattr__ -> _get_test_verifier_or_raise ->
 #          NoActiveVerifierError.
@@ -410,13 +410,13 @@ def test_async_websocket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier
 #   MUTATION: Silently returning None would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_async_websocket_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.async_websocket_mock.new_session
+            _ = tripwire.async_websocket_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -474,7 +474,7 @@ def test_sync_unmocked_source_id() -> None:
 
 
 # ESCAPE: test_sync_activate_installs_patches
-#   CLAIM: After activate(), websocket.create_connection is replaced with bigfoot interceptor.
+#   CLAIM: After activate(), websocket.create_connection is replaced with tripwire interceptor.
 #   PATH:  activate() -> _install_count == 0 -> store original -> install interceptor.
 #   CHECK: websocket.create_connection is not the original after activate().
 #   MUTATION: Skipping patch installation leaves original in place; identity check fails.
@@ -493,7 +493,7 @@ def test_sync_activate_installs_patches() -> None:
 #   CLAIM: After activate() then deactivate(), websocket.create_connection is restored.
 #   PATH:  deactivate() -> _install_count reaches 0 -> restore original.
 #   CHECK: websocket.create_connection is the original after deactivate().
-#   MUTATION: Not restoring in deactivate() leaves bigfoot's interceptor in place.
+#   MUTATION: Not restoring in deactivate() leaves tripwire's interceptor in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against saved original.
 def test_sync_deactivate_restores_patches() -> None:
     import websocket as _wsc
@@ -623,15 +623,15 @@ def test_sync_importerror_flag() -> None:
 #   MUTATION: Not checking the flag and proceeding normally would not raise.
 #   ESCAPE: Raising ImportError with a different message fails the exact string check.
 def test_sync_activate_raises_when_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.websocket_plugin as _wsp
+    import tripwire.plugins.websocket_plugin as _wsp
 
     v, p = _make_sync_verifier_with_plugin()
     monkeypatch.setattr(_wsp, "_WEBSOCKET_CLIENT_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[websocket-client] to use SyncWebSocketPlugin: "
-        "pip install bigfoot[websocket-client]"
+        "Install tripwire[websocket-client] to use SyncWebSocketPlugin: "
+        "pip install tripwire[websocket-client]"
     )
 
 
@@ -734,28 +734,28 @@ def test_sync_fifo_two_sessions() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.sync_websocket_mock
+# Module-level proxy: tripwire.sync_websocket_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_sync_websocket_mock_proxy_new_session
-#   CLAIM: bigfoot.sync_websocket_mock.new_session() returns a SessionHandle.
+#   CLAIM: tripwire.sync_websocket_mock.new_session() returns a SessionHandle.
 #   PATH:  _SyncWebSocketProxy.__getattr__("new_session") -> get verifier ->
 #          find/create SyncWebSocketPlugin -> return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() returns self.
 #   MUTATION: Returning None instead of a SessionHandle fails isinstance check.
 #   ESCAPE: Nothing reasonable -- both isinstance and chained .expect() call check it.
-def test_sync_websocket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_sync_websocket_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    session = bigfoot.sync_websocket_mock.new_session()
+    session = tripwire.sync_websocket_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session
 
 
 # ESCAPE: test_sync_websocket_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.sync_websocket_mock outside a test context raises
+#   CLAIM: Accessing tripwire.sync_websocket_mock outside a test context raises
 #          NoActiveVerifierError.
 #   PATH:  _SyncWebSocketProxy.__getattr__ -> _get_test_verifier_or_raise ->
 #          NoActiveVerifierError.
@@ -763,12 +763,12 @@ def test_sync_websocket_mock_proxy_new_session(bigfoot_verifier: StrictVerifier)
 #   MUTATION: Silently returning None would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_sync_websocket_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.sync_websocket_mock.new_session
+            _ = tripwire.sync_websocket_mock.new_session
     finally:
         _current_test_verifier.reset(token)

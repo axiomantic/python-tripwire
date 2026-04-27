@@ -5,15 +5,15 @@ from __future__ import annotations
 import elasticsearch
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.elasticsearch_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.elasticsearch_plugin import (
     _ELASTICSEARCH_AVAILABLE,
     ElasticsearchMockConfig,
     ElasticsearchPlugin,
@@ -57,15 +57,15 @@ def test_elasticsearch_available_flag() -> None:
 
 
 def test_activate_raises_when_elasticsearch_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.elasticsearch_plugin as _ep
+    import tripwire.plugins.elasticsearch_plugin as _ep
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_ep, "_ELASTICSEARCH_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[elasticsearch] to use ElasticsearchPlugin: "
-        "pip install bigfoot[elasticsearch]"
+        "Install tripwire[elasticsearch] to use ElasticsearchPlugin: "
+        "pip install tripwire[elasticsearch]"
     )
 
 
@@ -339,7 +339,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.elasticsearch_mock.mock_operation('search', returns=...)"
+    assert result == "    tripwire.elasticsearch_mock.mock_operation('search', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -348,7 +348,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "elasticsearch.index(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.elasticsearch_mock.mock_operation('index', returns=...)"
+        "    tripwire.elasticsearch_mock.mock_operation('index', returns=...)"
     )
 
 
@@ -362,7 +362,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.elasticsearch_mock.assert_index(\n"
+        "    tripwire.elasticsearch_mock.assert_index(\n"
         "        index='my-index',\n"
         "        document={'a': 1},\n"
         "    )"
@@ -380,31 +380,31 @@ def test_format_unused_mock_hint() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.elasticsearch_mock
+# Module-level proxy: tripwire.elasticsearch_mock
 # ---------------------------------------------------------------------------
 
 
-def test_elasticsearch_mock_proxy_mock_operation(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_elasticsearch_mock_proxy_mock_operation(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         result = es.index(index="my-index", document={"field": "val"})
 
     assert result == {"_id": "1"}
-    bigfoot.elasticsearch_mock.assert_index(index="my-index", document={"field": "val"})
+    tripwire.elasticsearch_mock.assert_index(index="my-index", document={"field": "val"})
 
 
 def test_elasticsearch_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.elasticsearch_mock.mock_operation
+            _ = tripwire.elasticsearch_mock.mock_operation
     finally:
         _current_test_verifier.reset(token)
 
@@ -415,13 +415,13 @@ def test_elasticsearch_mock_proxy_raises_outside_context() -> None:
 
 
 def test_elasticsearch_plugin_in_all() -> None:
-    import bigfoot
-    from bigfoot.plugins.elasticsearch_plugin import (
+    import tripwire
+    from tripwire.plugins.elasticsearch_plugin import (
         ElasticsearchPlugin as _ElasticsearchPlugin,
     )
 
-    assert bigfoot.ElasticsearchPlugin is _ElasticsearchPlugin
-    assert type(bigfoot.elasticsearch_mock).__name__ == "_ElasticsearchProxy"
+    assert tripwire.ElasticsearchPlugin is _ElasticsearchPlugin
+    assert type(tripwire.elasticsearch_mock).__name__ == "_ElasticsearchProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -429,99 +429,99 @@ def test_elasticsearch_plugin_in_all() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_elasticsearch_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_elasticsearch_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "elasticsearch:index"
-    bigfoot.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    tripwire.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
 
 
-def test_assert_index_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_index_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
-    bigfoot.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    tripwire.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
 
 
-def test_assert_search_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_search_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("search", returns={"hits": {"hits": []}})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("search", returns={"hits": {"hits": []}})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.search(index="idx", query={"match_all": {}})
-    bigfoot.elasticsearch_mock.assert_search(index="idx", query={"match_all": {}})
+    tripwire.elasticsearch_mock.assert_search(index="idx", query={"match_all": {}})
 
 
-def test_assert_get_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_get_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.get(index="idx", id="1")
-    bigfoot.elasticsearch_mock.assert_get(index="idx", id="1")
+    tripwire.elasticsearch_mock.assert_get(index="idx", id="1")
 
 
-def test_assert_delete_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_delete_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("delete", returns={"result": "deleted"})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("delete", returns={"result": "deleted"})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.delete(index="idx", id="1")
-    bigfoot.elasticsearch_mock.assert_delete(index="idx", id="1")
+    tripwire.elasticsearch_mock.assert_delete(index="idx", id="1")
 
 
-def test_assert_bulk_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_bulk_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     ops = [{"index": {"_index": "idx", "_id": "1"}}, {"field": "val"}]
-    bigfoot.elasticsearch_mock.mock_operation("bulk", returns={"items": []})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("bulk", returns={"items": []})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.bulk(operations=ops)
-    bigfoot.elasticsearch_mock.assert_bulk(operations=ops)
+    tripwire.elasticsearch_mock.assert_bulk(operations=ops)
 
 
-def test_assert_index_wrong_params_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_index_wrong_params_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("index", returns={"_id": "1"})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.index(index="idx", document={"a": 1})
     with pytest.raises(InteractionMismatchError):
-        bigfoot.elasticsearch_mock.assert_index(index="wrong", document={"a": 1})
+        tripwire.elasticsearch_mock.assert_index(index="wrong", document={"a": 1})
     # Assert correctly so teardown passes
-    bigfoot.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
+    tripwire.elasticsearch_mock.assert_index(index="idx", document={"a": 1})
 
 
-def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
+def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
-    import bigfoot
+    import tripwire
 
-    bigfoot.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
-    with bigfoot.sandbox():
+    tripwire.elasticsearch_mock.mock_operation("get", returns={"_source": {"a": 1}})
+    with tripwire.sandbox():
         es = elasticsearch.Elasticsearch("http://localhost:9200")
         es.get(index="idx", id="1")
 
-    from bigfoot.plugins.elasticsearch_plugin import _ElasticsearchSentinel
+    from tripwire.plugins.elasticsearch_plugin import _ElasticsearchSentinel
 
     sentinel = _ElasticsearchSentinel("get")
     with pytest.raises(MissingAssertionFieldsError):
         # Only providing index, missing id
-        bigfoot.assert_interaction(sentinel, index="idx")
+        tripwire.assert_interaction(sentinel, index="idx")
     # Assert correctly so teardown passes
-    bigfoot.elasticsearch_mock.assert_get(index="idx", id="1")
+    tripwire.elasticsearch_mock.assert_get(index="idx", id="1")

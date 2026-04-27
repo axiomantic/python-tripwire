@@ -1,10 +1,10 @@
-# Adding Plugins to bigfoot
+# Adding Plugins to tripwire
 
-Use when: the user wants to create a new bigfoot plugin, says "add a plugin", "write a plugin", "I want a [X] plugin", or describes a library/service they want bigfoot to intercept.
+Use when: the user wants to create a new tripwire plugin, says "add a plugin", "write a plugin", "I want a [X] plugin", or describes a library/service they want tripwire to intercept.
 
 ## Overview
 
-This skill guides the complete lifecycle of adding a new plugin to bigfoot: discovery, architecture classification, TDD implementation, integration (registry, proxy, `__init__.py`), documentation, examples, and README updates. It works standalone or integrates with the `develop` skill if available.
+This skill guides the complete lifecycle of adding a new plugin to tripwire: discovery, architecture classification, TDD implementation, integration (registry, proxy, `__init__.py`), documentation, examples, and README updates. It works standalone or integrates with the `develop` skill if available.
 
 ---
 
@@ -52,7 +52,7 @@ If StateMachinePlugin was chosen:
 ### 1.5 Integration Context
 
 Ask:
-- **Does this library make calls that another bigfoot plugin already intercepts?** (e.g., boto3 uses HTTP, elasticsearch uses HTTP, gRPC uses HTTP)
+- **Does this library make calls that another tripwire plugin already intercepts?** (e.g., boto3 uses HTTP, elasticsearch uses HTTP, gRPC uses HTTP)
   - If yes, document the layering. Users typically disable the lower-level plugin.
 - **Should this plugin be default-enabled?** Most are. Set `default_enabled=False` only for plugins that are too broad (file I/O) or too specialized (ctypes/cffi).
 - **What pyproject.toml extra name should it use?** Usually matches the registry name. Check existing extras in `pyproject.toml` for conventions.
@@ -83,7 +83,7 @@ Plugin Name: [name]
 Registry Name: [e.g., "redis", "mongo", "pika"]
 Plugin Class: [e.g., "RedisPlugin", "MongoPlugin"]
 Base Class: [BasePlugin | StateMachinePlugin]
-File: src/bigfoot/plugins/[name]_plugin.py
+File: src/tripwire/plugins/[name]_plugin.py
 Test File: tests/unit/test_[name]_plugin.py
 
 Import Name: [Python import, e.g., "redis", "pymongo"]
@@ -195,15 +195,15 @@ from __future__ import annotations
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InteractionMismatchError, UnmockedInteractionError
-from bigfoot._verifier import StrictVerifier
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InteractionMismatchError, UnmockedInteractionError
+from tripwire._verifier import StrictVerifier
 
-# Import the library directly -- all optional deps are in bigfoot[dev].
+# Import the library directly -- all optional deps are in tripwire[dev].
 # Never use pytest.importorskip (green mirage).
 import [lib]
 
-from bigfoot.plugins.[name]_plugin import (
+from tripwire.plugins.[name]_plugin import (
     _[LIB]_AVAILABLE,
     [Name]MockConfig,
     [Name]Plugin,
@@ -245,12 +245,12 @@ def clean_plugin_counts() -> None:
 Run the test file and confirm all tests fail (no implementation yet):
 
 ```bash
-cd /Users/elijahrutschman/Development/bigfoot && uv run pytest tests/unit/test_[name]_plugin.py -v
+cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/unit/test_[name]_plugin.py -v
 ```
 
 ### 3.3 Write Plugin Implementation
 
-Create `src/bigfoot/plugins/[name]_plugin.py`.
+Create `src/tripwire/plugins/[name]_plugin.py`.
 
 **BasePlugin implementation structure:**
 
@@ -265,13 +265,13 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from bigfoot._base_plugin import BasePlugin
-from bigfoot._context import _get_verifier_or_raise
-from bigfoot._errors import UnmockedInteractionError
-from bigfoot._timeline import Interaction
+from tripwire._base_plugin import BasePlugin
+from tripwire._context import _get_verifier_or_raise
+from tripwire._errors import UnmockedInteractionError
+from tripwire._timeline import Interaction
 
 if TYPE_CHECKING:
-    from bigfoot._verifier import StrictVerifier
+    from tripwire._verifier import StrictVerifier
 
 # Optional dependency guard
 try:
@@ -387,12 +387,12 @@ class [Name]Plugin(BasePlugin):
 
 Update these files to register the new plugin:
 
-**`src/bigfoot/_registry.py`** -- Add a `PluginEntry`:
+**`src/tripwire/_registry.py`** -- Add a `PluginEntry`:
 ```python
-PluginEntry("[name]", "bigfoot.plugins.[name]_plugin", "[Name]Plugin", "[availability_check]"),
+PluginEntry("[name]", "tripwire.plugins.[name]_plugin", "[Name]Plugin", "[availability_check]"),
 ```
 
-**`src/bigfoot/__init__.py`** -- Add:
+**`src/tripwire/__init__.py`** -- Add:
 1. Import (with try/except for optional deps)
 2. Proxy class (`_[Name]Proxy`)
 3. Proxy singleton (`[name]_mock = _[Name]Proxy()`)
@@ -412,12 +412,12 @@ And add to the `all` extra.
 ### 3.5 Run Tests
 
 ```bash
-cd /Users/elijahrutschman/Development/bigfoot && uv run pytest tests/unit/test_[name]_plugin.py tests/unit/test_init.py -v
+cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/unit/test_[name]_plugin.py tests/unit/test_init.py -v
 ```
 
 Then full suite:
 ```bash
-cd /Users/elijahrutschman/Development/bigfoot && uv run pytest tests/ -x
+cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/ -x
 ```
 
 ---
@@ -466,7 +466,7 @@ If `auditing-green-mirage` skill is available, invoke it. Otherwise, verify:
 ### Gate 5: Full Test Suite
 
 ```bash
-cd /Users/elijahrutschman/Development/bigfoot && uv run pytest tests/ -x
+cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/ -x
 ```
 
 ALL tests must pass.
@@ -490,13 +490,13 @@ mock responses and assert exactly what your code sent.
 ## Installation
 
 ```bash
-pip install bigfoot[[name]]
+pip install tripwire[[name]]
 ```
 
 ## Quick Start
 
 ```python
-import bigfoot
+import tripwire
 
 def my_function():
     """Production code that uses [library]."""
@@ -505,14 +505,14 @@ def my_function():
 
 def test_my_function():
     # 1. Register mocks
-    bigfoot.[name]_mock.mock_[operation]([args], returns=[value])
+    tripwire.[name]_mock.mock_[operation]([args], returns=[value])
 
     # 2. Run production code in sandbox
-    with bigfoot:
+    with tripwire:
         result = my_function()
 
     # 3. Assert what happened
-    bigfoot.[name]_mock.assert_[operation]([expected_fields])
+    tripwire.[name]_mock.assert_[operation]([expected_fields])
     assert result == [expected]
 ```
 
@@ -521,7 +521,7 @@ def test_my_function():
 ### [operation_name]
 
 ```python
-bigfoot.[name]_mock.mock_[operation](
+tripwire.[name]_mock.mock_[operation](
     [params],
     returns=[value],
     raises=None,       # optional: raise this exception instead
@@ -536,14 +536,14 @@ bigfoot.[name]_mock.mock_[operation](
 ### Typed Helpers
 
 ```python
-bigfoot.[name]_mock.assert_[operation]([params])
+tripwire.[name]_mock.assert_[operation]([params])
 ```
 
 ### Generic Assert
 
 ```python
-bigfoot.assert_interaction(
-    bigfoot.[name]_mock.sentinel.[operation],
+tripwire.assert_interaction(
+    tripwire.[name]_mock.sentinel.[operation],
     [field]=[value],
 )
 ```
@@ -551,7 +551,7 @@ bigfoot.assert_interaction(
 ## Exception Simulation
 
 ```python
-bigfoot.[name]_mock.mock_[operation](
+tripwire.[name]_mock.mock_[operation](
     [params],
     returns=None,
     raises=[LibraryError]("simulated failure"),
@@ -576,7 +576,7 @@ Create `docs/reference/[name]-plugin.md`:
 ```markdown
 # [Name]Plugin API Reference
 
-::: bigfoot.plugins.[name]_plugin.[Name]Plugin
+::: tripwire.plugins.[name]_plugin.[Name]Plugin
     options:
       show_source: false
       members:
@@ -584,7 +584,7 @@ Create `docs/reference/[name]-plugin.md`:
         - assert_[operation]
         [... list all public methods]
 
-::: bigfoot.plugins.[name]_plugin.[Name]MockConfig
+::: tripwire.plugins.[name]_plugin.[Name]MockConfig
     options:
       show_source: false
 ```
@@ -632,8 +632,8 @@ Before marking the plugin as complete, verify ALL items:
 - [ ] Tests written first (TDD)
 - [ ] Tests cover all required categories (9+ base, additional for specific architectures)
 - [ ] Plugin implementation complete
-- [ ] `src/bigfoot/_registry.py` updated with `PluginEntry`
-- [ ] `src/bigfoot/__init__.py` updated (import, proxy class, singleton, `__all__`)
+- [ ] `src/tripwire/_registry.py` updated with `PluginEntry`
+- [ ] `src/tripwire/__init__.py` updated (import, proxy class, singleton, `__all__`)
 - [ ] `tests/unit/test_init.py` updated
 - [ ] `pyproject.toml` updated (optional dependency extra, added to `all` extra)
 - [ ] All quality gates passed (completeness, code review, fact-check, green mirage, tests)
@@ -669,7 +669,7 @@ When building a new plugin, use the closest existing plugin as a template:
 | Socket-level | SocketPlugin | `socket_plugin.py` |
 | WebSocket | WebSocketPlugin | `websocket_plugin.py` |
 
-## Reference: bigfoot Invariants
+## Reference: tripwire Invariants
 
 These rules are inviolable. Every plugin must follow them:
 

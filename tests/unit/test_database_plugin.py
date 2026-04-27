@@ -6,12 +6,12 @@ import sqlite3
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.database_plugin import DatabasePlugin
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.database_plugin import DatabasePlugin
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -34,7 +34,7 @@ def _make_verifier_with_plugin() -> tuple[StrictVerifier, DatabasePlugin]:
 
 def _reset_install_count() -> None:
     """Force-reset the class-level install count to 0 and restore patches if leaked."""
-    from bigfoot.plugins.database_plugin import DatabasePlugin
+    from tripwire.plugins.database_plugin import DatabasePlugin
 
     with DatabasePlugin._install_lock:
         DatabasePlugin._install_count = 0
@@ -100,7 +100,7 @@ def test_unmocked_source_id() -> None:
 
 
 # ESCAPE: test_activate_installs_patch
-#   CLAIM: After activate(), sqlite3.connect is replaced with a bigfoot interceptor.
+#   CLAIM: After activate(), sqlite3.connect is replaced with a tripwire interceptor.
 #   PATH:  activate() -> _install_count == 0 -> store original -> install interceptor.
 #   CHECK: sqlite3.connect is not the original function after activate().
 #   MUTATION: Skipping patch installation leaves original in place; identity check fails.
@@ -117,7 +117,7 @@ def test_activate_installs_patch() -> None:
 #   CLAIM: After activate() then deactivate(), sqlite3.connect is restored to the original.
 #   PATH:  deactivate() -> _install_count reaches 0 -> restore original.
 #   CHECK: sqlite3.connect is the original function again.
-#   MUTATION: Not restoring in deactivate() leaves bigfoot's interceptor in place.
+#   MUTATION: Not restoring in deactivate() leaves tripwire's interceptor in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against saved original.
 def test_deactivate_restores_patch() -> None:
     v, p = _make_verifier_with_plugin()
@@ -137,7 +137,7 @@ def test_deactivate_restores_patch() -> None:
 #   MUTATION: Restoring on first deactivate would fail the mid-point identity check.
 #   ESCAPE: Nothing reasonable -- sequential identity checks prove count-controlled restoration.
 def test_reference_counting_nested() -> None:
-    from bigfoot.plugins.database_plugin import DatabasePlugin
+    from tripwire.plugins.database_plugin import DatabasePlugin
 
     v, p = _make_verifier_with_plugin()
     original_connect = sqlite3.connect
@@ -483,12 +483,12 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.db_mock
+# Module-level proxy: tripwire.db_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_db_mock_proxy_new_session
-#   CLAIM: bigfoot.db_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.db_mock.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing DatabasePlugin directly.
 #   PATH:  _DatabaseProxy.__getattr__("new_session") -> get verifier -> find/create DatabasePlugin ->
 #          return plugin.new_session.
@@ -496,10 +496,10 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 #          Chaining .expect() on it does not raise.
 #   MUTATION: Returning None instead of a SessionHandle would fail isinstance check.
 #   ESCAPE: Nothing reasonable -- both isinstance and chained .expect() call check it.
-def test_db_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_db_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.db_mock.new_session()
+    session = tripwire.db_mock.new_session()
     assert isinstance(session, SessionHandle)
     # Chaining expect() with required=False so it doesn't trigger UnusedMocksError at teardown.
     result = session.expect("execute", returns=[], required=False)
@@ -507,18 +507,18 @@ def test_db_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
 
 
 # ESCAPE: test_db_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.db_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.db_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _DatabaseProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_db_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.db_mock.new_session
+            _ = tripwire.db_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -655,17 +655,17 @@ def test_cursor_iter() -> None:
 
 
 # ---------------------------------------------------------------------------
-# DatabasePlugin is exposed as bigfoot.DatabasePlugin
+# DatabasePlugin is exposed as tripwire.DatabasePlugin
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_database_plugin_exported
-#   CLAIM: bigfoot.DatabasePlugin points to the DatabasePlugin class.
-#   PATH:  Import bigfoot; access bigfoot.DatabasePlugin.
-#   CHECK: bigfoot.DatabasePlugin is the DatabasePlugin class from database_plugin module.
+#   CLAIM: tripwire.DatabasePlugin points to the DatabasePlugin class.
+#   PATH:  Import tripwire; access tripwire.DatabasePlugin.
+#   CHECK: tripwire.DatabasePlugin is the DatabasePlugin class from database_plugin module.
 #   MUTATION: Not adding to __init__.py would raise AttributeError.
 #   ESCAPE: Nothing reasonable -- identity check against the imported class.
 def test_database_plugin_exported() -> None:
-    from bigfoot.plugins.database_plugin import DatabasePlugin
+    from tripwire.plugins.database_plugin import DatabasePlugin
 
-    assert bigfoot.DatabasePlugin is DatabasePlugin
+    assert tripwire.DatabasePlugin is DatabasePlugin

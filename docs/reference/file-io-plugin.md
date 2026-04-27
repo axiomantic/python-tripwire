@@ -1,3 +1,3 @@
 # FileIoPlugin
 
-::: bigfoot.plugins.file_io_plugin.FileIoPlugin
+::: tripwire.plugins.file_io_plugin.FileIoPlugin

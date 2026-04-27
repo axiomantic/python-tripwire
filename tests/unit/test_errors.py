@@ -1,20 +1,20 @@
-"""Tests for Task 2: bigfoot error classes.
+"""Tests for Task 2: tripwire error classes.
 
-All 7 error types plus BigfootError base. Tests follow TDD protocol:
+All 7 error types plus TripwireError base. Tests follow TDD protocol:
 each test must fail before implementation exists.
 """
 
 import pytest
 
-from bigfoot._errors import (
+from tripwire._errors import (
     AssertionInsideSandboxError,
     AutoAssertError,
-    BigfootError,
     ConflictError,
     InteractionMismatchError,
     MissingAssertionFieldsError,
     NoActiveVerifierError,
     SandboxNotActiveError,
+    TripwireError,
     UnassertedInteractionsError,
     UnmockedInteractionError,
     UnusedMocksError,
@@ -26,24 +26,24 @@ from bigfoot._errors import (
 # ---------------------------------------------------------------------------
 
 
-def test_bigfoot_error_is_exception() -> None:
-    """BigfootError is the base and must be a proper Exception."""
-    assert issubclass(BigfootError, Exception)
+def test_tripwire_error_is_exception() -> None:
+    """TripwireError is the base and must be a proper Exception."""
+    assert issubclass(TripwireError, Exception)
 
 
-def test_all_errors_subclass_bigfoot_error() -> None:
-    """Every domain error must be catchable as BigfootError."""
-    assert issubclass(UnmockedInteractionError, BigfootError)
-    assert issubclass(UnassertedInteractionsError, BigfootError)
-    assert issubclass(UnusedMocksError, BigfootError)
-    assert issubclass(VerificationError, BigfootError)
-    assert issubclass(InteractionMismatchError, BigfootError)
-    assert issubclass(SandboxNotActiveError, BigfootError)
-    assert issubclass(ConflictError, BigfootError)
-    assert issubclass(AssertionInsideSandboxError, BigfootError)
-    assert issubclass(NoActiveVerifierError, BigfootError)
-    assert issubclass(MissingAssertionFieldsError, BigfootError)
-    assert issubclass(AutoAssertError, BigfootError)
+def test_all_errors_subclass_tripwire_error() -> None:
+    """Every domain error must be catchable as TripwireError."""
+    assert issubclass(UnmockedInteractionError, TripwireError)
+    assert issubclass(UnassertedInteractionsError, TripwireError)
+    assert issubclass(UnusedMocksError, TripwireError)
+    assert issubclass(VerificationError, TripwireError)
+    assert issubclass(InteractionMismatchError, TripwireError)
+    assert issubclass(SandboxNotActiveError, TripwireError)
+    assert issubclass(ConflictError, TripwireError)
+    assert issubclass(AssertionInsideSandboxError, TripwireError)
+    assert issubclass(NoActiveVerifierError, TripwireError)
+    assert issubclass(MissingAssertionFieldsError, TripwireError)
+    assert issubclass(AutoAssertError, TripwireError)
 
 
 def test_all_errors_subclass_exception() -> None:
@@ -72,12 +72,12 @@ def test_unmocked_interaction_error_fields() -> None:
         source_id="http.get",
         args=("https://example.com",),
         kwargs={"timeout": 5},
-        hint="Register a mock with bigfoot.mock('http.get', ...)",
+        hint="Register a mock with tripwire.mock('http.get', ...)",
     )
     assert err.source_id == "http.get"
     assert err.args_tuple == ("https://example.com",)
     assert err.kwargs == {"timeout": 5}
-    assert err.hint == "Register a mock with bigfoot.mock('http.get', ...)"
+    assert err.hint == "Register a mock with tripwire.mock('http.get', ...)"
 
 
 def test_unmocked_interaction_error_missing_fields_raises_type_error() -> None:
@@ -86,9 +86,9 @@ def test_unmocked_interaction_error_missing_fields_raises_type_error() -> None:
         UnmockedInteractionError()  # type: ignore[call-arg]
 
 
-def test_unmocked_interaction_error_is_catchable_as_bigfoot_error() -> None:
+def test_unmocked_interaction_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise UnmockedInteractionError(
             source_id="db.query",
             args=(),
@@ -111,7 +111,7 @@ def test_unmocked_interaction_error_str() -> None:
         "Add a mock before entering the sandbox:\n"
         "Add mock for http.post\n\n"
         "Then assert it after the sandbox closes:\n"
-        "    with bigfoot:\n"
+        "    with tripwire:\n"
         "        # ... your code that triggers the call\n"
         "    # assert_* call here (REQUIRED)"
     )
@@ -139,9 +139,9 @@ def test_unasserted_interactions_error_missing_fields_raises_type_error() -> Non
         UnassertedInteractionsError()  # type: ignore[call-arg]
 
 
-def test_unasserted_interactions_error_is_catchable_as_bigfoot_error() -> None:
+def test_unasserted_interactions_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise UnassertedInteractionsError(interactions=[], hint="No hint.")
 
 
@@ -184,9 +184,9 @@ def test_unused_mocks_error_missing_fields_raises_type_error() -> None:
         UnusedMocksError()  # type: ignore[call-arg]
 
 
-def test_unused_mocks_error_is_catchable_as_bigfoot_error() -> None:
+def test_unused_mocks_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise UnusedMocksError(mocks=[], hint="No hint.")
 
 
@@ -246,9 +246,9 @@ def test_verification_error_missing_fields_raises_type_error() -> None:
         VerificationError()  # type: ignore[call-arg]
 
 
-def test_verification_error_is_catchable_as_bigfoot_error() -> None:
+def test_verification_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise VerificationError(unasserted=None, unused=None)
 
 
@@ -333,9 +333,9 @@ def test_interaction_mismatch_error_missing_fields_raises_type_error() -> None:
         InteractionMismatchError()  # type: ignore[call-arg]
 
 
-def test_interaction_mismatch_error_is_catchable_as_bigfoot_error() -> None:
+def test_interaction_mismatch_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise InteractionMismatchError(
             expected={"source_id": "http.get"},
             actual={"source_id": "db.read"},
@@ -371,9 +371,9 @@ def test_sandbox_not_active_error_missing_fields_raises_type_error() -> None:
         SandboxNotActiveError()  # type: ignore[call-arg]
 
 
-def test_sandbox_not_active_error_is_catchable_as_bigfoot_error() -> None:
+def test_sandbox_not_active_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise SandboxNotActiveError(source_id="db.write")
 
 
@@ -383,7 +383,7 @@ def test_sandbox_not_active_error_str() -> None:
     result = str(err)
     assert result == (
         "SandboxNotActiveError: source_id='http.get', "
-        "hint='Did you forget bigfoot_verifier fixture or sandbox() CM?'"
+        "hint='Did you forget tripwire_verifier fixture or sandbox() CM?'"
     )
 
 
@@ -405,9 +405,9 @@ def test_conflict_error_missing_fields_raises_type_error() -> None:
         ConflictError()  # type: ignore[call-arg]
 
 
-def test_conflict_error_is_catchable_as_bigfoot_error() -> None:
+def test_conflict_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise ConflictError(target="httpx.Client.send", patcher="httpretty")
 
 
@@ -433,9 +433,9 @@ def test_assertion_inside_sandbox_error_takes_no_arguments() -> None:
     )
 
 
-def test_assertion_inside_sandbox_error_is_catchable_as_bigfoot_error() -> None:
+def test_assertion_inside_sandbox_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise AssertionInsideSandboxError()
 
 
@@ -459,16 +459,16 @@ def test_no_active_verifier_error_takes_no_arguments() -> None:
     """NoActiveVerifierError must be constructable with no arguments."""
     err = NoActiveVerifierError()
     assert str(err) == (
-        "NoActiveVerifierError: no active bigfoot verifier. "
-        "Module-level bigfoot functions (mock, sandbox, assert_interaction, etc.) "
-        "require an active test context. Ensure bigfoot is installed as a pytest "
+        "NoActiveVerifierError: no active tripwire verifier. "
+        "Module-level tripwire functions (mock, sandbox, assert_interaction, etc.) "
+        "require an active test context. Ensure tripwire is installed as a pytest "
         "plugin (it registers automatically) and you are running inside a pytest test."
     )
 
 
-def test_no_active_verifier_error_is_catchable_as_bigfoot_error() -> None:
+def test_no_active_verifier_error_is_catchable_as_tripwire_error() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise NoActiveVerifierError()
 
 
@@ -477,9 +477,9 @@ def test_no_active_verifier_error_str() -> None:
     err = NoActiveVerifierError()
     result = str(err)
     assert result == (
-        "NoActiveVerifierError: no active bigfoot verifier. "
-        "Module-level bigfoot functions (mock, sandbox, assert_interaction, etc.) "
-        "require an active test context. Ensure bigfoot is installed as a pytest "
+        "NoActiveVerifierError: no active tripwire verifier. "
+        "Module-level tripwire functions (mock, sandbox, assert_interaction, etc.) "
+        "require an active test context. Ensure tripwire is installed as a pytest "
         "plugin (it registers automatically) and you are running inside a pytest test."
     )
 
@@ -495,9 +495,9 @@ def test_missing_assertion_fields_error_fields() -> None:
     assert err.missing_fields == frozenset({"args", "kwargs"})
 
 
-def test_missing_assertion_fields_error_is_bigfoot_error() -> None:
-    """MissingAssertionFieldsError must be a subclass of BigfootError."""
-    assert issubclass(MissingAssertionFieldsError, BigfootError)
+def test_missing_assertion_fields_error_is_tripwire_error() -> None:
+    """MissingAssertionFieldsError must be a subclass of TripwireError."""
+    assert issubclass(MissingAssertionFieldsError, TripwireError)
 
 
 def test_missing_assertion_fields_error_is_exception() -> None:
@@ -529,7 +529,7 @@ def test_missing_assertion_fields_error_str_multiple_fields_sorted() -> None:
 
 def test_missing_assertion_fields_error_is_raiseable() -> None:
     """Must be raiseable and catchable via the base class."""
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise MissingAssertionFieldsError(frozenset({"args"}))
 
 
@@ -540,7 +540,7 @@ def test_missing_assertion_fields_error_is_raiseable() -> None:
 
 def test_invalid_state_error_message_format() -> None:
     """__str__ matches the exact required format."""
-    from bigfoot._errors import InvalidStateError
+    from tripwire._errors import InvalidStateError
 
     err = InvalidStateError(
         source_id="my_source",
@@ -556,7 +556,7 @@ def test_invalid_state_error_message_format() -> None:
 
 def test_invalid_state_error_attributes() -> None:
     """All four constructor arguments are stored as attributes."""
-    from bigfoot._errors import InvalidStateError
+    from tripwire._errors import InvalidStateError
 
     err = InvalidStateError(
         source_id="src_abc",
@@ -570,11 +570,11 @@ def test_invalid_state_error_attributes() -> None:
     assert err.valid_states == frozenset({"idle"})
 
 
-def test_invalid_state_error_catchable_as_bigfoot_error() -> None:
-    """InvalidStateError must be catchable as BigfootError."""
-    from bigfoot._errors import InvalidStateError
+def test_invalid_state_error_catchable_as_tripwire_error() -> None:
+    """InvalidStateError must be catchable as TripwireError."""
+    from tripwire._errors import InvalidStateError
 
-    with pytest.raises(BigfootError):
+    with pytest.raises(TripwireError):
         raise InvalidStateError(
             source_id="s",
             method="m",
@@ -588,67 +588,67 @@ def test_invalid_state_error_catchable_as_bigfoot_error() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_auto_assert_error_is_bigfoot_error() -> None:
-    """AutoAssertError is a subclass of BigfootError."""
-    from bigfoot._errors import AutoAssertError, BigfootError
-    assert issubclass(AutoAssertError, BigfootError)
+def test_auto_assert_error_is_tripwire_error() -> None:
+    """AutoAssertError is a subclass of TripwireError."""
+    from tripwire._errors import AutoAssertError, TripwireError
+    assert issubclass(AutoAssertError, TripwireError)
 
 
 def test_auto_assert_error_message() -> None:
     """AutoAssertError stores the message passed to it."""
-    from bigfoot._errors import AutoAssertError
+    from tripwire._errors import AutoAssertError
     err = AutoAssertError("test message")
     assert "test message" in str(err)
 
 
-def test_auto_assert_error_exported_from_bigfoot() -> None:
-    """AutoAssertError is accessible from the top-level bigfoot module."""
-    import bigfoot
-    assert hasattr(bigfoot, "AutoAssertError")
-    from bigfoot import AutoAssertError
+def test_auto_assert_error_exported_from_tripwire() -> None:
+    """AutoAssertError is accessible from the top-level tripwire module."""
+    import tripwire
+    assert hasattr(tripwire, "AutoAssertError")
+    from tripwire import AutoAssertError
     assert AutoAssertError is not None
 
 
 # ---------------------------------------------------------------------------
-# BigfootConfigError
+# TripwireConfigError
 # ---------------------------------------------------------------------------
 
 
-def test_bigfoot_config_error_is_bigfoot_error() -> None:
-    """BigfootConfigError must be a subclass of BigfootError."""
-    from bigfoot._errors import BigfootConfigError
+def test_tripwire_config_error_is_tripwire_error() -> None:
+    """TripwireConfigError must be a subclass of TripwireError."""
+    from tripwire._errors import TripwireConfigError
 
-    assert issubclass(BigfootConfigError, BigfootError)
-
-
-def test_bigfoot_config_error_is_exception() -> None:
-    """BigfootConfigError must be catchable as Exception."""
-    from bigfoot._errors import BigfootConfigError
-
-    assert issubclass(BigfootConfigError, Exception)
+    assert issubclass(TripwireConfigError, TripwireError)
 
 
-def test_bigfoot_config_error_message() -> None:
-    """BigfootConfigError stores and displays its message."""
-    from bigfoot._errors import BigfootConfigError
+def test_tripwire_config_error_is_exception() -> None:
+    """TripwireConfigError must be catchable as Exception."""
+    from tripwire._errors import TripwireConfigError
 
-    err = BigfootConfigError("enabled_plugins and disabled_plugins are mutually exclusive")
+    assert issubclass(TripwireConfigError, Exception)
+
+
+def test_tripwire_config_error_message() -> None:
+    """TripwireConfigError stores and displays its message."""
+    from tripwire._errors import TripwireConfigError
+
+    err = TripwireConfigError("enabled_plugins and disabled_plugins are mutually exclusive")
     assert str(err) == "enabled_plugins and disabled_plugins are mutually exclusive"
 
 
-def test_bigfoot_config_error_is_raiseable() -> None:
+def test_tripwire_config_error_is_raiseable() -> None:
     """Must be raiseable and catchable via the base class."""
-    from bigfoot._errors import BigfootConfigError
+    from tripwire._errors import TripwireConfigError
 
-    with pytest.raises(BigfootError):
-        raise BigfootConfigError("test error")
+    with pytest.raises(TripwireError):
+        raise TripwireConfigError("test error")
 
 
-def test_bigfoot_config_error_exported_from_bigfoot() -> None:
-    """BigfootConfigError is accessible from the top-level bigfoot module."""
-    import bigfoot
+def test_tripwire_config_error_exported_from_tripwire() -> None:
+    """TripwireConfigError is accessible from the top-level tripwire module."""
+    import tripwire
 
-    assert hasattr(bigfoot, "BigfootConfigError")
-    from bigfoot import BigfootConfigError
+    assert hasattr(tripwire, "TripwireConfigError")
+    from tripwire import TripwireConfigError
 
-    assert BigfootConfigError is not None
+    assert TripwireConfigError is not None

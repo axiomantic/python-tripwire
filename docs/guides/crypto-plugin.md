@@ -5,36 +5,36 @@
 ## Installation
 
 ```bash
-pip install bigfoot[crypto]
+pip install tripwire[crypto]
 ```
 
 This installs `cryptography`.
 
 ## Setup
 
-In pytest, access `CryptoPlugin` through the `bigfoot.crypto_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `CryptoPlugin` through the `tripwire.crypto_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_encrypt_payload():
-    bigfoot.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted...")
+    tripwire.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted...")
 
-    with bigfoot:
+    with tripwire:
         from cryptography.fernet import Fernet
         f = Fernet(b"test-key-base64-encoded-padding=")
         ciphertext = f.encrypt(b"sensitive data")
 
     assert ciphertext == b"gAAAAABencrypted..."
 
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=14)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=14)
 ```
 
 For manual use outside pytest, construct `CryptoPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.crypto_plugin import CryptoPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.crypto_plugin import CryptoPlugin
 
 verifier = StrictVerifier()
 crypto_mock = CryptoPlugin(verifier)
@@ -51,7 +51,7 @@ Each verifier may have at most one `CryptoPlugin`. A second `CryptoPlugin(verifi
 Register a mock for `Fernet.encrypt()`:
 
 ```python
-bigfoot.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted_token")
+tripwire.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted_token")
 ```
 
 | Parameter | Type | Default | Description |
@@ -65,7 +65,7 @@ bigfoot.crypto_mock.mock_encrypt(returns=b"gAAAAABencrypted_token")
 Register a mock for `Fernet.decrypt()`:
 
 ```python
-bigfoot.crypto_mock.mock_decrypt(returns=b"decrypted plaintext")
+tripwire.crypto_mock.mock_decrypt(returns=b"decrypted plaintext")
 ```
 
 | Parameter | Type | Default | Description |
@@ -79,7 +79,7 @@ bigfoot.crypto_mock.mock_decrypt(returns=b"decrypted plaintext")
 Register a mock for `rsa.generate_private_key()`:
 
 ```python
-bigfoot.crypto_mock.mock_generate_key(returns=mock_private_key)
+tripwire.crypto_mock.mock_generate_key(returns=mock_private_key)
 ```
 
 | Parameter | Type | Default | Description |
@@ -94,10 +94,10 @@ Each operation (`fernet_encrypt`, `fernet_decrypt`, `generate_key`) has its own 
 
 ```python
 def test_encrypt_multiple_fields():
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted_email")
-    bigfoot.crypto_mock.mock_encrypt(returns=b"encrypted_ssn")
+    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted_email")
+    tripwire.crypto_mock.mock_encrypt(returns=b"encrypted_ssn")
 
-    with bigfoot:
+    with tripwire:
         from cryptography.fernet import Fernet
         f = Fernet(b"test-key-base64-encoded-padding=")
         ct1 = f.encrypt(b"alice@example.com")
@@ -106,20 +106,20 @@ def test_encrypt_multiple_fields():
     assert ct1 == b"encrypted_email"
     assert ct2 == b"encrypted_ssn"
 
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=17)
-    bigfoot.crypto_mock.assert_encrypt(plaintext_length=11)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=17)
+    tripwire.crypto_mock.assert_encrypt(plaintext_length=11)
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.crypto_mock`.
+Use the typed assertion helpers on `tripwire.crypto_mock`.
 
 ### `assert_encrypt(*, plaintext_length)`
 
 Asserts the next `Fernet.encrypt()` interaction. Only the plaintext length is recorded, not the actual data.
 
 ```python
-bigfoot.crypto_mock.assert_encrypt(plaintext_length=14)
+tripwire.crypto_mock.assert_encrypt(plaintext_length=14)
 ```
 
 | Parameter | Type | Description |
@@ -131,7 +131,7 @@ bigfoot.crypto_mock.assert_encrypt(plaintext_length=14)
 Asserts the next `Fernet.decrypt()` interaction. The token (ciphertext) is safe to record since it is not secret.
 
 ```python
-bigfoot.crypto_mock.assert_decrypt(token=b"gAAAAABencrypted_token", ttl=None)
+tripwire.crypto_mock.assert_decrypt(token=b"gAAAAABencrypted_token", ttl=None)
 ```
 
 | Parameter | Type | Default | Description |
@@ -144,7 +144,7 @@ bigfoot.crypto_mock.assert_decrypt(token=b"gAAAAABencrypted_token", ttl=None)
 Asserts the next `rsa.generate_private_key()` interaction.
 
 ```python
-bigfoot.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
+tripwire.crypto_mock.assert_generate_key(algorithm="RSA", key_size=2048)
 ```
 
 | Parameter | Type | Description |
@@ -166,21 +166,21 @@ Use the `raises` parameter to simulate cryptography errors:
 
 ```python
 from cryptography.fernet import InvalidToken
-import bigfoot
+import tripwire
 
 def test_invalid_token():
-    bigfoot.crypto_mock.mock_decrypt(
+    tripwire.crypto_mock.mock_decrypt(
         returns=None,
         raises=InvalidToken(),
     )
 
-    with bigfoot:
+    with tripwire:
         from cryptography.fernet import Fernet
         f = Fernet(b"test-key-base64-encoded-padding=")
         with pytest.raises(InvalidToken):
             f.decrypt(b"corrupted_ciphertext")
 
-    bigfoot.crypto_mock.assert_decrypt(token=b"corrupted_ciphertext", ttl=None)
+    tripwire.crypto_mock.assert_decrypt(token=b"corrupted_ciphertext", ttl=None)
 ```
 
 ## Full example
@@ -202,17 +202,17 @@ def test_invalid_token():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.crypto_mock.mock_encrypt(returns=b"optional_ct", required=False)
+tripwire.crypto_mock.mock_encrypt(returns=b"optional_ct", required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls an intercepted cryptography function with no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code calls an intercepted cryptography function with no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 crypto.fernet_encrypt(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.crypto_mock.mock_encrypt(returns=...)
+    tripwire.crypto_mock.mock_encrypt(returns=...)
 ```

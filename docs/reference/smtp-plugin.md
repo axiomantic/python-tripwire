@@ -1,3 +1,3 @@
 # SmtpPlugin
 
-::: bigfoot.plugins.smtp_plugin.SmtpPlugin
+::: tripwire.plugins.smtp_plugin.SmtpPlugin

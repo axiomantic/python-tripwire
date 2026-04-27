@@ -2,10 +2,10 @@
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import AllWildcardAssertionError
-from bigfoot._verifier import StrictVerifier
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import AllWildcardAssertionError
+from tripwire._verifier import StrictVerifier
 
 # Only run if dirty-equals is available
 dirty_equals = pytest.importorskip("dirty_equals")
@@ -30,7 +30,7 @@ def _verifier_context():
 # ---------------------------------------------------------------------------
 
 httpx = pytest.importorskip("httpx")
-from bigfoot.plugins.http import HttpPlugin  # noqa: E402
+from tripwire.plugins.http import HttpPlugin  # noqa: E402
 
 
 def _reset_http_install():
@@ -48,12 +48,12 @@ def _clean_http():
 
 def test_all_wildcard_assertion_raises():
     """All-wildcard assertion must raise AllWildcardAssertionError."""
-    bigfoot.http.mock_response("GET", "http://test/api", json={"ok": True})
-    with bigfoot:
+    tripwire.http.mock_response("GET", "http://test/api", json={"ok": True})
+    with tripwire:
         httpx.get("http://test/api")
 
     with pytest.raises(AllWildcardAssertionError, match="verifies nothing"):
-        bigfoot.http.assert_request(
+        tripwire.http.assert_request(
             method=AnyThing(),
             url=AnyThing(),
             headers=AnyThing(),
@@ -64,12 +64,12 @@ def test_all_wildcard_assertion_raises():
 
 def test_partial_wildcard_is_allowed():
     """Partial wildcards (some real values, some AnyThing) must work normally."""
-    bigfoot.http.mock_response("GET", "http://test/api", json={"ok": True})
-    with bigfoot:
+    tripwire.http.mock_response("GET", "http://test/api", json={"ok": True})
+    with tripwire:
         httpx.get("http://test/api")
 
     # This should NOT raise AllWildcardAssertionError
-    bigfoot.http.assert_request(
+    tripwire.http.assert_request(
         method="GET",
         url=AnyThing(),
         headers=AnyThing(),
@@ -80,12 +80,12 @@ def test_partial_wildcard_is_allowed():
 
 def test_all_wildcard_error_shows_real_values():
     """AllWildcardAssertionError should include copy-pasteable real values."""
-    bigfoot.http.mock_response("GET", "http://test/api", json={"ok": True})
-    with bigfoot:
+    tripwire.http.mock_response("GET", "http://test/api", json={"ok": True})
+    with tripwire:
         httpx.get("http://test/api")
 
     with pytest.raises(AllWildcardAssertionError) as exc_info:
-        bigfoot.http.assert_request(
+        tripwire.http.assert_request(
             method=AnyThing(),
             url=AnyThing(),
             headers=AnyThing(),
@@ -101,13 +101,13 @@ def test_all_wildcard_error_shows_real_values():
 
 def test_all_wildcard_detection_in_any_order():
     """All-wildcard detection works inside in_any_order blocks too."""
-    bigfoot.http.mock_response("GET", "http://test/api", json={"ok": True})
-    with bigfoot:
+    tripwire.http.mock_response("GET", "http://test/api", json={"ok": True})
+    with tripwire:
         httpx.get("http://test/api")
 
     with pytest.raises(AllWildcardAssertionError, match="verifies nothing"):
-        with bigfoot.in_any_order():
-            bigfoot.http.assert_request(
+        with tripwire.in_any_order():
+            tripwire.http.assert_request(
                 method=AnyThing(),
                 url=AnyThing(),
                 headers=AnyThing(),

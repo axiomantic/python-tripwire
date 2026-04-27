@@ -1,7 +1,7 @@
 # StrictVerifier
 
-::: bigfoot.StrictVerifier
+::: tripwire.StrictVerifier
 
-::: bigfoot.SandboxContext
+::: tripwire.SandboxContext
 
-::: bigfoot.InAnyOrderContext
+::: tripwire.InAnyOrderContext

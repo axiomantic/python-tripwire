@@ -1,33 +1,33 @@
 # Quick Start
 
-This guide walks through a complete bigfoot test from setup to teardown and shows what each of the three error types looks like when violated.
+This guide walks through a complete tripwire test from setup to teardown and shows what each of the three error types looks like when violated.
 
-## Step 1: Import bigfoot
+## Step 1: Import tripwire
 
 ```python
-import bigfoot
+import tripwire
 ```
 
-bigfoot registers an autouse pytest fixture behind the scenes. Every test automatically gets a fresh `StrictVerifier`. No fixture injection or `conftest.py` changes are needed.
+tripwire registers an autouse pytest fixture behind the scenes. Every test automatically gets a fresh `StrictVerifier`. No fixture injection or `conftest.py` changes are needed.
 
 ## Step 2: Create a mock
 
-bigfoot offers two ways to create mocks:
+tripwire offers two ways to create mocks:
 
 **Import-site mock** patches a module attribute at its import location. Use `"module.path:attribute"` colon-separated syntax:
 
 ```python
-cache = bigfoot.mock("myapp.services:cache")
+cache = tripwire.mock("myapp.services:cache")
 ```
 
 **Object mock** patches an attribute on a specific object instance:
 
 ```python
 email_service = EmailService()
-email = bigfoot.mock.object(email_service, "send")
+email = tripwire.mock.object(email_service, "send")
 ```
 
-Both return a mock object. Calling `bigfoot.mock()` or `bigfoot.mock.object()` registers the mock with the current test's verifier automatically.
+Both return a mock object. Calling `tripwire.mock()` or `tripwire.mock.object()` registers the mock with the current test's verifier automatically.
 
 ## Step 3: Configure return values
 
@@ -40,7 +40,7 @@ email.returns(True)
 For mocks with multiple methods, access methods by attribute:
 
 ```python
-cache = bigfoot.mock("myapp.services:cache")
+cache = tripwire.mock("myapp.services:cache")
 cache.get.returns("cached_value")
 cache.set.returns(None)
 ```
@@ -48,29 +48,29 @@ cache.set.returns(None)
 ## Step 4: Enter the sandbox
 
 ```python
-with bigfoot:
+with tripwire:
     result = email_service.send(to="user@example.com", subject="Welcome")
     assert result is True
 ```
 
-`with bigfoot:` is the preferred sandbox syntax. It is shorthand for `with bigfoot.sandbox():`. Both forms activate all plugins and all registered mocks for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling a mocked target raises `SandboxNotActiveError`.
+`with tripwire:` is the preferred sandbox syntax. It is shorthand for `with tripwire.sandbox():`. Both forms activate all plugins and all registered mocks for the current test. Any mock call is intercepted, recorded to the timeline, and dispatched to the configured side effect. Outside the sandbox, calling a mocked target raises `SandboxNotActiveError`.
 
-`with bigfoot:` returns the active `StrictVerifier` from `__enter__`, so you can capture it if needed:
+`with tripwire:` returns the active `StrictVerifier` from `__enter__`, so you can capture it if needed:
 
 ```python
-with bigfoot as v:
+with tripwire as v:
     result = email_service.send(to="user@example.com", subject="Welcome")
     # v is the StrictVerifier for this test
 ```
 
-This is equivalent to `with bigfoot.sandbox() as v:`. Most tests use the module-level API (`bigfoot.mock()`, `bigfoot.assert_interaction()`, etc.) and never need `v` directly. The main case where you need it is registering custom plugins manually:
+This is equivalent to `with tripwire.sandbox() as v:`. Most tests use the module-level API (`tripwire.mock()`, `tripwire.assert_interaction()`, etc.) and never need `v` directly. The main case where you need it is registering custom plugins manually:
 
 ```python
-import bigfoot
+import tripwire
 from myapp.plugins import DatabasePlugin
 
 def test_with_custom_plugin():
-    with bigfoot as v:
+    with tripwire as v:
         db = DatabasePlugin(v)  # register plugin on this verifier
         db.mock_query("SELECT 1", result=[1])
         ...
@@ -82,7 +82,7 @@ def test_with_custom_plugin():
 email.assert_call(args=(), kwargs={"to": "user@example.com", "subject": "Welcome"})
 ```
 
-Assertions must happen **after** the sandbox exits. `assert_call()` takes `args` (positional arguments tuple) and `kwargs` (keyword arguments dict) that must match the recorded interaction's details. Both `args` and `kwargs` are required. By default it checks the next unasserted interaction in sequence order. Use `bigfoot.in_any_order()` to relax ordering.
+Assertions must happen **after** the sandbox exits. `assert_call()` takes `args` (positional arguments tuple) and `kwargs` (keyword arguments dict) that must match the recorded interaction's details. Both `args` and `kwargs` are required. By default it checks the next unasserted interaction in sequence order. Use `tripwire.in_any_order()` to relax ordering.
 
 For import-site mocks with methods, assert on the method proxy:
 
@@ -166,14 +166,14 @@ Raised when `assert_interaction()`, `in_any_order()`, or `verify_all()` is calle
 ## Complete example
 
 ```python
-import bigfoot
+import tripwire
 
 def test_welcome_email():
     # Create a mock that patches myapp.email:service at the import site
-    email = bigfoot.mock("myapp.email:service")
+    email = tripwire.mock("myapp.email:service")
     email.send.returns(True)
 
-    with bigfoot:
+    with tripwire:
         # Code under test calls myapp.email.service.send(...)
         from myapp.email import service
         result = service.send(to="user@example.com", subject="Welcome")
@@ -191,7 +191,7 @@ def test_welcome_email():
 For simpler cases where you have direct access to the object being tested:
 
 ```python
-import bigfoot
+import tripwire
 
 class EmailService:
     def send(self, to: str, subject: str) -> bool:
@@ -199,10 +199,10 @@ class EmailService:
 
 def test_welcome_email_object_mock():
     service = EmailService()
-    mock = bigfoot.mock.object(service, "send")
+    mock = tripwire.mock.object(service, "send")
     mock.returns(True)
 
-    with bigfoot:
+    with tripwire:
         result = service.send(to="user@example.com", subject="Welcome")
         assert result is True
 

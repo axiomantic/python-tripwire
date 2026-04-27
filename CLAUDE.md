@@ -1,8 +1,8 @@
-# bigfoot — Project Instructions
+# tripwire — Project Instructions
 
 ## Certainty is the Contract
 
-bigfoot's entire value proposition is certainty: when a test passes, you **know** exactly what happened — not just that nothing crashed.
+tripwire's entire value proposition is certainty: when a test passes, you **know** exactly what happened — not just that nothing crashed.
 
 ### Full Assertion Certainty is Mandatory for All Plugins
 
@@ -12,7 +12,7 @@ Every plugin MUST enforce that all recorded fields are asserted. This is non-neg
 
 ### Auto-Assert is PROHIBITED
 
-**Auto-asserting interactions is not acceptable under any circumstances.** Auto-assert means calling `timeline.mark_asserted(interaction)` at the time an interaction is *recorded*, before the test author has explicitly called `assert_interaction()`. This defeats the entire purpose of bigfoot.
+**Auto-asserting interactions is not acceptable under any circumstances.** Auto-assert means calling `timeline.mark_asserted(interaction)` at the time an interaction is *recorded*, before the test author has explicitly called `assert_interaction()`. This defeats the entire purpose of tripwire.
 
 Do **not** implement auto-assert. Do **not** suggest auto-assert as a design option. Do **not** add it back under any framing ("convenience", "ergonomic default", "opt-in certainty", etc.). It is wrong. It was already removed from StateMachinePlugin and RedisPlugin for this reason.
 

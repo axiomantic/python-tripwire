@@ -6,12 +6,12 @@ import smtplib
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.smtp_plugin import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.smtp_plugin import (
     _ORIGINAL_SMTP,
     SmtpPlugin,
     _FakeSMTP,
@@ -484,65 +484,65 @@ def test_smtp_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.smtp_mock
+# Module-level proxy: tripwire.smtp_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_smtp_mock_proxy_new_session
-#   CLAIM: bigfoot.smtp_mock.new_session() returns a SessionHandle that can
+#   CLAIM: tripwire.smtp_mock.new_session() returns a SessionHandle that can
 #          be used to configure a session without importing SmtpPlugin directly.
 #   PATH:  _SmtpProxy.__getattr__("new_session") -> get verifier -> find/create SmtpPlugin ->
 #          return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() does not raise.
 #   MUTATION: Returning None instead of a SessionHandle would fail isinstance check.
 #   ESCAPE: Nothing reasonable -- both the isinstance and the chained .expect() call check it.
-def test_smtp_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_smtp_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.smtp_mock.new_session()
+    session = tripwire.smtp_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_smtp_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.smtp_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.smtp_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _SmtpProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_smtp_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.smtp_mock.new_session
+            _ = tripwire.smtp_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
 
 # ---------------------------------------------------------------------------
-# Full session via module-level API: bigfoot.sandbox()
+# Full session via module-level API: tripwire.sandbox()
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_full_session_via_sandbox
 #   CLAIM: A complete SMTP session (connect -> ehlo -> sendmail -> quit) runs end-to-end
-#          through the module-level bigfoot.sandbox() API, returning the scripted values.
-#   PATH:  bigfoot.smtp_mock.new_session() -> sandbox -> _FakeSMTP.__init__ ->
+#          through the module-level tripwire.sandbox() API, returning the scripted values.
+#   PATH:  tripwire.smtp_mock.new_session() -> sandbox -> _FakeSMTP.__init__ ->
 #          ehlo -> sendmail -> quit.
 #   CHECK: sendmail_result == {}; quit_result == (221, b"Bye").
 #   MUTATION: Returning wrong sendmail result would fail the equality check.
 #   ESCAPE: Nothing reasonable -- exact equality on both returns.
-def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.smtp_mock.new_session()
+def test_full_session_via_sandbox(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.smtp_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("ehlo", returns=(250, b"OK"))
     session.expect("sendmail", returns={})
     session.expect("quit", returns=(221, b"Bye"))
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         smtp = smtplib.SMTP("mail.example.com", 25)
         smtp.ehlo()
         sendmail_result = smtp.sendmail(
@@ -553,11 +553,11 @@ def test_full_session_via_sandbox(bigfoot_verifier: StrictVerifier) -> None:
     assert sendmail_result == {}
     assert quit_result == (221, b"Bye")
 
-    bigfoot.smtp_mock.assert_connect(host="mail.example.com", port=25)
-    bigfoot.smtp_mock.assert_ehlo(name="")
-    bigfoot.smtp_mock.assert_sendmail(
+    tripwire.smtp_mock.assert_connect(host="mail.example.com", port=25)
+    tripwire.smtp_mock.assert_ehlo(name="")
+    tripwire.smtp_mock.assert_sendmail(
         from_addr="from@example.com",
         to_addrs=["to@example.com"],
         msg="Subject: test\r\n\r\ntest",
     )
-    bigfoot.smtp_mock.assert_quit()
+    tripwire.smtp_mock.assert_quit()

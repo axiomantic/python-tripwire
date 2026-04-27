@@ -1,0 +1,623 @@
+"""WebSocket plugins: AsyncWebSocketPlugin and SyncWebSocketPlugin."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
+
+from tripwire._context import GuardPassThrough, get_verifier_or_raise
+from tripwire._errors import UnmockedInteractionError
+from tripwire._firewall_request import WebSocketFirewallRequest
+from tripwire._normalize import normalize_url
+from tripwire._state_machine_plugin import SessionHandle, StateMachinePlugin, _StepSentinel
+from tripwire._timeline import Interaction
+
+if TYPE_CHECKING:
+    from tripwire._verifier import StrictVerifier
+
+
+# ---------------------------------------------------------------------------
+# Source ID constants
+# ---------------------------------------------------------------------------
+
+_ASYNC_SOURCE_CONNECT = "websocket:async:connect"
+_ASYNC_SOURCE_SEND = "websocket:async:send"
+_ASYNC_SOURCE_RECV = "websocket:async:recv"
+_ASYNC_SOURCE_CLOSE = "websocket:async:close"
+
+_SYNC_SOURCE_CONNECT = "websocket:sync:connect"
+_SYNC_SOURCE_SEND = "websocket:sync:send"
+_SYNC_SOURCE_RECV = "websocket:sync:recv"
+_SYNC_SOURCE_CLOSE = "websocket:sync:close"
+
+# ---------------------------------------------------------------------------
+# Optional dependency guards
+# ---------------------------------------------------------------------------
+
+try:
+    import websockets
+    import websockets.asyncio.client  # noqa: F401 -- import confirms correct sub-package
+
+    _WEBSOCKETS_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _WEBSOCKETS_AVAILABLE = False
+
+try:
+    import websocket  # noqa: F401 -- websocket-client package; import used for flag only
+
+    _WEBSOCKET_CLIENT_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _WEBSOCKET_CLIENT_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# Module-level helpers: locate the active plugin from the current verifier
+# ---------------------------------------------------------------------------
+
+
+def _get_async_websocket_plugin(
+    firewall_request: WebSocketFirewallRequest | None = None,
+) -> AsyncWebSocketPlugin:
+    verifier = get_verifier_or_raise("websocket:async:connect", firewall_request=firewall_request)
+    for plugin in verifier._plugins:
+        if isinstance(plugin, AsyncWebSocketPlugin):
+            return plugin
+    raise RuntimeError(
+        "BUG: tripwire AsyncWebSocketPlugin interceptor is active but no "
+        "AsyncWebSocketPlugin is registered on the current verifier."
+    )
+
+
+def _get_sync_websocket_plugin(
+    firewall_request: WebSocketFirewallRequest | None = None,
+) -> SyncWebSocketPlugin:
+    verifier = get_verifier_or_raise("websocket:sync:connect", firewall_request=firewall_request)
+    for plugin in verifier._plugins:
+        if isinstance(plugin, SyncWebSocketPlugin):
+            return plugin
+    raise RuntimeError(
+        "BUG: tripwire SyncWebSocketPlugin interceptor is active but no "
+        "SyncWebSocketPlugin is registered on the current verifier."
+    )
+
+
+# ===========================================================================
+# AsyncWebSocketPlugin
+# ===========================================================================
+
+
+class _FakeAsyncWebSocket:
+    """Fake async WebSocket connection object returned from __aenter__."""
+
+    def __init__(self, handle: SessionHandle, plugin: AsyncWebSocketPlugin) -> None:
+        self._handle = handle
+        self._plugin = plugin
+
+    async def send(self, data: Any) -> Any:  # noqa: ANN401
+        return self._plugin._execute_step(
+            self._handle, "send", (data,), {}, _ASYNC_SOURCE_SEND,
+            details={"message": data},
+        )
+
+    async def recv(self) -> Any:  # noqa: ANN401
+        result, interaction = self._plugin._execute_step(
+            self._handle, "recv", (), {}, _ASYNC_SOURCE_RECV,
+            details={"message": None},
+            return_interaction=True,
+        )
+        interaction.details["message"] = result
+        return result
+
+    async def close(self) -> Any:  # noqa: ANN401
+        result = self._plugin._execute_step(
+            self._handle, "close", (), {}, _ASYNC_SOURCE_CLOSE,
+            details={},
+        )
+        self._plugin._release_session(self)
+        return result
+
+
+class _FakeAsyncWebSocketCM:
+    """Async context manager returned by the patched websockets.connect().
+
+    The FIFO pop from the session queue happens at construction time (i.e.,
+    at websockets.connect() call time), NOT in __aenter__. This matches user
+    expectations: the queue slot is consumed when the connection is "dialed",
+    not when the async with block is entered.
+    """
+
+    def __init__(self, handle: SessionHandle, plugin: AsyncWebSocketPlugin, uri: str) -> None:
+        self._handle = handle
+        self._plugin = plugin
+        self._uri = uri
+        self._fake_ws: _FakeAsyncWebSocket | None = None
+
+    async def __aenter__(self) -> _FakeAsyncWebSocket:
+        fake_ws = _FakeAsyncWebSocket(self._handle, self._plugin)
+        self._fake_ws = fake_ws
+        # Register in active_sessions now that we have the fake_ws identity.
+        self._plugin._register_connection(self._handle, fake_ws)
+        # Execute the "connect" transition step.
+        self._plugin._execute_step(
+            self._handle, "connect", (), {}, _ASYNC_SOURCE_CONNECT,
+            details={"uri": self._uri},
+        )
+        return fake_ws
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
+        # Only call close if the session is still active (not already closed by caller).
+        if self._fake_ws is not None and id(self._fake_ws) in self._plugin._active_sessions:
+            await self._fake_ws.close()
+
+
+class AsyncWebSocketPlugin(StateMachinePlugin):
+    """Async WebSocket interception plugin.
+
+    Patches websockets.connect at the module level.
+    Uses reference counting so nested sandboxes work correctly.
+
+    States: connecting -> open -> closed
+    """
+
+    guard_prefixes: ClassVar[tuple[str, ...]] = ("async_websocket", "websocket")
+
+    # Saved original, restored when count reaches 0.
+    _original_connect: ClassVar[Callable[..., Any] | None] = None
+
+    # ------------------------------------------------------------------
+    # Plugin init: create per-instance sentinels
+    # ------------------------------------------------------------------
+
+    def __init__(self, verifier: StrictVerifier) -> None:
+        super().__init__(verifier)
+        self._connect_sentinel = _StepSentinel(_ASYNC_SOURCE_CONNECT)
+        self._send_sentinel = _StepSentinel(_ASYNC_SOURCE_SEND)
+        self._recv_sentinel = _StepSentinel(_ASYNC_SOURCE_RECV)
+        self._close_sentinel = _StepSentinel(_ASYNC_SOURCE_CLOSE)
+
+    @property
+    def connect(self) -> _StepSentinel:
+        return self._connect_sentinel
+
+    @property
+    def send(self) -> _StepSentinel:
+        return self._send_sentinel
+
+    @property
+    def recv(self) -> _StepSentinel:
+        return self._recv_sentinel
+
+    @property
+    def close(self) -> _StepSentinel:
+        return self._close_sentinel
+
+    # ------------------------------------------------------------------
+    # StateMachinePlugin abstract methods
+    # ------------------------------------------------------------------
+
+    def _initial_state(self) -> str:
+        return "connecting"
+
+    def _transitions(self) -> dict[str, dict[str, str]]:
+        return {
+            "connect": {"connecting": "open"},
+            "send": {"open": "open"},
+            "recv": {"open": "open"},
+            "close": {"open": "closed"},
+        }
+
+    def _unmocked_source_id(self) -> str:
+        return "websocket:async:connect"
+
+    # ------------------------------------------------------------------
+    # BasePlugin lifecycle
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Patch installation / restoration
+    # ------------------------------------------------------------------
+
+    def install_patches(self) -> None:
+        if not _WEBSOCKETS_AVAILABLE:
+            raise ImportError(
+                "Install tripwire[websockets] to use AsyncWebSocketPlugin: "
+                "pip install tripwire[websockets]"
+            )
+        import websockets as _ws
+
+        AsyncWebSocketPlugin._original_connect = _ws.connect
+        _orig_connect = _ws.connect
+
+        def _patched_websockets_connect(*args: Any, **kwargs: Any) -> _FakeAsyncWebSocketCM:  # noqa: ANN401
+            uri = args[0] if args else kwargs.get("uri", "")
+            scheme, host, port, path = normalize_url(str(uri))
+            fw_request = WebSocketFirewallRequest(host=host, port=port, scheme=scheme, path=path)
+            try:
+                plugin = _get_async_websocket_plugin(firewall_request=fw_request)
+            except GuardPassThrough:
+                return cast(_FakeAsyncWebSocketCM, _orig_connect(*args, **kwargs))
+            # Pop from queue at websockets.connect() call time (FIFO).
+            with plugin._registry_lock:
+                if not plugin._session_queue:
+                    source_id = plugin._unmocked_source_id()
+                    hint = plugin.format_unmocked_hint(source_id, args, kwargs)
+                    raise UnmockedInteractionError(
+                        source_id=source_id,
+                        args=args,
+                        kwargs=kwargs,
+                        hint=hint,
+                    )
+                handle = plugin._session_queue.popleft()
+            return _FakeAsyncWebSocketCM(handle, plugin, uri)
+
+        setattr(_ws, "connect", _patched_websockets_connect)
+
+    def restore_patches(self) -> None:
+        if AsyncWebSocketPlugin._original_connect is not None:
+            import websockets as _ws
+
+            setattr(_ws, "connect", AsyncWebSocketPlugin._original_connect)
+            AsyncWebSocketPlugin._original_connect = None
+
+    # ------------------------------------------------------------------
+    # BasePlugin abstract method implementations
+    # ------------------------------------------------------------------
+
+    def format_interaction(self, interaction: Interaction) -> str:
+        sid = interaction.source_id
+        if sid == _ASYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"[AsyncWebSocketPlugin] websockets.connect({uri!r})"
+        if sid == _ASYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"[AsyncWebSocketPlugin] websockets.send({message!r})"
+        if sid == _ASYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"[AsyncWebSocketPlugin] websockets.recv() -> {message!r}"
+        if sid == _ASYNC_SOURCE_CLOSE:
+            return "[AsyncWebSocketPlugin] websockets.close()"
+        return f"[AsyncWebSocketPlugin] websockets.?() source_id={sid!r}"
+
+    def format_mock_hint(self, interaction: Interaction) -> str:
+        sid = interaction.source_id
+        step = sid.split(":")[-1] if ":" in sid else sid
+        return f"    tripwire.async_websocket_mock.new_session().expect({step!r}, returns=...)"
+
+    def format_unmocked_hint(
+        self,
+        source_id: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> str:
+        method = source_id.split(":")[-1] if ":" in source_id else source_id
+        return (
+            f"websockets.{method}(...) was called but no session was queued.\n"
+            f"Register a session with:\n"
+            f"    tripwire.async_websocket_mock.new_session().expect({method!r}, returns=...)"
+        )
+
+    def format_assert_hint(self, interaction: Interaction) -> str:
+        sm = "tripwire.async_websocket_mock"
+        sid = interaction.source_id
+        if sid == _ASYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"    {sm}.assert_connect(uri={uri!r})"
+        if sid == _ASYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_send(message={message!r})"
+        if sid == _ASYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_recv(message={message!r})"
+        if sid == _ASYNC_SOURCE_CLOSE:
+            return f"    {sm}.assert_close()"
+        return f"    # {sm}: unknown source_id={sid!r}"
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return assertable fields for each step type."""
+        if interaction.source_id == _ASYNC_SOURCE_CLOSE:
+            return frozenset()
+        return frozenset(interaction.details.keys())
+
+    def assert_connect(self, *, uri: str) -> None:
+        """Assert the next async websocket connect interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._connect_sentinel, uri=uri)
+
+    def assert_send(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next async websocket send interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._send_sentinel, message=message)
+
+    def assert_recv(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next async websocket recv interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._recv_sentinel, message=message)
+
+    def assert_close(self) -> None:
+        """Assert the next async websocket close interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._close_sentinel)
+
+    def format_unused_mock_hint(self, mock_config: object) -> str:
+        step: Any = mock_config
+        method = getattr(step, "method", "?")
+        return (
+            f"websockets.{method}(...) was mocked (required=True) but never called.\n"
+            f"Registered at:\n{getattr(step, 'registration_traceback', '')}"
+        )
+
+
+# ===========================================================================
+# SyncWebSocketPlugin
+# ===========================================================================
+
+
+class _FakeSyncWebSocket:
+    """Fake sync WebSocket connection object returned by the patched create_connection()."""
+
+    def __init__(self, handle: SessionHandle, plugin: SyncWebSocketPlugin) -> None:
+        self._handle = handle
+        self._plugin = plugin
+
+    def send(self, data: Any) -> Any:  # noqa: ANN401
+        return self._plugin._execute_step(
+            self._handle, "send", (data,), {}, _SYNC_SOURCE_SEND,
+            details={"message": data},
+        )
+
+    def recv(self) -> Any:  # noqa: ANN401
+        result, interaction = self._plugin._execute_step(
+            self._handle, "recv", (), {}, _SYNC_SOURCE_RECV,
+            details={"message": None},
+            return_interaction=True,
+        )
+        interaction.details["message"] = result
+        return result
+
+    def close(self) -> Any:  # noqa: ANN401
+        result = self._plugin._execute_step(
+            self._handle, "close", (), {}, _SYNC_SOURCE_CLOSE,
+            details={},
+        )
+        self._plugin._release_session(self)
+        return result
+
+
+class SyncWebSocketPlugin(StateMachinePlugin):
+    """Sync WebSocket interception plugin (websocket-client library).
+
+    Patches websocket.create_connection at the module level.
+    Uses reference counting so nested sandboxes work correctly.
+
+    States: connecting -> open -> closed
+    """
+
+    guard_prefixes: ClassVar[tuple[str, ...]] = ("sync_websocket", "websocket")
+
+    # Saved original, restored when count reaches 0.
+    _original_create_connection: ClassVar[Callable[..., Any] | None] = None
+
+    # ------------------------------------------------------------------
+    # Plugin init: create per-instance sentinels
+    # ------------------------------------------------------------------
+
+    def __init__(self, verifier: StrictVerifier) -> None:
+        super().__init__(verifier)
+        self._connect_sentinel = _StepSentinel(_SYNC_SOURCE_CONNECT)
+        self._send_sentinel = _StepSentinel(_SYNC_SOURCE_SEND)
+        self._recv_sentinel = _StepSentinel(_SYNC_SOURCE_RECV)
+        self._close_sentinel = _StepSentinel(_SYNC_SOURCE_CLOSE)
+
+    @property
+    def connect(self) -> _StepSentinel:
+        return self._connect_sentinel
+
+    @property
+    def send(self) -> _StepSentinel:
+        return self._send_sentinel
+
+    @property
+    def recv(self) -> _StepSentinel:
+        return self._recv_sentinel
+
+    @property
+    def close(self) -> _StepSentinel:
+        return self._close_sentinel
+
+    # ------------------------------------------------------------------
+    # StateMachinePlugin abstract methods
+    # ------------------------------------------------------------------
+
+    def _initial_state(self) -> str:
+        return "connecting"
+
+    def _transitions(self) -> dict[str, dict[str, str]]:
+        return {
+            "connect": {"connecting": "open"},
+            "send": {"open": "open"},
+            "recv": {"open": "open"},
+            "close": {"open": "closed"},
+        }
+
+    def _unmocked_source_id(self) -> str:
+        return "websocket:sync:connect"
+
+    # ------------------------------------------------------------------
+    # BasePlugin lifecycle
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Patch installation / restoration
+    # ------------------------------------------------------------------
+
+    def install_patches(self) -> None:
+        if not _WEBSOCKET_CLIENT_AVAILABLE:
+            raise ImportError(
+                "Install tripwire[websocket-client] to use SyncWebSocketPlugin: "
+                "pip install tripwire[websocket-client]"
+            )
+        import websocket as _wsc
+
+        SyncWebSocketPlugin._original_create_connection = _wsc.create_connection
+        _orig_create = _wsc.create_connection
+
+        def _patched_create_connection(*args: Any, **kwargs: Any) -> _FakeSyncWebSocket:  # noqa: ANN401
+            uri = args[0] if args else kwargs.get("url", "")
+            scheme, host, port, path = normalize_url(str(uri))
+            fw_request = WebSocketFirewallRequest(host=host, port=port, scheme=scheme, path=path)
+            try:
+                plugin = _get_sync_websocket_plugin(firewall_request=fw_request)
+            except GuardPassThrough:
+                return cast(_FakeSyncWebSocket, _orig_create(*args, **kwargs))
+            # Pop from queue immediately at create_connection() call time (FIFO).
+            with plugin._registry_lock:
+                if not plugin._session_queue:
+                    source_id = plugin._unmocked_source_id()
+                    hint = plugin.format_unmocked_hint(source_id, args, kwargs)
+                    raise UnmockedInteractionError(
+                        source_id=source_id,
+                        args=args,
+                        kwargs=kwargs,
+                        hint=hint,
+                    )
+                handle = plugin._session_queue.popleft()
+            # Create the fake object and register it.
+            fake_ws = _FakeSyncWebSocket(handle, plugin)
+            plugin._register_connection(handle, fake_ws)
+            # Execute the "connect" transition step.
+            plugin._execute_step(
+                handle, "connect", (), {}, _SYNC_SOURCE_CONNECT,
+                details={"uri": uri},
+            )
+            return fake_ws
+
+        _wsc.create_connection = _patched_create_connection
+
+    def restore_patches(self) -> None:
+        if SyncWebSocketPlugin._original_create_connection is not None:
+            import websocket as _wsc
+
+            _wsc.create_connection = SyncWebSocketPlugin._original_create_connection
+            SyncWebSocketPlugin._original_create_connection = None
+
+    # ------------------------------------------------------------------
+    # BasePlugin abstract method implementations
+    # ------------------------------------------------------------------
+
+    def format_interaction(self, interaction: Interaction) -> str:
+        sid = interaction.source_id
+        if sid == _SYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"[SyncWebSocketPlugin] websocket.create_connection({uri!r})"
+        if sid == _SYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"[SyncWebSocketPlugin] websocket.send({message!r})"
+        if sid == _SYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"[SyncWebSocketPlugin] websocket.recv() -> {message!r}"
+        if sid == _SYNC_SOURCE_CLOSE:
+            return "[SyncWebSocketPlugin] websocket.close()"
+        return f"[SyncWebSocketPlugin] websocket.?() source_id={sid!r}"
+
+    def format_mock_hint(self, interaction: Interaction) -> str:
+        sid = interaction.source_id
+        step = sid.split(":")[-1] if ":" in sid else sid
+        return f"    tripwire.sync_websocket_mock.new_session().expect({step!r}, returns=...)"
+
+    def format_unmocked_hint(
+        self,
+        source_id: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> str:
+        method = source_id.split(":")[-1] if ":" in source_id else source_id
+        return (
+            f"websocket.{method}(...) was called but no session was queued.\n"
+            f"Register a session with:\n"
+            f"    tripwire.sync_websocket_mock.new_session().expect({method!r}, returns=...)"
+        )
+
+    def format_assert_hint(self, interaction: Interaction) -> str:
+        sm = "tripwire.sync_websocket_mock"
+        sid = interaction.source_id
+        if sid == _SYNC_SOURCE_CONNECT:
+            uri = interaction.details.get("uri", "?")
+            return f"    {sm}.assert_connect(uri={uri!r})"
+        if sid == _SYNC_SOURCE_SEND:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_send(message={message!r})"
+        if sid == _SYNC_SOURCE_RECV:
+            message = interaction.details.get("message")
+            return f"    {sm}.assert_recv(message={message!r})"
+        if sid == _SYNC_SOURCE_CLOSE:
+            return f"    {sm}.assert_close()"
+        return f"    # {sm}: unknown source_id={sid!r}"
+
+    def matches(self, interaction: Interaction, expected: dict[str, Any]) -> bool:
+        """Field-by-field comparison with dirty-equals support."""
+        try:
+            for key, expected_val in expected.items():
+                actual_val = interaction.details.get(key)
+                if expected_val != actual_val:
+                    return False
+            return True
+        except Exception:
+            return False
+
+    def assertable_fields(self, interaction: Interaction) -> frozenset[str]:
+        """Return assertable fields for each step type."""
+        if interaction.source_id == _SYNC_SOURCE_CLOSE:
+            return frozenset()
+        return frozenset(interaction.details.keys())
+
+    def assert_connect(self, *, uri: str) -> None:
+        """Assert the next sync websocket connect interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._connect_sentinel, uri=uri)
+
+    def assert_send(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next sync websocket send interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._send_sentinel, message=message)
+
+    def assert_recv(self, *, message: Any) -> None:  # noqa: ANN401
+        """Assert the next sync websocket recv interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._recv_sentinel, message=message)
+
+    def assert_close(self) -> None:
+        """Assert the next sync websocket close interaction."""
+        from tripwire._context import _get_test_verifier_or_raise  # noqa: PLC0415
+
+        _get_test_verifier_or_raise().assert_interaction(self._close_sentinel)
+
+    def format_unused_mock_hint(self, mock_config: object) -> str:
+        step: Any = mock_config
+        method = getattr(step, "method", "?")
+        return (
+            f"websocket.{method}(...) was mocked (required=True) but never called.\n"
+            f"Registered at:\n{getattr(step, 'registration_traceback', '')}"
+        )

@@ -1,32 +1,32 @@
 # HttpPlugin Guide
 
-`HttpPlugin` intercepts HTTP calls made through `httpx` (sync and async), `requests`, `urllib`, and `aiohttp` (if installed). It requires the `bigfoot[http]` extra. For aiohttp support, also install `bigfoot[aiohttp]`.
+`HttpPlugin` intercepts HTTP calls made through `httpx` (sync and async), `requests`, `urllib`, and `aiohttp` (if installed). It requires the `tripwire[http]` extra. For aiohttp support, also install `tripwire[aiohttp]`.
 
 ## Installation
 
 ```bash
-pip install bigfoot[http]              # httpx, requests, urllib
-pip install bigfoot[aiohttp]           # + aiohttp support
-pip install bigfoot[http,aiohttp]      # both
+pip install tripwire[http]              # httpx, requests, urllib
+pip install tripwire[aiohttp]           # + aiohttp support
+pip install tripwire[http,aiohttp]      # both
 ```
 
-`bigfoot[http]` installs `httpx>=0.25.0` and `requests>=2.31.0`. `bigfoot[aiohttp]` installs `aiohttp>=3.9.0`.
+`tripwire[http]` installs `httpx>=0.25.0` and `requests>=2.31.0`. `tripwire[aiohttp]` installs `aiohttp>=3.9.0`.
 
 ## Setup
 
-In pytest, access `HttpPlugin` through the `bigfoot.http` proxy. It auto-creates the plugin for the current test on first use — no explicit instantiation needed:
+In pytest, access `HttpPlugin` through the `tripwire.http` proxy. It auto-creates the plugin for the current test on first use — no explicit instantiation needed:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_api():
-    bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
+    tripwire.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
 
-    with bigfoot:
+    with tripwire:
         import httpx
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/users",
+    tripwire.http.assert_request("GET", "https://api.example.com/users",
                                 headers=IsMapping(), body="") \
         .assert_response(200, {"content-type": "application/json"}, '{"users": []}')
 ```
@@ -34,8 +34,8 @@ def test_api():
 For manual use outside pytest, construct `HttpPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.http import HttpPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.http import HttpPlugin
 
 verifier = StrictVerifier()
 http = HttpPlugin(verifier)
@@ -45,10 +45,10 @@ Each verifier may have at most one `HttpPlugin`. A second `HttpPlugin(verifier)`
 
 ## Registering mock responses
 
-Use `bigfoot.http.mock_response(method, url, ...)` to register a response before entering the sandbox:
+Use `tripwire.http.mock_response(method, url, ...)` to register a response before entering the sandbox:
 
 ```python
-bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
+tripwire.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
 ```
 
 Parameters:
@@ -71,8 +71,8 @@ Parameters:
 Multiple `mock_response()` calls for the same method+URL are consumed in registration order. The first matching request gets the first registered response, and so on. If a request arrives with no matching mock remaining, `UnmockedInteractionError` is raised.
 
 ```python
-bigfoot.http.mock_response("GET", "https://api.example.com/token", json={"token": "first"})
-bigfoot.http.mock_response("GET", "https://api.example.com/token", json={"token": "second"})
+tripwire.http.mock_response("GET", "https://api.example.com/token", json={"token": "first"})
+tripwire.http.mock_response("GET", "https://api.example.com/token", json={"token": "second"})
 ```
 
 ## Optional responses
@@ -80,34 +80,34 @@ bigfoot.http.mock_response("GET", "https://api.example.com/token", json={"token"
 Mark a mock response as optional with `required=False`:
 
 ```python
-bigfoot.http.mock_response("GET", "https://api.example.com/health", json={"ok": True}, required=False)
+tripwire.http.mock_response("GET", "https://api.example.com/health", json={"ok": True}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## URL matching
 
-bigfoot matches on scheme, host, path, and (if `params` is provided) query parameters. Query parameters in the actual URL that are not listed in `params` are ignored.
+tripwire matches on scheme, host, path, and (if `params` is provided) query parameters. Query parameters in the actual URL that are not listed in `params` are ignored.
 
 ```python
 # Matches https://api.example.com/search?q=hello&page=2 if params={"q": "hello"}
-bigfoot.http.mock_response("GET", "https://api.example.com/search", json={...}, params={"q": "hello"})
+tripwire.http.mock_response("GET", "https://api.example.com/search", json={...}, params={"q": "hello"})
 ```
 
 ## Asserting HTTP interactions
 
-Use `bigfoot.http.assert_request()` to assert interactions after the sandbox exits. By default, `assert_request()` returns an `HttpAssertionBuilder` that must be completed with `.assert_response()`:
+Use `tripwire.http.assert_request()` to assert interactions after the sandbox exits. By default, `assert_request()` returns an `HttpAssertionBuilder` that must be completed with `.assert_response()`:
 
 ```python
-import bigfoot, httpx
+import tripwire, httpx
 
 def test_users():
-    bigfoot.http.mock_response("GET", "https://api.example.com/users", json=[])
+    tripwire.http.mock_response("GET", "https://api.example.com/users", json=[])
 
-    with bigfoot:
+    with tripwire:
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/users",
+    tripwire.http.assert_request("GET", "https://api.example.com/users",
                                 headers=IsMapping(), body="") \
         .assert_response(200, {"content-type": "application/json"}, '[]')
 ```
@@ -117,7 +117,7 @@ def test_users():
 To assert only request fields without response assertions, pass `require_response=False`:
 
 ```python
-bigfoot.http.assert_request("GET", "https://api.example.com/users",
+tripwire.http.assert_request("GET", "https://api.example.com/users",
                             headers=IsMapping(), body="",
                             require_response=False)
 ```
@@ -134,17 +134,17 @@ Parameters for `assert_request()`:
 ## Using with httpx sync
 
 ```python
-import bigfoot, httpx
+import tripwire, httpx
 
 def test_httpx_sync():
-    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
+    tripwire.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
 
-    with bigfoot:
+    with tripwire:
         response = httpx.get("https://api.example.com/data")
         assert response.status_code == 200
         assert response.json() == {"value": 42}
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+    tripwire.http.assert_request("GET", "https://api.example.com/data",
                                 headers=IsMapping(), body="") \
         .assert_response(200, {"content-type": "application/json"}, '{"value": 42}')
 ```
@@ -152,17 +152,17 @@ def test_httpx_sync():
 ## Using with httpx async
 
 ```python
-import bigfoot, httpx
+import tripwire, httpx
 
 async def test_httpx_async():
-    bigfoot.http.mock_response("POST", "https://api.example.com/items", json={"id": 1}, status=201)
+    tripwire.http.mock_response("POST", "https://api.example.com/items", json={"id": 1}, status=201)
 
-    async with bigfoot:
+    async with tripwire:
         async with httpx.AsyncClient() as client:
             response = await client.post("https://api.example.com/items", json={"name": "widget"})
         assert response.status_code == 201
 
-    bigfoot.http.assert_request("POST", "https://api.example.com/items",
+    tripwire.http.assert_request("POST", "https://api.example.com/items",
                                 headers=IsMapping(), body="") \
         .assert_response(201, {"content-type": "application/json"}, '{"id": 1}')
 ```
@@ -170,38 +170,38 @@ async def test_httpx_async():
 ## Using with requests
 
 ```python
-import bigfoot, requests
+import tripwire, requests
 
 def test_requests():
-    bigfoot.http.mock_response("DELETE", "https://api.example.com/items/99", status=204)
+    tripwire.http.mock_response("DELETE", "https://api.example.com/items/99", status=204)
 
-    with bigfoot:
+    with tripwire:
         response = requests.delete("https://api.example.com/items/99")
         assert response.status_code == 204
 
-    bigfoot.http.assert_request("DELETE", "https://api.example.com/items/99",
+    tripwire.http.assert_request("DELETE", "https://api.example.com/items/99",
                                 headers=IsMapping(), body="") \
         .assert_response(204, IsMapping(), "")
 ```
 
 ## Mocking errors
 
-Use `bigfoot.http.mock_error(method, url, raises=...)` to register a mock that raises an exception instead of returning a response. This simulates connection failures, timeouts, and other transport-level errors:
+Use `tripwire.http.mock_error(method, url, raises=...)` to register a mock that raises an exception instead of returning a response. This simulates connection failures, timeouts, and other transport-level errors:
 
 ```python
-import bigfoot, httpx
+import tripwire, httpx
 
 def test_connection_failure():
-    bigfoot.http.mock_error("GET", "https://api.example.com/data",
+    tripwire.http.mock_error("GET", "https://api.example.com/data",
                             raises=httpx.ConnectError("Connection refused"))
 
-    with bigfoot:
+    with tripwire:
         try:
             httpx.get("https://api.example.com/data")
         except httpx.ConnectError:
             pass  # expected
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+    tripwire.http.assert_request("GET", "https://api.example.com/data",
                                 headers={}, body="",
                                 raised=IsInstance(httpx.ConnectError))
 ```
@@ -220,8 +220,8 @@ Error mocks participate in the same FIFO queue as `mock_response()` calls. They 
 
 ```python
 # First call succeeds, second fails
-bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"ok": True})
-bigfoot.http.mock_error("GET", "https://api.example.com/data",
+tripwire.http.mock_response("GET", "https://api.example.com/data", json={"ok": True})
+tripwire.http.mock_error("GET", "https://api.example.com/data",
                         raises=httpx.ReadTimeout("timeout"))
 ```
 
@@ -230,7 +230,7 @@ bigfoot.http.mock_error("GET", "https://api.example.com/data",
 When an error mock fires, the interaction is recorded with request fields plus a `raised` field instead of response fields. Use the `raised` parameter on `assert_request()` to assert these interactions:
 
 ```python
-bigfoot.http.assert_request("GET", "https://api.example.com/data",
+tripwire.http.assert_request("GET", "https://api.example.com/data",
                             headers={}, body="",
                             raised=IsInstance(httpx.ConnectError))
 ```
@@ -241,49 +241,49 @@ The assertable fields for error interactions are: `method`, `url`, `request_head
 
 ## UnmockedInteractionError for HTTP
 
-When HTTP code fires a request with no matching mock, bigfoot raises `UnmockedInteractionError` with a hint:
+When HTTP code fires a request with no matching mock, tripwire raises `UnmockedInteractionError` with a hint:
 
 ```
 Unexpected HTTP request: GET https://api.example.com/data
 
   To mock this request, add before your sandbox:
-    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={...})
+    tripwire.http.mock_response("GET", "https://api.example.com/data", json={...})
 
   Or to mark it optional:
-    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={...}, required=False)
+    tripwire.http.mock_response("GET", "https://api.example.com/data", json={...}, required=False)
 ```
 
 ## ConflictError
 
-At sandbox entry, `HttpPlugin` checks whether `httpx.HTTPTransport.handle_request`, `httpx.AsyncHTTPTransport.handle_async_request`, and `requests.adapters.HTTPAdapter.send` have already been patched by another library. If any of these have been modified by a third party (respx, responses, httpretty, or an unknown library), bigfoot raises `ConflictError`:
+At sandbox entry, `HttpPlugin` checks whether `httpx.HTTPTransport.handle_request`, `httpx.AsyncHTTPTransport.handle_async_request`, and `requests.adapters.HTTPAdapter.send` have already been patched by another library. If any of these have been modified by a third party (respx, responses, httpretty, or an unknown library), tripwire raises `ConflictError`:
 
 ```
 ConflictError: target='httpx.HTTPTransport.handle_request', patcher='respx'
 ```
 
-Nested bigfoot sandboxes use reference counting and do not conflict with each other.
+Nested tripwire sandboxes use reference counting and do not conflict with each other.
 
 ## Pass-Through: Real HTTP Calls
 
-`bigfoot.http.pass_through(method, url)` registers a permanent routing rule. When an incoming request matches the rule and no mock response matches first, the real HTTP call is made through the original transport (bypassing bigfoot's interception layer). The interaction is still recorded on the timeline and must be asserted like any other interaction.
+`tripwire.http.pass_through(method, url)` registers a permanent routing rule. When an incoming request matches the rule and no mock response matches first, the real HTTP call is made through the original transport (bypassing tripwire's interception layer). The interaction is still recorded on the timeline and must be asserted like any other interaction.
 
 Pass-through rules are routing hints, not assertions. An unused pass-through rule does not raise `UnusedMocksError` at teardown.
 
 ```python
-import bigfoot, httpx
+import tripwire, httpx
 
 def test_mixed():
-    bigfoot.http.mock_response("GET", "https://api.example.com/cached", json={"data": "cached"})
-    bigfoot.http.pass_through("GET", "https://api.example.com/live")
+    tripwire.http.mock_response("GET", "https://api.example.com/cached", json={"data": "cached"})
+    tripwire.http.pass_through("GET", "https://api.example.com/live")
 
-    with bigfoot:
+    with tripwire:
         mocked = httpx.get("https://api.example.com/cached")   # returns mock response
         real   = httpx.get("https://api.example.com/live")     # makes real HTTP call
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/cached",
+    tripwire.http.assert_request("GET", "https://api.example.com/cached",
                                 headers=IsMapping(), body="") \
         .assert_response(200, IsMapping(), '{"data": "cached"}')
-    bigfoot.http.assert_request("GET", "https://api.example.com/live",
+    tripwire.http.assert_request("GET", "https://api.example.com/live",
                                 headers=IsMapping(), body="") \
         .assert_response(IsInstance(int), IsMapping(), IsInstance(str))
 ```
@@ -299,22 +299,22 @@ By default, `assert_request()` returns an `HttpAssertionBuilder` that must be co
 The default is `require_response = true`. To disable it project-wide, add to your `pyproject.toml`:
 
 ```toml
-[tool.bigfoot.http]
+[tool.tripwire.http]
 require_response = false
 ```
 
 With the default setting (or explicit `require_response = true`), every `assert_request()` call returns an `HttpAssertionBuilder`:
 
 ```python
-import bigfoot, httpx
+import tripwire, httpx
 
 def test_api_with_response():
-    bigfoot.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
+    tripwire.http.mock_response("GET", "https://api.example.com/users", json={"users": []})
 
-    with bigfoot:
+    with tripwire:
         response = httpx.get("https://api.example.com/users")
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/users") \
+    tripwire.http.assert_request("GET", "https://api.example.com/users") \
         .assert_response(200, {"content-type": "application/json"}, '{"users": []}')
 ```
 
@@ -323,8 +323,8 @@ def test_api_with_response():
 Pass `require_response=True` when constructing the plugin manually:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.http import HttpPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.http import HttpPlugin
 
 verifier = StrictVerifier()
 http = HttpPlugin(verifier, require_response=True)
@@ -336,11 +336,11 @@ The `require_response` parameter on `assert_request()` overrides both the constr
 
 ```python
 # Force response assertion for this call (this is the default):
-bigfoot.http.assert_request("GET", "https://api.example.com/data", require_response=True) \
+tripwire.http.assert_request("GET", "https://api.example.com/data", require_response=True) \
     .assert_response(200, {}, '{"value": 42}')
 
 # Disable response assertion for this call (opt out of the default):
-bigfoot.http.assert_request("GET", "https://api.example.com/health", require_response=False)
+tripwire.http.assert_request("GET", "https://api.example.com/health", require_response=False)
 ```
 
 ### HttpAssertionBuilder
@@ -350,7 +350,7 @@ When `require_response` is active, `assert_request()` returns an `HttpAssertionB
 `assert_response(status, headers, body)` finalizes the assertion by calling `verifier.assert_interaction()` with all seven fields:
 
 ```python
-builder = bigfoot.http.assert_request("POST", "https://api.example.com/items",
+builder = tripwire.http.assert_request("POST", "https://api.example.com/items",
                                        headers={"content-type": "application/json"},
                                        body='{"name": "widget"}',
                                        require_response=True)
@@ -359,26 +359,26 @@ builder.assert_response(201, {"content-type": "application/json"}, '{"id": 1}')
 
 ### Configuration via pyproject.toml
 
-See the [Configuration Guide](configuration.md) for full details on `[tool.bigfoot.http]`.
+See the [Configuration Guide](configuration.md) for full details on `[tool.tripwire.http]`.
 
 ## Using with aiohttp
 
-Requires `bigfoot[aiohttp]`. If aiohttp is not installed, `HttpPlugin` works normally for other transports.
+Requires `tripwire[aiohttp]`. If aiohttp is not installed, `HttpPlugin` works normally for other transports.
 
 ```python
-import bigfoot, aiohttp
+import tripwire, aiohttp
 
 async def test_aiohttp_get():
-    bigfoot.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
+    tripwire.http.mock_response("GET", "https://api.example.com/data", json={"value": 42})
 
-    async with bigfoot:
+    async with tripwire:
         async with aiohttp.ClientSession() as session:
             response = await session.get("https://api.example.com/data")
             assert response.status == 200
             body = await response.json()
             assert body == {"value": 42}
 
-    bigfoot.http.assert_request("GET", "https://api.example.com/data",
+    tripwire.http.assert_request("GET", "https://api.example.com/data",
                                 headers={}, body="",
                                 require_response=True) \
         .assert_response(200, {"content-type": "application/json"}, '{"value": 42}')
@@ -388,16 +388,16 @@ aiohttp POST with JSON body:
 
 ```python
 async def test_aiohttp_post():
-    bigfoot.http.mock_response("POST", "https://api.example.com/items",
+    tripwire.http.mock_response("POST", "https://api.example.com/items",
                                json={"id": 1}, status=201)
 
-    async with bigfoot:
+    async with tripwire:
         async with aiohttp.ClientSession() as session:
             response = await session.post("https://api.example.com/items",
                                           json={"name": "widget"})
             assert response.status == 201
 
-    bigfoot.http.assert_request("POST", "https://api.example.com/items",
+    tripwire.http.assert_request("POST", "https://api.example.com/items",
                                 headers={}, body='{"name": "widget"}',
                                 require_response=True) \
         .assert_response(201, {"content-type": "application/json"}, '{"id": 1}')

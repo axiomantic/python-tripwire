@@ -1,20 +1,20 @@
-# How bigfoot Works
+# How tripwire Works
 
-This guide explains bigfoot's architecture: how the sandbox intercepts external calls, how interactions are recorded and asserted, and how the plugin system ties it all together.
+This guide explains tripwire's architecture: how the sandbox intercepts external calls, how interactions are recorded and asserted, and how the plugin system ties it all together.
 
 ## The Three Guarantees
 
-bigfoot enforces three rules that most mocking libraries leave silent:
+tripwire enforces three rules that most mocking libraries leave silent:
 
-1. **Every call must be pre-authorized.** If your code makes an external call with no registered mock, bigfoot raises `UnmockedInteractionError` immediately, not at teardown.
-2. **Every recorded interaction must be explicitly asserted.** If an interaction is recorded but never asserted, bigfoot raises `UnassertedInteractionsError` at teardown.
-3. **Every registered mock must actually be triggered.** If you register a mock that never fires, bigfoot raises `UnusedMocksError` at teardown.
+1. **Every call must be pre-authorized.** If your code makes an external call with no registered mock, tripwire raises `UnmockedInteractionError` immediately, not at teardown.
+2. **Every recorded interaction must be explicitly asserted.** If an interaction is recorded but never asserted, tripwire raises `UnassertedInteractionsError` at teardown.
+3. **Every registered mock must actually be triggered.** If you register a mock that never fires, tripwire raises `UnusedMocksError` at teardown.
 
 Together, these guarantees mean that when a test passes, you know exactly what happened -- not just that nothing crashed.
 
 ## Sandbox Lifecycle
 
-The core entry point is `with bigfoot:`, which creates a **sandbox** -- a controlled environment where all external calls are intercepted. Here is the exact sequence of events:
+The core entry point is `with tripwire:`, which creates a **sandbox** -- a controlled environment where all external calls are intercepted. Here is the exact sequence of events:
 
 ### Entering the sandbox
 
@@ -41,7 +41,7 @@ The `SandboxContext` supports both `with` and `async with`, using the same `_ent
 
 ## Interception Model
 
-bigfoot intercepts external calls through class-level monkeypatching. The design uses two key patterns: **module-level capture of originals** and **class-level reference counting**.
+tripwire intercepts external calls through class-level monkeypatching. The design uses two key patterns: **module-level capture of originals** and **class-level reference counting**.
 
 ### Module-level capture of originals
 
@@ -82,11 +82,11 @@ This means patches are shared across all verifier instances. The reference count
 
 ## ContextVar Routing
 
-The central question for any interceptor is: "which verifier should I report to?" bigfoot answers this with a `ContextVar`:
+The central question for any interceptor is: "which verifier should I report to?" tripwire answers this with a `ContextVar`:
 
 ```python
 _active_verifier: contextvars.ContextVar[StrictVerifier | None] = contextvars.ContextVar(
-    "bigfoot_active_verifier", default=None
+    "tripwire_active_verifier", default=None
 )
 ```
 
@@ -100,12 +100,12 @@ Python's `contextvars.ContextVar` is both **thread-safe** and **async-safe**. Ea
 - Multiple async tasks can run separate sandboxes concurrently without interference.
 - No global mutable state, no locks needed for routing.
 
-bigfoot uses three ContextVars:
+tripwire uses three ContextVars:
 
 | ContextVar | Purpose |
 |---|---|
 | `_active_verifier` | Points interceptors to the current verifier. Set on sandbox enter, reset on exit. |
-| `_current_test_verifier` | Points module-level API functions (`bigfoot.mock()`, `bigfoot.assert_interaction()`) to the per-test verifier. Managed by the pytest fixture. |
+| `_current_test_verifier` | Points module-level API functions (`tripwire.mock()`, `tripwire.assert_interaction()`) to the per-test verifier. Managed by the pytest fixture. |
 | `_any_order_depth` | Tracks nesting depth of `in_any_order()` blocks. When > 0, assertions match in any order. |
 
 ## Timeline and Interactions
@@ -143,7 +143,7 @@ Sequence numbers establish a total ordering of all interactions across all plugi
 
 ### Recording guard
 
-The `BasePlugin.record()` method sets a `_recording_in_progress` ContextVar before appending to the timeline. If any code calls `Timeline.mark_asserted()` while recording is in progress, bigfoot raises `AutoAssertError`. This is a runtime guard against the auto-assert anti-pattern -- plugins must never mark interactions as asserted during recording.
+The `BasePlugin.record()` method sets a `_recording_in_progress` ContextVar before appending to the timeline. If any code calls `Timeline.mark_asserted()` while recording is in progress, tripwire raises `AutoAssertError`. This is a runtime guard against the auto-assert anti-pattern -- plugins must never mark interactions as asserted during recording.
 
 ## Mock Queues
 
@@ -172,7 +172,7 @@ If the queue is empty and no `wraps` object is configured, `UnmockedInteractionE
 The FIFO pattern means you can chain multiple configurations to handle sequential calls:
 
 ```python
-db = bigfoot.mock("db")
+db = tripwire.mock("db")
 db.query.returns(["row1"]).returns(["row2"])
 # First call returns ["row1"], second returns ["row2"]
 ```
@@ -185,7 +185,7 @@ Assertions happen in two phases: **inline assertions** during the test, and **te
 
 ### Inline assertions: `assert_interaction()`
 
-When you call `assert_interaction()` (or a plugin helper like `http.assert_request()`), bigfoot:
+When you call `assert_interaction()` (or a plugin helper like `http.assert_request()`), tripwire:
 
 1. **Finds the next unasserted interaction** by peeking at the timeline. In normal mode, this is strictly the next unasserted interaction in sequence order. Inside an `in_any_order()` block, it searches all unasserted interactions for a match.
 
@@ -210,7 +210,7 @@ If both violations exist, they are combined into a single `VerificationError` so
 
 ## Plugin Registry
 
-bigfoot uses a registry to manage its built-in plugins and supports entry points for third-party plugins.
+tripwire uses a registry to manage its built-in plugins and supports entry points for third-party plugins.
 
 ### Built-in registry
 
@@ -220,7 +220,7 @@ The `PLUGIN_REGISTRY` tuple in `_registry.py` lists every built-in plugin with i
 @dataclass(frozen=True)
 class PluginEntry:
     name: str                # e.g., "http"
-    import_path: str         # e.g., "bigfoot.plugins.http"
+    import_path: str         # e.g., "tripwire.plugins.http"
     class_name: str          # e.g., "HttpPlugin"
     availability_check: str  # dependency check strategy
     default_enabled: bool    # False for opt-in plugins
@@ -243,19 +243,19 @@ Availability is checked via the `availability_check` field:
 | `"redis"` | Single module; must be importable |
 | `"flag:module:attr"` | Read a boolean flag from a plugin module |
 
-Plugins whose dependencies are not installed are silently skipped -- unless they were explicitly listed in `enabled_plugins`, which raises `BigfootConfigError`.
+Plugins whose dependencies are not installed are silently skipped -- unless they were explicitly listed in `enabled_plugins`, which raises `TripwireConfigError`.
 
 ### Third-party plugins via entry points
 
-After built-in plugins are loaded, bigfoot discovers third-party plugins registered under the `bigfoot.plugins` entry point group:
+After built-in plugins are loaded, tripwire discovers third-party plugins registered under the `tripwire.plugins` entry point group:
 
 ```python
-for ep in entry_points(group="bigfoot.plugins"):
+for ep in entry_points(group="tripwire.plugins"):
     plugin_cls = ep.load()
     plugin_cls(verifier)
 ```
 
-This allows library authors to ship bigfoot plugins that activate automatically when installed.
+This allows library authors to ship tripwire plugins that activate automatically when installed.
 
 ### Deduplication
 
@@ -263,20 +263,20 @@ The `_register_plugin()` method on `StrictVerifier` silently skips duplicate plu
 
 ## pytest Integration
 
-bigfoot ships as a pytest plugin, registered via the `bigfoot` entry point. It provides two fixtures:
+tripwire ships as a pytest plugin, registered via the `tripwire` entry point. It provides two fixtures:
 
-### `_bigfoot_auto_verifier` (autouse)
+### `_tripwire_auto_verifier` (autouse)
 
 This fixture runs automatically for every test. It:
 
 1. Creates a fresh `StrictVerifier` (which auto-instantiates all enabled plugins).
-2. Sets the `_current_test_verifier` ContextVar so module-level functions like `bigfoot.mock()` and `bigfoot.http.mock_response()` can find the verifier.
+2. Sets the `_current_test_verifier` ContextVar so module-level functions like `tripwire.mock()` and `tripwire.http.mock_response()` can find the verifier.
 3. Yields the verifier to the test.
 4. On teardown, resets the ContextVar and calls `verify_all()`.
 
 ```python
 @pytest.fixture(autouse=True)
-def _bigfoot_auto_verifier() -> Generator[StrictVerifier, None, None]:
+def _tripwire_auto_verifier() -> Generator[StrictVerifier, None, None]:
     verifier = StrictVerifier()
     token = _current_test_verifier.set(verifier)
     yield verifier
@@ -284,12 +284,12 @@ def _bigfoot_auto_verifier() -> Generator[StrictVerifier, None, None]:
     verifier.verify_all()
 ```
 
-Because it is autouse, test authors do not need to request it. Every test gets a verifier, and every test gets `verify_all()` at teardown. If a test does not use bigfoot at all, `verify_all()` is a no-op (no interactions, no mocks, nothing to verify).
+Because it is autouse, test authors do not need to request it. Every test gets a verifier, and every test gets `verify_all()` at teardown. If a test does not use tripwire at all, `verify_all()` is a no-op (no interactions, no mocks, nothing to verify).
 
-### `bigfoot_verifier` (explicit)
+### `tripwire_verifier` (explicit)
 
-For tests that need direct access to the verifier instance (e.g., to manually construct plugins), the `bigfoot_verifier` fixture exposes the same verifier created by the autouse fixture.
+For tests that need direct access to the verifier instance (e.g., to manually construct plugins), the `tripwire_verifier` fixture exposes the same verifier created by the autouse fixture.
 
 ### The sandbox is not automatic
 
-The pytest plugin creates the verifier and runs verification, but it does **not** activate the sandbox automatically. The test author controls sandbox lifetime with `with bigfoot:` or `async with bigfoot:`. This is intentional: mock registration and assertions happen outside the sandbox, and only the code under test runs inside it.
+The pytest plugin creates the verifier and runs verification, but it does **not** activate the sandbox automatically. The test author controls sandbox lifetime with `with tripwire:` or `async with tripwire:`. This is intentional: mock registration and assertions happen outside the sandbox, and only the code under test runs inside it.

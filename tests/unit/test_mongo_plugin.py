@@ -7,14 +7,14 @@ from unittest.mock import MagicMock
 import pymongo
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.mongo_plugin import (
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.mongo_plugin import (
     _PYMONGO_AVAILABLE,
     MongoMockConfig,
     MongoPlugin,
@@ -96,14 +96,14 @@ def test_pymongo_available_flag() -> None:
 #   MUTATION: Not checking the flag and proceeding normally would not raise.
 #   ESCAPE: Raising ImportError with a different message fails the exact string check.
 def test_activate_raises_when_pymongo_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.mongo_plugin as _mp
+    import tripwire.plugins.mongo_plugin as _mp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_mp, "_PYMONGO_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[mongo] to use MongoPlugin: pip install bigfoot[mongo]"
+        "Install tripwire[mongo] to use MongoPlugin: pip install tripwire[mongo]"
     )
 
 
@@ -147,7 +147,7 @@ def test_mongo_mock_config_defaults() -> None:
 
 
 # ESCAPE: test_activate_installs_patch
-#   CLAIM: After activate(), pymongo.collection.Collection.find is replaced with bigfoot interceptor.
+#   CLAIM: After activate(), pymongo.collection.Collection.find is replaced with tripwire interceptor.
 #   PATH:  activate() -> _install_count == 0 -> store originals -> install interceptors.
 #   CHECK: pymongo.collection.Collection.find is not the original after activate().
 #   MUTATION: Skipping patch installation leaves original in place; identity check fails.
@@ -164,7 +164,7 @@ def test_activate_installs_patch() -> None:
 #   CLAIM: After activate() then deactivate(), pymongo.collection.Collection.find is restored.
 #   PATH:  deactivate() -> _install_count reaches 0 -> restore originals.
 #   CHECK: pymongo.collection.Collection.find is the original after deactivate().
-#   MUTATION: Not restoring in deactivate() leaves bigfoot's interceptor in place.
+#   MUTATION: Not restoring in deactivate() leaves tripwire's interceptor in place.
 #   ESCAPE: Nothing reasonable -- identity comparison against saved original.
 def test_deactivate_restores_patch() -> None:
     original_find = pymongo.collection.Collection.find
@@ -393,7 +393,7 @@ def test_unmocked_error_after_queue_exhausted() -> None:
 #   MUTATION: Returning frozenset() skips completeness enforcement entirely.
 #   ESCAPE: Nothing reasonable -- exact equality.
 def test_assertable_fields_returns_all_detail_keys() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -424,7 +424,7 @@ def test_assertable_fields_returns_all_detail_keys() -> None:
 #   MUTATION: Returning True always fails the non-matching field check.
 #   ESCAPE: Nothing reasonable -- exact boolean equality on distinct cases.
 def test_matches_field_comparison() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -457,7 +457,7 @@ def test_matches_field_comparison() -> None:
 #   MUTATION: Returning wrong format string fails equality check.
 #   ESCAPE: Different order or missing fields fails equality.
 def test_format_interaction() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -483,7 +483,7 @@ def test_format_interaction() -> None:
 #   MUTATION: Returning wrong format fails equality.
 #   ESCAPE: Different format fails equality.
 def test_format_interaction_insert_one() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -508,7 +508,7 @@ def test_format_interaction_insert_one() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Different format fails the equality check.
 def test_format_mock_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -518,7 +518,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.mongo_mock.mock_operation('find_one', returns=...)"
+    assert result == "    tripwire.mongo_mock.mock_operation('find_one', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -533,7 +533,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "mongo.find_one(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.mongo_mock.mock_operation('find_one', returns=...)"
+        "    tripwire.mongo_mock.mock_operation('find_one', returns=...)"
     )
 
 
@@ -544,7 +544,7 @@ def test_format_unmocked_hint() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Different format fails the equality check.
 def test_format_assert_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -561,7 +561,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mongo_mock.assert_find_one(\n"
+        "    tripwire.mongo_mock.assert_find_one(\n"
         "        database='testdb',\n"
         "        collection='testcoll',\n"
         "        filter={'_id': 1},\n"
@@ -577,7 +577,7 @@ def test_format_assert_hint() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Different format fails the equality check.
 def test_format_assert_hint_insert_one() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -593,7 +593,7 @@ def test_format_assert_hint_insert_one() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mongo_mock.assert_insert_one(\n"
+        "    tripwire.mongo_mock.assert_insert_one(\n"
         "        database='testdb',\n"
         "        collection='testcoll',\n"
         "        document={'name': 'Alice'},\n"
@@ -628,15 +628,15 @@ def test_format_unused_mock_hint() -> None:
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping in assert_find raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_find_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_find_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find", returns=[{"x": 1}])
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find", returns=[{"x": 1}])
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find({"active": True}, {"name": 1})
 
-    bigfoot.mongo_mock.assert_find(
+    tripwire.mongo_mock.assert_find(
         database="mydb",
         collection="users",
         filter={"active": True},
@@ -650,15 +650,15 @@ def test_assert_find_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable.
-def test_assert_find_one_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_find_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": 1})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"_id": 1})
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1}, {"name": 1})
 
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -672,15 +672,15 @@ def test_assert_find_one_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable.
-def test_assert_insert_one_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_insert_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.insert_one({"name": "Alice"})
 
-    bigfoot.mongo_mock.assert_insert_one(
+    tripwire.mongo_mock.assert_insert_one(
         database="mydb",
         collection="users",
         document={"name": "Alice"},
@@ -693,15 +693,15 @@ def test_assert_insert_one_typed_helper(bigfoot_verifier: StrictVerifier) -> Non
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable.
-def test_assert_update_one_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_update_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("update_one", returns=MagicMock(modified_count=1))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("update_one", returns=MagicMock(modified_count=1))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.update_one({"_id": 1}, {"$set": {"name": "Bob"}})
 
-    bigfoot.mongo_mock.assert_update_one(
+    tripwire.mongo_mock.assert_update_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -715,15 +715,15 @@ def test_assert_update_one_typed_helper(bigfoot_verifier: StrictVerifier) -> Non
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable.
-def test_assert_delete_one_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_delete_one_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.delete_one({"_id": 1})
 
-    bigfoot.mongo_mock.assert_delete_one(
+    tripwire.mongo_mock.assert_delete_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -736,16 +736,16 @@ def test_assert_delete_one_typed_helper(bigfoot_verifier: StrictVerifier) -> Non
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable.
-def test_assert_aggregate_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_aggregate_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     pipeline = [{"$match": {"active": True}}, {"$group": {"_id": "$type"}}]
-    bigfoot.mongo_mock.mock_operation("aggregate", returns=[{"_id": "A"}])
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("aggregate", returns=[{"_id": "A"}])
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.aggregate(pipeline)
 
-    bigfoot.mongo_mock.assert_aggregate(
+    tripwire.mongo_mock.assert_aggregate(
         database="mydb",
         collection="users",
         pipeline=pipeline,
@@ -758,15 +758,15 @@ def test_assert_aggregate_typed_helper(bigfoot_verifier: StrictVerifier) -> None
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping in assert_insert_many raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_insert_many_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_insert_many_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.insert_many([{"x": 1}, {"x": 2}])
 
-    bigfoot.mongo_mock.assert_insert_many(
+    tripwire.mongo_mock.assert_insert_many(
         database="mydb",
         collection="items",
         documents=[{"x": 1}, {"x": 2}],
@@ -779,15 +779,15 @@ def test_assert_insert_many_typed_helper(bigfoot_verifier: StrictVerifier) -> No
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping in assert_update_many raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_update_many_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_update_many_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("update_many", returns=MagicMock(modified_count=5))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("update_many", returns=MagicMock(modified_count=5))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.update_many({"status": "old"}, {"$set": {"status": "new"}})
 
-    bigfoot.mongo_mock.assert_update_many(
+    tripwire.mongo_mock.assert_update_many(
         database="mydb",
         collection="items",
         filter={"status": "old"},
@@ -801,15 +801,15 @@ def test_assert_update_many_typed_helper(bigfoot_verifier: StrictVerifier) -> No
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping in assert_delete_many raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_delete_many_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_delete_many_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.delete_many({"status": "old"})
 
-    bigfoot.mongo_mock.assert_delete_many(
+    tripwire.mongo_mock.assert_delete_many(
         database="mydb",
         collection="items",
         filter={"status": "old"},
@@ -822,15 +822,15 @@ def test_assert_delete_many_typed_helper(bigfoot_verifier: StrictVerifier) -> No
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping in assert_count_documents raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_count_documents_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_count_documents_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("count_documents", returns=42)
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("count_documents", returns=42)
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "items")
         coll.count_documents({"active": True})
 
-    bigfoot.mongo_mock.assert_count_documents(
+    tripwire.mongo_mock.assert_count_documents(
         database="mydb",
         collection="items",
         filter={"active": True},
@@ -848,23 +848,23 @@ def test_assert_count_documents_typed_helper(bigfoot_verifier: StrictVerifier) -
 #   CHECK: InteractionMismatchError raised.
 #   MUTATION: Not checking fields means no error raised.
 #   ESCAPE: Nothing reasonable -- exception proves mismatch detection.
-def test_assert_find_one_wrong_filter_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_find_one_wrong_filter_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"x": 1})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1})
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.mongo_mock.assert_find_one(
+        tripwire.mongo_mock.assert_find_one(
             database="mydb",
             collection="users",
             filter={"_id": 999},
             projection=None,
         )
     # Now assert correctly so teardown passes
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -883,20 +883,20 @@ def test_assert_find_one_wrong_filter_raises(bigfoot_verifier: StrictVerifier) -
 #   CHECK: timeline.all_unasserted() contains the interaction.
 #   MUTATION: Auto-asserting in the interceptor means all_unasserted() would be empty.
 #   ESCAPE: Nothing reasonable -- exact check on unasserted list.
-def test_mongo_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_mongo_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"x": 1})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1})
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "mongo:find_one"
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -905,27 +905,27 @@ def test_mongo_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) 
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.mongo_mock
+# Module-level proxy: tripwire.mongo_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_mongo_mock_proxy_mock_operation
-#   CLAIM: bigfoot.mongo_mock.mock_operation("find_one", returns=...) works when verifier active.
+#   CLAIM: tripwire.mongo_mock.mock_operation("find_one", returns=...) works when verifier active.
 #   PATH:  _MongoProxy.__getattr__("mock_operation") -> get verifier ->
 #          find/create MongoPlugin -> return plugin.mock_operation.
 #   CHECK: The proxy call does not raise and the mock is registered.
 #   MUTATION: Returning None instead of the plugin fails with AttributeError.
 #   ESCAPE: Nothing reasonable -- call succeeds or raises.
-def test_mongo_mock_proxy_mock_operation(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_mongo_mock_proxy_mock_operation(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"proxy": True})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"proxy": True})
+    with tripwire.sandbox():
         coll = _make_collection("proxydb", "proxycoll")
         result = coll.find_one({"k": 1})
 
     assert result == {"proxy": True}
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="proxydb",
         collection="proxycoll",
         filter={"k": 1},
@@ -934,19 +934,19 @@ def test_mongo_mock_proxy_mock_operation(bigfoot_verifier: StrictVerifier) -> No
 
 
 # ESCAPE: test_mongo_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.mongo_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.mongo_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _MongoProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_mongo_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.mongo_mock.mock_operation
+            _ = tripwire.mongo_mock.mock_operation
     finally:
         _current_test_verifier.reset(token)
 
@@ -957,16 +957,16 @@ def test_mongo_mock_proxy_raises_outside_context() -> None:
 
 
 # ESCAPE: test_mongo_plugin_in_all
-#   CLAIM: MongoPlugin and mongo_mock are exported from bigfoot.__all__.
-#   PATH:  bigfoot.__all__ contains "MongoPlugin" and "mongo_mock".
-#   CHECK: "MongoPlugin" in bigfoot.__all__; "mongo_mock" in bigfoot.__all__.
+#   CLAIM: MongoPlugin and mongo_mock are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ contains "MongoPlugin" and "mongo_mock".
+#   CHECK: "MongoPlugin" in tripwire.__all__; "mongo_mock" in tripwire.__all__.
 #   MUTATION: Omitting either from __all__ fails the membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_mongo_plugin_in_all() -> None:
-    import bigfoot
+    import tripwire
 
-    assert "MongoPlugin" in bigfoot.__all__
-    assert "mongo_mock" in bigfoot.__all__
+    assert "MongoPlugin" in tripwire.__all__
+    assert "mongo_mock" in tripwire.__all__
 
 
 # ---------------------------------------------------------------------------
@@ -980,18 +980,18 @@ def test_mongo_plugin_in_all() -> None:
 #   CHECK: MissingAssertionFieldsError raised with correct missing_fields.
 #   MUTATION: Returning frozenset() from assertable_fields would never raise.
 #   ESCAPE: Nothing reasonable -- exact exception type and field check.
-def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
-    from bigfoot.plugins.mongo_plugin import _MongoSentinel
+def test_missing_fields_raises_error(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
+    from tripwire.plugins.mongo_plugin import _MongoSentinel
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"x": 1})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one({"_id": 1})
 
     sentinel = _MongoSentinel("mongo:find_one")
     with pytest.raises(MissingAssertionFieldsError) as exc_info:
-        bigfoot_verifier.assert_interaction(
+        tripwire_verifier.assert_interaction(
             sentinel,
             database="mydb",
             # Missing: collection, operation, filter, projection
@@ -1001,7 +1001,7 @@ def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
     assert "filter" in exc_info.value.missing_fields
 
     # Now assert correctly so teardown passes
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -1132,16 +1132,16 @@ def test_aggregate_interception() -> None:
 #   CHECK: All detail fields match expected values.
 #   MUTATION: Missing a field in details fails the assertable_fields check at assertion time.
 #   ESCAPE: Nothing reasonable -- typed helper covers all fields.
-def test_find_one_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_find_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"x": 1})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.find_one({"_id": 1}, {"name": 1})
 
     # This asserts ALL required fields
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="recdb",
         collection="reccoll",
         filter={"_id": 1},
@@ -1155,15 +1155,15 @@ def test_find_one_records_correct_details(bigfoot_verifier: StrictVerifier) -> N
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_insert_one_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_insert_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.insert_one({"name": "Alice", "age": 30})
 
-    bigfoot.mongo_mock.assert_insert_one(
+    tripwire.mongo_mock.assert_insert_one(
         database="recdb",
         collection="reccoll",
         document={"name": "Alice", "age": 30},
@@ -1176,15 +1176,15 @@ def test_insert_one_records_correct_details(bigfoot_verifier: StrictVerifier) ->
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_update_one_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_update_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("update_one", returns=MagicMock(modified_count=1))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("update_one", returns=MagicMock(modified_count=1))
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.update_one({"_id": 1}, {"$set": {"name": "Bob"}})
 
-    bigfoot.mongo_mock.assert_update_one(
+    tripwire.mongo_mock.assert_update_one(
         database="recdb",
         collection="reccoll",
         filter={"_id": 1},
@@ -1198,15 +1198,15 @@ def test_update_one_records_correct_details(bigfoot_verifier: StrictVerifier) ->
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_delete_one_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_delete_one_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("delete_one", returns=MagicMock(deleted_count=1))
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.delete_one({"_id": 1})
 
-    bigfoot.mongo_mock.assert_delete_one(
+    tripwire.mongo_mock.assert_delete_one(
         database="recdb",
         collection="reccoll",
         filter={"_id": 1},
@@ -1219,16 +1219,16 @@ def test_delete_one_records_correct_details(bigfoot_verifier: StrictVerifier) ->
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_aggregate_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_aggregate_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     pipeline = [{"$match": {"active": True}}]
-    bigfoot.mongo_mock.mock_operation("aggregate", returns=[])
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("aggregate", returns=[])
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.aggregate(pipeline)
 
-    bigfoot.mongo_mock.assert_aggregate(
+    tripwire.mongo_mock.assert_aggregate(
         database="recdb",
         collection="reccoll",
         pipeline=pipeline,
@@ -1241,17 +1241,17 @@ def test_aggregate_records_correct_details(bigfoot_verifier: StrictVerifier) -> 
 #   CHECK: All detail fields verified via assert_interaction.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_count_documents_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
-    from bigfoot.plugins.mongo_plugin import _MongoSentinel
+def test_count_documents_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
+    from tripwire.plugins.mongo_plugin import _MongoSentinel
 
-    bigfoot.mongo_mock.mock_operation("count_documents", returns=42)
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("count_documents", returns=42)
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.count_documents({"active": True})
 
     sentinel = _MongoSentinel("mongo:count_documents")
-    bigfoot_verifier.assert_interaction(
+    tripwire_verifier.assert_interaction(
         sentinel,
         database="recdb",
         collection="reccoll",
@@ -1266,16 +1266,16 @@ def test_count_documents_records_correct_details(bigfoot_verifier: StrictVerifie
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_insert_many_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_insert_many_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     docs = [{"x": 1}, {"x": 2}]
-    bigfoot.mongo_mock.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("insert_many", returns=MagicMock(inserted_ids=["a", "b"]))
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.insert_many(docs)
 
-    bigfoot.mongo_mock.assert_insert_many(
+    tripwire.mongo_mock.assert_insert_many(
         database="recdb",
         collection="reccoll",
         documents=docs,
@@ -1288,15 +1288,15 @@ def test_insert_many_records_correct_details(bigfoot_verifier: StrictVerifier) -
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_update_many_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_update_many_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("update_many", returns=MagicMock(modified_count=5))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("update_many", returns=MagicMock(modified_count=5))
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.update_many({"status": "old"}, {"$set": {"status": "new"}})
 
-    bigfoot.mongo_mock.assert_update_many(
+    tripwire.mongo_mock.assert_update_many(
         database="recdb",
         collection="reccoll",
         filter={"status": "old"},
@@ -1310,15 +1310,15 @@ def test_update_many_records_correct_details(bigfoot_verifier: StrictVerifier) -
 #   CHECK: Typed helper asserts all fields.
 #   MUTATION: Missing a field fails assertable_fields check.
 #   ESCAPE: Nothing reasonable.
-def test_delete_many_records_correct_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_delete_many_records_correct_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("delete_many", returns=MagicMock(deleted_count=3))
+    with tripwire.sandbox():
         coll = _make_collection("recdb", "reccoll")
         coll.delete_many({"status": "old"})
 
-    bigfoot.mongo_mock.assert_delete_many(
+    tripwire.mongo_mock.assert_delete_many(
         database="recdb",
         collection="reccoll",
         filter={"status": "old"},
@@ -1336,15 +1336,15 @@ def test_delete_many_records_correct_details(bigfoot_verifier: StrictVerifier) -
 #   CHECK: Typed helper asserts all fields match kwargs values.
 #   MUTATION: Broken kwargs.get() records None instead of actual values.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_find_one_kwargs_extraction(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_find_one_kwargs_extraction(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("find_one", returns={"x": 1})
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("find_one", returns={"x": 1})
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.find_one(filter={"_id": 1}, projection={"name": 1})
 
-    bigfoot.mongo_mock.assert_find_one(
+    tripwire.mongo_mock.assert_find_one(
         database="mydb",
         collection="users",
         filter={"_id": 1},
@@ -1358,15 +1358,15 @@ def test_find_one_kwargs_extraction(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: Typed helper asserts all fields match kwargs values.
 #   MUTATION: Broken kwargs.get() records None instead of actual document.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_insert_one_kwargs_extraction(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_insert_one_kwargs_extraction(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
-    with bigfoot.sandbox():
+    tripwire.mongo_mock.mock_operation("insert_one", returns=MagicMock(inserted_id="abc"))
+    with tripwire.sandbox():
         coll = _make_collection("mydb", "users")
         coll.insert_one(document={"name": "Alice"})
 
-    bigfoot.mongo_mock.assert_insert_one(
+    tripwire.mongo_mock.assert_insert_one(
         database="mydb",
         collection="users",
         document={"name": "Alice"},

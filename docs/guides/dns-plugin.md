@@ -6,28 +6,28 @@
 
 `DnsPlugin` intercepts stdlib `socket` functions, so no extra installation is needed. If you also want to intercept `dnspython` resolution, install it separately.
 
-In pytest, access `DnsPlugin` through the `bigfoot.dns_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `DnsPlugin` through the `tripwire.dns_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import socket
-import bigfoot
+import tripwire
 
 def test_hostname_resolution():
-    bigfoot.dns_mock.mock_gethostbyname("api.example.com", returns="93.184.216.34")
+    tripwire.dns_mock.mock_gethostbyname("api.example.com", returns="93.184.216.34")
 
-    with bigfoot:
+    with tripwire:
         ip = socket.gethostbyname("api.example.com")
 
     assert ip == "93.184.216.34"
 
-    bigfoot.dns_mock.assert_gethostbyname(hostname="api.example.com")
+    tripwire.dns_mock.assert_gethostbyname(hostname="api.example.com")
 ```
 
 For manual use outside pytest, construct `DnsPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.dns_plugin import DnsPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.dns_plugin import DnsPlugin
 
 verifier = StrictVerifier()
 dns_mock = DnsPlugin(verifier)
@@ -44,7 +44,7 @@ Each verifier may have at most one `DnsPlugin`. A second `DnsPlugin(verifier)` r
 Register a mock for `socket.getaddrinfo()`:
 
 ```python
-bigfoot.dns_mock.mock_getaddrinfo(
+tripwire.dns_mock.mock_getaddrinfo(
     "api.example.com",
     returns=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
 )
@@ -62,7 +62,7 @@ bigfoot.dns_mock.mock_getaddrinfo(
 Register a mock for `socket.gethostbyname()`:
 
 ```python
-bigfoot.dns_mock.mock_gethostbyname("db.internal", returns="10.0.1.5")
+tripwire.dns_mock.mock_gethostbyname("db.internal", returns="10.0.1.5")
 ```
 
 | Parameter | Type | Default | Description |
@@ -77,7 +77,7 @@ bigfoot.dns_mock.mock_gethostbyname("db.internal", returns="10.0.1.5")
 Register a mock for `dns.resolver.resolve()` (requires dnspython):
 
 ```python
-bigfoot.dns_mock.mock_resolve("mail.example.com", "MX", returns=mock_mx_answer)
+tripwire.dns_mock.mock_resolve("mail.example.com", "MX", returns=mock_mx_answer)
 ```
 
 | Parameter | Type | Default | Description |
@@ -94,28 +94,28 @@ Each hostname (scoped by operation type) has its own independent FIFO queue. Mul
 
 ```python
 def test_multiple_resolutions():
-    bigfoot.dns_mock.mock_gethostbyname("api.example.com", returns="93.184.216.34")
-    bigfoot.dns_mock.mock_gethostbyname("api.example.com", returns="93.184.216.35")
+    tripwire.dns_mock.mock_gethostbyname("api.example.com", returns="93.184.216.34")
+    tripwire.dns_mock.mock_gethostbyname("api.example.com", returns="93.184.216.35")
 
-    with bigfoot:
+    with tripwire:
         ip1 = socket.gethostbyname("api.example.com")
         ip2 = socket.gethostbyname("api.example.com")
 
     assert ip1 == "93.184.216.34"
     assert ip2 == "93.184.216.35"
 
-    bigfoot.dns_mock.assert_gethostbyname(hostname="api.example.com")
-    bigfoot.dns_mock.assert_gethostbyname(hostname="api.example.com")
+    tripwire.dns_mock.assert_gethostbyname(hostname="api.example.com")
+    tripwire.dns_mock.assert_gethostbyname(hostname="api.example.com")
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.dns_mock`. Each helper requires all detail fields for its operation type.
+Use the typed assertion helpers on `tripwire.dns_mock`. Each helper requires all detail fields for its operation type.
 
 ### `assert_getaddrinfo(host, port, family, type, proto)`
 
 ```python
-bigfoot.dns_mock.assert_getaddrinfo(
+tripwire.dns_mock.assert_getaddrinfo(
     host="api.example.com",
     port=443,
     family=socket.AF_INET,
@@ -135,7 +135,7 @@ bigfoot.dns_mock.assert_getaddrinfo(
 ### `assert_gethostbyname(hostname)`
 
 ```python
-bigfoot.dns_mock.assert_gethostbyname(hostname="api.example.com")
+tripwire.dns_mock.assert_gethostbyname(hostname="api.example.com")
 ```
 
 | Parameter | Type | Description |
@@ -145,7 +145,7 @@ bigfoot.dns_mock.assert_gethostbyname(hostname="api.example.com")
 ### `assert_resolve(qname, rdtype)`
 
 ```python
-bigfoot.dns_mock.assert_resolve(qname="mail.example.com", rdtype="MX")
+tripwire.dns_mock.assert_resolve(qname="mail.example.com", rdtype="MX")
 ```
 
 | Parameter | Type | Description |
@@ -159,20 +159,20 @@ Use the `raises` parameter to simulate DNS resolution failures:
 
 ```python
 import socket
-import bigfoot
+import tripwire
 
 def test_dns_resolution_failure():
-    bigfoot.dns_mock.mock_gethostbyname(
+    tripwire.dns_mock.mock_gethostbyname(
         "nonexistent.example.com",
         returns=None,
         raises=socket.gaierror(8, "nodename nor servname provided, or not known"),
     )
 
-    with bigfoot:
+    with tripwire:
         with pytest.raises(socket.gaierror):
             socket.gethostbyname("nonexistent.example.com")
 
-    bigfoot.dns_mock.assert_gethostbyname(hostname="nonexistent.example.com")
+    tripwire.dns_mock.assert_gethostbyname(hostname="nonexistent.example.com")
 ```
 
 ## Full example
@@ -194,17 +194,17 @@ def test_dns_resolution_failure():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.dns_mock.mock_gethostbyname("optional.host", returns="127.0.0.1", required=False)
+tripwire.dns_mock.mock_gethostbyname("optional.host", returns="127.0.0.1", required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls a DNS function for a hostname that has no remaining mocks in its queue, bigfoot raises `UnmockedInteractionError`:
+When code calls a DNS function for a hostname that has no remaining mocks in its queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 socket.gethostbyname('unknown.host') was called but no mock was registered.
 Register a mock with:
-    bigfoot.dns_mock.mock_gethostbyname('unknown.host', returns=...)
+    tripwire.dns_mock.mock_gethostbyname('unknown.host', returns=...)
 ```

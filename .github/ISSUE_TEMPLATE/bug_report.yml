@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in bigfoot
+description: Report a bug in tripwire
 labels: ["bug"]
 body:
   - type: textarea
@@ -22,9 +22,9 @@ body:
       required: true
 
   - type: input
-    id: bigfoot-version
+    id: tripwire-version
     attributes:
-      label: bigfoot version
+      label: tripwire version
       placeholder: "0.6.0"
     validations:
       required: true

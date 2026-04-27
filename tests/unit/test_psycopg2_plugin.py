@@ -6,12 +6,12 @@ psycopg2 = __import__("pytest").importorskip("psycopg2")
 
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.psycopg2_plugin import Psycopg2Plugin
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.psycopg2_plugin import Psycopg2Plugin
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -355,26 +355,26 @@ def test_connect_with_empty_queue_raises_unmocked() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.psycopg2_mock
+# Module-level proxy: tripwire.psycopg2_mock
 # ---------------------------------------------------------------------------
 
 
-def test_psycopg2_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_psycopg2_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.psycopg2_mock.new_session()
+    session = tripwire.psycopg2_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("execute", returns=[], required=False)
     assert result is session
 
 
 def test_psycopg2_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.psycopg2_mock.new_session
+            _ = tripwire.psycopg2_mock.new_session
     finally:
         _current_test_verifier.reset(token)
 
@@ -657,9 +657,9 @@ def test_execute_with_params() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Psycopg2Plugin is exposed as bigfoot.Psycopg2Plugin
+# Psycopg2Plugin is exposed as tripwire.Psycopg2Plugin
 # ---------------------------------------------------------------------------
 
 
 def test_psycopg2_plugin_exported() -> None:
-    assert bigfoot.Psycopg2Plugin is Psycopg2Plugin
+    assert tripwire.Psycopg2Plugin is Psycopg2Plugin

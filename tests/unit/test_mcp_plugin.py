@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.mcp_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.mcp_plugin import (
     _MCP_AVAILABLE,
     McpMockConfig,
     McpPlugin,
@@ -64,14 +64,14 @@ def test_mcp_available_flag() -> None:
 
 
 def test_activate_raises_when_mcp_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.mcp_plugin as _mp
+    import tripwire.plugins.mcp_plugin as _mp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_mp, "_MCP_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[mcp] to use McpPlugin: pip install bigfoot[mcp]"
+        "Install tripwire[mcp] to use McpPlugin: pip install tripwire[mcp]"
     )
 
 
@@ -154,21 +154,21 @@ def test_reference_counting_nested() -> None:
 
 
 @pytest.mark.asyncio
-async def test_client_call_tool_mock_and_assert(bigfoot_verifier: StrictVerifier) -> None:
+async def test_client_call_tool_mock_and_assert(tripwire_verifier: StrictVerifier) -> None:
     """Client call_tool: mock registers, patched method returns mock, assert passes."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
     mock_result = {"content": [{"type": "text", "text": "hello"}]}
-    bigfoot.mcp_mock.mock_call_tool("my_tool", returns=mock_result)
+    tripwire.mcp_mock.mock_call_tool("my_tool", returns=mock_result)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.call_tool(session, "my_tool", {"arg1": "val1"})
 
     assert result == mock_result
-    bigfoot.mcp_mock.assert_call_tool(
+    tripwire.mcp_mock.assert_call_tool(
         "my_tool",
         arguments={"arg1": "val1"},
         direction="client",
@@ -181,21 +181,21 @@ async def test_client_call_tool_mock_and_assert(bigfoot_verifier: StrictVerifier
 
 
 @pytest.mark.asyncio
-async def test_client_read_resource_mock_and_assert(bigfoot_verifier: StrictVerifier) -> None:
+async def test_client_read_resource_mock_and_assert(tripwire_verifier: StrictVerifier) -> None:
     """Client read_resource: mock registers, patched method returns mock, assert passes."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
     mock_result = {"contents": [{"uri": "file:///data.txt", "text": "content"}]}
-    bigfoot.mcp_mock.mock_read_resource("file:///data.txt", returns=mock_result)
+    tripwire.mcp_mock.mock_read_resource("file:///data.txt", returns=mock_result)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.read_resource(session, "file:///data.txt")
 
     assert result == mock_result
-    bigfoot.mcp_mock.assert_read_resource(
+    tripwire.mcp_mock.assert_read_resource(
         "file:///data.txt",
         direction="client",
     )
@@ -207,21 +207,21 @@ async def test_client_read_resource_mock_and_assert(bigfoot_verifier: StrictVeri
 
 
 @pytest.mark.asyncio
-async def test_client_get_prompt_mock_and_assert(bigfoot_verifier: StrictVerifier) -> None:
+async def test_client_get_prompt_mock_and_assert(tripwire_verifier: StrictVerifier) -> None:
     """Client get_prompt: mock registers, patched method returns mock, assert passes."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
     mock_result = {"messages": [{"role": "user", "content": "hello"}]}
-    bigfoot.mcp_mock.mock_get_prompt("greeting", returns=mock_result)
+    tripwire.mcp_mock.mock_get_prompt("greeting", returns=mock_result)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.get_prompt(session, "greeting", {"name": "world"})
 
     assert result == mock_result
-    bigfoot.mcp_mock.assert_get_prompt(
+    tripwire.mcp_mock.assert_get_prompt(
         "greeting",
         arguments={"name": "world"},
         direction="client",
@@ -234,16 +234,16 @@ async def test_client_get_prompt_mock_and_assert(bigfoot_verifier: StrictVerifie
 
 
 @pytest.mark.asyncio
-async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) -> None:
+async def test_client_call_tool_fifo_ordering(tripwire_verifier: StrictVerifier) -> None:
     """Multiple mocks for the same tool are consumed in FIFO order."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_call_tool("tool_a", returns={"seq": 1})
-    bigfoot.mcp_mock.mock_call_tool("tool_a", returns={"seq": 2})
+    tripwire.mcp_mock.mock_call_tool("tool_a", returns={"seq": 1})
+    tripwire.mcp_mock.mock_call_tool("tool_a", returns={"seq": 2})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         first = await ClientSession.call_tool(session, "tool_a", {"x": "1"})
         second = await ClientSession.call_tool(session, "tool_a", {"x": "2"})
@@ -251,8 +251,8 @@ async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) 
     assert first == {"seq": 1}
     assert second == {"seq": 2}
 
-    bigfoot.mcp_mock.assert_call_tool("tool_a", arguments={"x": "1"}, direction="client")
-    bigfoot.mcp_mock.assert_call_tool("tool_a", arguments={"x": "2"}, direction="client")
+    tripwire.mcp_mock.assert_call_tool("tool_a", arguments={"x": "1"}, direction="client")
+    tripwire.mcp_mock.assert_call_tool("tool_a", arguments={"x": "2"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -261,25 +261,25 @@ async def test_client_call_tool_fifo_ordering(bigfoot_verifier: StrictVerifier) 
 
 
 @pytest.mark.asyncio
-async def test_unasserted_interaction_recorded(bigfoot_verifier: StrictVerifier) -> None:
+async def test_unasserted_interaction_recorded(tripwire_verifier: StrictVerifier) -> None:
     """Interactions are NOT auto-asserted; they appear in all_unasserted()."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
+    tripwire.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.call_tool(session, "my_tool", {"k": "v"})
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     unasserted = timeline.all_unasserted()
     assert len(unasserted) == 1
     assert unasserted[0].source_id == "mcp:client:call_tool:my_tool"
 
     # Clean up by asserting
-    bigfoot.mcp_mock.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
+    tripwire.mcp_mock.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -288,13 +288,13 @@ async def test_unasserted_interaction_recorded(bigfoot_verifier: StrictVerifier)
 
 
 @pytest.mark.asyncio
-async def test_unmocked_call_tool_raises(bigfoot_verifier: StrictVerifier) -> None:
+async def test_unmocked_call_tool_raises(tripwire_verifier: StrictVerifier) -> None:
     """Calling a tool with no mock raises UnmockedInteractionError."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         with pytest.raises(UnmockedInteractionError) as exc_info:
             await ClientSession.call_tool(session, "unknown_tool", {})
@@ -303,13 +303,13 @@ async def test_unmocked_call_tool_raises(bigfoot_verifier: StrictVerifier) -> No
 
 
 @pytest.mark.asyncio
-async def test_unmocked_read_resource_raises(bigfoot_verifier: StrictVerifier) -> None:
+async def test_unmocked_read_resource_raises(tripwire_verifier: StrictVerifier) -> None:
     """Calling read_resource with no mock raises UnmockedInteractionError."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         with pytest.raises(UnmockedInteractionError) as exc_info:
             await ClientSession.read_resource(session, "file:///nope.txt")
@@ -318,13 +318,13 @@ async def test_unmocked_read_resource_raises(bigfoot_verifier: StrictVerifier) -
 
 
 @pytest.mark.asyncio
-async def test_unmocked_get_prompt_raises(bigfoot_verifier: StrictVerifier) -> None:
+async def test_unmocked_get_prompt_raises(tripwire_verifier: StrictVerifier) -> None:
     """Calling get_prompt with no mock raises UnmockedInteractionError."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         with pytest.raises(UnmockedInteractionError) as exc_info:
             await ClientSession.get_prompt(session, "missing_prompt")
@@ -364,23 +364,23 @@ def test_unused_mocks_excludes_required_false() -> None:
 
 
 @pytest.mark.asyncio
-async def test_assert_wrong_tool_name_raises(bigfoot_verifier: StrictVerifier) -> None:
+async def test_assert_wrong_tool_name_raises(tripwire_verifier: StrictVerifier) -> None:
     """assert_call_tool with wrong tool_name raises InteractionMismatchError."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_call_tool("real_tool", returns={"ok": True})
+    tripwire.mcp_mock.mock_call_tool("real_tool", returns={"ok": True})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.call_tool(session, "real_tool", {"k": "v"})
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.mcp_mock.assert_call_tool("wrong_tool", arguments={"k": "v"}, direction="client")
+        tripwire.mcp_mock.assert_call_tool("wrong_tool", arguments={"k": "v"}, direction="client")
 
     # Clean up by asserting correctly
-    bigfoot.mcp_mock.assert_call_tool("real_tool", arguments={"k": "v"}, direction="client")
+    tripwire.mcp_mock.assert_call_tool("real_tool", arguments={"k": "v"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -450,24 +450,24 @@ def test_assertable_fields_returns_all_detail_keys_get_prompt() -> None:
 
 
 @pytest.mark.asyncio
-async def test_missing_assertion_fields_raises(bigfoot_verifier: StrictVerifier) -> None:
+async def test_missing_assertion_fields_raises(tripwire_verifier: StrictVerifier) -> None:
     """Incomplete fields in assert_interaction raises MissingAssertionFieldsError."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
+    tripwire.mcp_mock.mock_call_tool("my_tool", returns={"ok": True})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.call_tool(session, "my_tool", {"k": "v"})
 
     sentinel = _McpSentinel("mcp:client:call_tool:my_tool")
     with pytest.raises(MissingAssertionFieldsError):
-        bigfoot.assert_interaction(sentinel, direction="client")
+        tripwire.assert_interaction(sentinel, direction="client")
 
     # Clean up by asserting correctly
-    bigfoot.mcp_mock.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
+    tripwire.mcp_mock.assert_call_tool("my_tool", arguments={"k": "v"}, direction="client")
 
 
 # ---------------------------------------------------------------------------
@@ -522,21 +522,21 @@ def test_server_get_prompt_mock_enqueues_correctly() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mock_call_tool_raises_exception(bigfoot_verifier: StrictVerifier) -> None:
+async def test_mock_call_tool_raises_exception(tripwire_verifier: StrictVerifier) -> None:
     """Mock with raises parameter raises the exception instead of returning."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
     err = RuntimeError("boom")
-    bigfoot.mcp_mock.mock_call_tool("failing_tool", returns=None, raises=err)
+    tripwire.mcp_mock.mock_call_tool("failing_tool", returns=None, raises=err)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         with pytest.raises(RuntimeError, match="boom"):
             await ClientSession.call_tool(session, "failing_tool")
 
-    bigfoot.mcp_mock.assert_call_tool(
+    tripwire.mcp_mock.assert_call_tool(
         "failing_tool", arguments={}, direction="client",
         raised=err,
     )
@@ -636,7 +636,7 @@ def test_format_mock_hint_client_call_tool() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.mcp_mock.mock_call_tool('my_tool', returns=...)"
+    assert result == "    tripwire.mcp_mock.mock_call_tool('my_tool', returns=...)"
 
 
 def test_format_mock_hint_server_read_resource() -> None:
@@ -652,7 +652,7 @@ def test_format_mock_hint_server_read_resource() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.mcp_mock.mock_server_read_resource('file:///x.txt', returns=...)"
+    assert result == "    tripwire.mcp_mock.mock_server_read_resource('file:///x.txt', returns=...)"
 
 
 def test_format_unmocked_hint() -> None:
@@ -661,7 +661,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "mcp client call_tool('my_tool') was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.mcp_mock.mock_call_tool('my_tool', returns=...)"
+        "    tripwire.mcp_mock.mock_call_tool('my_tool', returns=...)"
     )
 
 
@@ -671,7 +671,7 @@ def test_format_unmocked_hint_server() -> None:
     assert result == (
         "mcp server call_tool('server_tool') was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.mcp_mock.mock_server_call_tool('server_tool', returns=...)"
+        "    tripwire.mcp_mock.mock_server_call_tool('server_tool', returns=...)"
     )
 
 
@@ -690,7 +690,7 @@ def test_format_assert_hint_call_tool() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mcp_mock.assert_call_tool(\n"
+        "    tripwire.mcp_mock.assert_call_tool(\n"
         "        tool_name='my_tool',\n"
         "        arguments={'x': 1},\n"
         "        direction='client',\n"
@@ -712,7 +712,7 @@ def test_format_assert_hint_read_resource() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mcp_mock.assert_read_resource(\n"
+        "    tripwire.mcp_mock.assert_read_resource(\n"
         "        uri='file:///x.txt',\n"
         "        direction='client',\n"
         "    )"
@@ -734,7 +734,7 @@ def test_format_assert_hint_get_prompt() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.mcp_mock.assert_get_prompt(\n"
+        "    tripwire.mcp_mock.assert_get_prompt(\n"
         "        prompt_name='greeting',\n"
         "        arguments={'name': 'world'},\n"
         "        direction='client',\n"
@@ -766,37 +766,37 @@ def test_sentinel_source_id() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.mcp_mock
+# Module-level proxy: tripwire.mcp_mock
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_mcp_mock_proxy_mock_call_tool(bigfoot_verifier: StrictVerifier) -> None:
+async def test_mcp_mock_proxy_mock_call_tool(tripwire_verifier: StrictVerifier) -> None:
     """Module-level proxy routes mock_call_tool correctly."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_call_tool("proxy_tool", returns={"proxied": True})
+    tripwire.mcp_mock.mock_call_tool("proxy_tool", returns={"proxied": True})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         result = await ClientSession.call_tool(session, "proxy_tool", {"a": "b"})
 
     assert result == {"proxied": True}
-    bigfoot.mcp_mock.assert_call_tool(
+    tripwire.mcp_mock.assert_call_tool(
         "proxy_tool", arguments={"a": "b"}, direction="client"
     )
 
 
 def test_mcp_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.mcp_mock.mock_call_tool
+            _ = tripwire.mcp_mock.mock_call_tool
     finally:
         _current_test_verifier.reset(token)
 
@@ -807,11 +807,11 @@ def test_mcp_mock_proxy_raises_outside_context() -> None:
 
 
 def test_mcp_plugin_in_all() -> None:
-    import bigfoot
-    from bigfoot.plugins.mcp_plugin import McpPlugin as _McpPlugin
+    import tripwire
+    from tripwire.plugins.mcp_plugin import McpPlugin as _McpPlugin
 
-    assert bigfoot.McpPlugin is _McpPlugin
-    assert type(bigfoot.mcp_mock).__name__ == "_McpProxy"
+    assert tripwire.McpPlugin is _McpPlugin
+    assert type(tripwire.mcp_mock).__name__ == "_McpProxy"
 
 
 # ---------------------------------------------------------------------------
@@ -821,39 +821,39 @@ def test_mcp_plugin_in_all() -> None:
 
 @pytest.mark.asyncio
 async def test_call_tool_none_arguments_become_empty_dict(
-    bigfoot_verifier: StrictVerifier,
+    tripwire_verifier: StrictVerifier,
 ) -> None:
     """When arguments is None, interaction details record an empty dict."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_call_tool("tool_no_args", returns={"ok": True})
+    tripwire.mcp_mock.mock_call_tool("tool_no_args", returns={"ok": True})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.call_tool(session, "tool_no_args")
 
-    bigfoot.mcp_mock.assert_call_tool(
+    tripwire.mcp_mock.assert_call_tool(
         "tool_no_args", arguments={}, direction="client"
     )
 
 
 @pytest.mark.asyncio
 async def test_get_prompt_none_arguments_become_empty_dict(
-    bigfoot_verifier: StrictVerifier,
+    tripwire_verifier: StrictVerifier,
 ) -> None:
     """When arguments is None, interaction details record an empty dict."""
     from mcp.client.session import ClientSession
 
-    import bigfoot
+    import tripwire
 
-    bigfoot.mcp_mock.mock_get_prompt("my_prompt", returns={"messages": []})
+    tripwire.mcp_mock.mock_get_prompt("my_prompt", returns={"messages": []})
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         session = object.__new__(ClientSession)
         await ClientSession.get_prompt(session, "my_prompt")
 
-    bigfoot.mcp_mock.assert_get_prompt(
+    tripwire.mcp_mock.assert_get_prompt(
         "my_prompt", arguments={}, direction="client"
     )

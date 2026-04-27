@@ -1,19 +1,19 @@
 # Errors
 
-::: bigfoot.BigfootError
+::: tripwire.TripwireError
 
-::: bigfoot.UnmockedInteractionError
+::: tripwire.UnmockedInteractionError
 
-::: bigfoot.UnassertedInteractionsError
+::: tripwire.UnassertedInteractionsError
 
-::: bigfoot.UnusedMocksError
+::: tripwire.UnusedMocksError
 
-::: bigfoot.VerificationError
+::: tripwire.VerificationError
 
-::: bigfoot.InteractionMismatchError
+::: tripwire.InteractionMismatchError
 
-::: bigfoot.MissingAssertionFieldsError
+::: tripwire.MissingAssertionFieldsError
 
-::: bigfoot.SandboxNotActiveError
+::: tripwire.SandboxNotActiveError
 
-::: bigfoot.ConflictError
+::: tripwire.ConflictError

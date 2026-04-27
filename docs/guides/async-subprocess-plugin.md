@@ -1,6 +1,6 @@
 # AsyncSubprocessPlugin Guide
 
-`AsyncSubprocessPlugin` intercepts `asyncio.create_subprocess_exec` and `asyncio.create_subprocess_shell` by replacing them with fake implementations that route process lifecycle through a session script. It is included in core bigfoot -- no extra required.
+`AsyncSubprocessPlugin` intercepts `asyncio.create_subprocess_exec` and `asyncio.create_subprocess_shell` by replacing them with fake implementations that route process lifecycle through a session script. It is included in core tripwire -- no extra required.
 
 ## Relationship to PopenPlugin
 
@@ -8,34 +8,34 @@
 
 ## Setup
 
-In pytest, access `AsyncSubprocessPlugin` through the `bigfoot.async_subprocess_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `AsyncSubprocessPlugin` through the `tripwire.async_subprocess_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
 import asyncio
-import bigfoot
+import tripwire
 
 async def test_run_command():
-    (bigfoot.async_subprocess_mock
+    (tripwire.async_subprocess_mock
         .new_session()
         .expect("spawn",       returns=None)
         .expect("communicate", returns=(b"hello\n", b"", 0)))
 
-    with bigfoot:
+    with tripwire:
         proc = await asyncio.create_subprocess_exec("echo", "hello")
         stdout, stderr = await proc.communicate()
 
     assert stdout == b"hello\n"
     assert proc.returncode == 0
 
-    bigfoot.async_subprocess_mock.assert_spawn(command=["echo", "hello"], stdin=None)
-    bigfoot.async_subprocess_mock.assert_communicate(input=None)
+    tripwire.async_subprocess_mock.assert_spawn(command=["echo", "hello"], stdin=None)
+    tripwire.async_subprocess_mock.assert_communicate(input=None)
 ```
 
 For manual use outside pytest, construct `AsyncSubprocessPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.async_subprocess_plugin import AsyncSubprocessPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.async_subprocess_plugin import AsyncSubprocessPlugin
 
 verifier = StrictVerifier()
 plugin = AsyncSubprocessPlugin(verifier)
@@ -60,7 +60,7 @@ The `spawn` step fires automatically during `asyncio.create_subprocess_exec(...)
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to build the script:
 
 ```python
-(bigfoot.async_subprocess_mock
+(tripwire.async_subprocess_mock
     .new_session()
     .expect("spawn",       returns=None)
     .expect("communicate", returns=(b"output", b"errors", 0)))
@@ -85,7 +85,7 @@ Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls to b
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.async_subprocess_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.async_subprocess_mock`:
 
 ### `assert_spawn(*, command, stdin)`
 
@@ -93,10 +93,10 @@ Asserts the next spawn interaction. Both `command` and `stdin` are required fiel
 
 ```python
 # For exec:
-bigfoot.async_subprocess_mock.assert_spawn(command=["git", "status"], stdin=None)
+tripwire.async_subprocess_mock.assert_spawn(command=["git", "status"], stdin=None)
 
 # For shell:
-bigfoot.async_subprocess_mock.assert_spawn(command="ls -la | grep foo", stdin=None)
+tripwire.async_subprocess_mock.assert_spawn(command="ls -la | grep foo", stdin=None)
 ```
 
 ### `assert_communicate(*, input)`
@@ -104,7 +104,7 @@ bigfoot.async_subprocess_mock.assert_spawn(command="ls -la | grep foo", stdin=No
 Asserts the next communicate interaction. The `input` field is required.
 
 ```python
-bigfoot.async_subprocess_mock.assert_communicate(input=None)
+tripwire.async_subprocess_mock.assert_communicate(input=None)
 ```
 
 ### `assert_wait()`
@@ -112,7 +112,7 @@ bigfoot.async_subprocess_mock.assert_communicate(input=None)
 Asserts the next wait interaction. No fields are required.
 
 ```python
-bigfoot.async_subprocess_mock.assert_wait()
+tripwire.async_subprocess_mock.assert_wait()
 ```
 
 ## Full example
@@ -131,10 +131,10 @@ bigfoot.async_subprocess_mock.assert_wait()
 
 ## ConflictError
 
-At sandbox entry, `AsyncSubprocessPlugin` checks whether `asyncio.create_subprocess_exec` and `asyncio.create_subprocess_shell` have already been patched by another library. If either has been modified by a third party, bigfoot raises `ConflictError`:
+At sandbox entry, `AsyncSubprocessPlugin` checks whether `asyncio.create_subprocess_exec` and `asyncio.create_subprocess_shell` have already been patched by another library. If either has been modified by a third party, tripwire raises `ConflictError`:
 
 ```
 ConflictError: target='asyncio.create_subprocess_exec', patcher='unittest.mock'
 ```
 
-Nested bigfoot sandboxes use reference counting and do not conflict with each other.
+Nested tripwire sandboxes use reference counting and do not conflict with each other.

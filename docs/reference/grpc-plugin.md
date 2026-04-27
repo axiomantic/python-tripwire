@@ -1,3 +1,3 @@
 # GrpcPlugin
 
-::: bigfoot.plugins.grpc_plugin.GrpcPlugin
+::: tripwire.plugins.grpc_plugin.GrpcPlugin

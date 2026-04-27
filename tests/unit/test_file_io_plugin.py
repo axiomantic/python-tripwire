@@ -10,14 +10,14 @@ import shutil
 
 import pytest
 
-from bigfoot._errors import (
+from tripwire._errors import (
     ConflictError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.file_io_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.file_io_plugin import (
     FileIoMockConfig,
     FileIoPlugin,
     _file_io_bypass,
@@ -549,13 +549,13 @@ def test_unused_mock_excluded_when_required_false() -> None:
 #   CHECK: MissingAssertionFieldsError raised.
 #   MUTATION: Not enforcing field completeness passes silently.
 #   ESCAPE: Nothing reasonable -- exact exception type.
-def test_missing_fields_error_when_field_omitted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_missing_fields_error_when_field_omitted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("open", "/tmp/f.txt", returns="data")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         f = builtins.open("/tmp/f.txt")
         f.close()
 
@@ -578,13 +578,13 @@ def test_missing_fields_error_when_field_omitted(bigfoot_verifier: StrictVerifie
 #   CHECK: No exception raised (all fields provided, values match).
 #   MUTATION: If assert_open passes wrong sentinel, InteractionMismatchError raised.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_open_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_open_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("open", "/tmp/f.txt", returns="data")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         f = builtins.open("/tmp/f.txt")
         f.close()
 
@@ -597,13 +597,13 @@ def test_assert_open_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong path value causes InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_read_text_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_read_text_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("read_text", "/tmp/r.txt", returns="content")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         pathlib.Path("/tmp/r.txt").read_text()
 
     p.assert_read_text(path="/tmp/r.txt")
@@ -615,13 +615,13 @@ def test_assert_read_text_typed_helper(bigfoot_verifier: StrictVerifier) -> None
 #   CHECK: No exception raised.
 #   MUTATION: Wrong data causes InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_write_text_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_write_text_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("write_text", "/tmp/w.txt")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         pathlib.Path("/tmp/w.txt").write_text("hello")
 
     p.assert_write_text(path="/tmp/w.txt", data="hello")
@@ -633,13 +633,13 @@ def test_assert_write_text_typed_helper(bigfoot_verifier: StrictVerifier) -> Non
 #   CHECK: No exception raised.
 #   MUTATION: Wrong path causes InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_remove_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_remove_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("remove", "/tmp/del.txt")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         os.remove("/tmp/del.txt")
 
     p.assert_remove(path="/tmp/del.txt")
@@ -651,13 +651,13 @@ def test_assert_remove_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong src or dst causes InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_rename_typed_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_rename_typed_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("rename", "/tmp/old.txt")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         os.rename("/tmp/old.txt", "/tmp/new.txt")
 
     p.assert_rename(src="/tmp/old.txt", dst="/tmp/new.txt")
@@ -733,12 +733,12 @@ def test_mock_remove_raises_file_not_found() -> None:
 
 # ESCAPE: test_file_io_plugin_always_importable
 #   CLAIM: FileIoPlugin is always importable (no optional dependencies).
-#   PATH:  import bigfoot.plugins.file_io_plugin -> no ImportError.
+#   PATH:  import tripwire.plugins.file_io_plugin -> no ImportError.
 #   CHECK: FileIoPlugin is a class; no exception on import.
 #   MUTATION: Adding a try/except guard around a missing dep would change this.
 #   ESCAPE: Nothing reasonable -- import succeeds or fails.
 def test_file_io_plugin_always_importable() -> None:
-    from bigfoot.plugins.file_io_plugin import (
+    from tripwire.plugins.file_io_plugin import (
         FileIoPlugin as FileIoPluginDirect,
     )
 
@@ -754,7 +754,7 @@ def test_file_io_plugin_always_importable() -> None:
 #   CLAIM: When _file_io_bypass is True, intercepted open falls through to real builtins.open.
 #   PATH:  _file_io_bypass.set(True) -> intercepted_open checks bypass -> calls original.
 #   CHECK: Real builtins.open is called (reading a file that actually exists).
-#   MUTATION: Not checking bypass would intercept bigfoot's own I/O and break the framework.
+#   MUTATION: Not checking bypass would intercept tripwire's own I/O and break the framework.
 #   ESCAPE: Nothing reasonable -- if bypass fails, the mock queue is checked and
 #           UnmockedInteractionError is raised (or wrong data returned).
 def test_reentrancy_guard_bypasses_when_set(tmp_path: pathlib.Path) -> None:
@@ -821,7 +821,7 @@ def test_reentrancy_guard_no_verifier_falls_through(tmp_path: pathlib.Path) -> N
 #   MUTATION: Setting default_enabled=True would include it in defaults.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_file_io_not_default_enabled() -> None:
-    from bigfoot._registry import resolve_enabled_plugins
+    from tripwire._registry import resolve_enabled_plugins
 
     result = resolve_enabled_plugins({})
     names = {e.name for e in result}
@@ -832,10 +832,10 @@ def test_file_io_not_default_enabled() -> None:
 #   CLAIM: FileIoPlugin IS included when enabled_plugins=["file_io"].
 #   PATH:  resolve_enabled_plugins({"enabled_plugins": ["file_io"]}) includes file_io.
 #   CHECK: "file_io" in resolved names.
-#   MUTATION: Not registering the plugin in PLUGIN_REGISTRY raises BigfootConfigError.
+#   MUTATION: Not registering the plugin in PLUGIN_REGISTRY raises TripwireConfigError.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_file_io_included_when_explicitly_enabled() -> None:
-    from bigfoot._registry import resolve_enabled_plugins
+    from tripwire._registry import resolve_enabled_plugins
 
     result = resolve_enabled_plugins({"enabled_plugins": ["file_io"]})
     names = {e.name for e in result}
@@ -970,7 +970,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == f"    bigfoot.file_io_mock.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
+    assert result == f"    tripwire.file_io_mock.mock_operation('open', '{os.path.normpath('/tmp/f.txt')}', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -986,7 +986,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         f"open('{np('/tmp/f.txt')}', ...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        f"    bigfoot.file_io_mock.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
+        f"    tripwire.file_io_mock.mock_operation('open', '{np('/tmp/f.txt')}', returns=...)"
     )
 
 
@@ -1007,7 +1007,7 @@ def test_format_assert_hint() -> None:
     result = p.format_assert_hint(interaction)
     npath = os.path.normpath("/tmp/f.txt")
     assert result == (
-        "    bigfoot.file_io_mock.assert_open(\n"
+        "    tripwire.file_io_mock.assert_open(\n"
         f"        path={npath!r},\n"
         "        mode='r',\n"
         "        encoding='utf-8',\n"
@@ -1032,7 +1032,7 @@ def test_format_assert_hint_remove() -> None:
     result = p.format_assert_hint(interaction)
     npath = os.path.normpath("/tmp/del.txt")
     assert result == (
-        "    bigfoot.file_io_mock.assert_remove(\n"
+        "    tripwire.file_io_mock.assert_remove(\n"
         f"        path={npath!r},\n"
         "    )"
     )
@@ -1134,7 +1134,7 @@ def test_file_io_mock_config_defaults() -> None:
 
 
 # ESCAPE: test_activate_installs_patch
-#   CLAIM: After activate(), builtins.open is replaced with bigfoot interceptor.
+#   CLAIM: After activate(), builtins.open is replaced with tripwire interceptor.
 #   PATH:  activate() -> _install_count == 0 -> store original -> install interceptor.
 #   CHECK: builtins.open is not the original after activate().
 #   MUTATION: Skipping patch installation leaves original in place; identity check fails.
@@ -1191,35 +1191,35 @@ def test_reference_counting_nested() -> None:
 
 
 # ESCAPE: test_file_io_plugin_in_all
-#   CLAIM: FileIoPlugin and file_io_mock are exported from bigfoot.__all__.
-#   PATH:  bigfoot.__all__ contains "FileIoPlugin" and "file_io_mock".
-#   CHECK: Both names in __all__; bigfoot.FileIoPlugin is the real class.
+#   CLAIM: FileIoPlugin and file_io_mock are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ contains "FileIoPlugin" and "file_io_mock".
+#   CHECK: Both names in __all__; tripwire.FileIoPlugin is the real class.
 #   MUTATION: Omitting either from __all__ fails membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_file_io_plugin_in_all() -> None:
-    import bigfoot
+    import tripwire
 
-    assert "FileIoPlugin" in bigfoot.__all__
-    assert "file_io_mock" in bigfoot.__all__
-    assert bigfoot.FileIoPlugin is FileIoPlugin
+    assert "FileIoPlugin" in tripwire.__all__
+    assert "file_io_mock" in tripwire.__all__
+    assert tripwire.FileIoPlugin is FileIoPlugin
 
 
 # ESCAPE: test_file_io_mock_proxy
-#   CLAIM: bigfoot.file_io_mock proxies to FileIoPlugin on the active verifier.
+#   CLAIM: tripwire.file_io_mock proxies to FileIoPlugin on the active verifier.
 #   PATH:  _FileIoProxy.__getattr__ -> get verifier -> find/create FileIoPlugin.
 #   CHECK: Proxy attribute access does not raise when verifier is active.
 #   MUTATION: Wrong proxy class or missing registration fails with AttributeError.
 #   ESCAPE: Nothing reasonable -- attribute access succeeds or fails.
-def test_file_io_mock_proxy(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_file_io_mock_proxy(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     # End-to-end: register mock through proxy, trigger it, verify interaction
-    bigfoot.file_io_mock.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
-    with bigfoot.sandbox():
+    tripwire.file_io_mock.mock_operation("open", "/tmp/proxy-test.txt", returns="proxied")
+    with tripwire.sandbox():
         f = builtins.open("/tmp/proxy-test.txt")
         result = f.read()
     assert result == "proxied"
-    bigfoot.file_io_mock.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
+    tripwire.file_io_mock.assert_open(path="/tmp/proxy-test.txt", mode="r", encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -1259,11 +1259,11 @@ def test_matches_field_comparison() -> None:
 #   MUTATION: Not adding to registry fails membership check.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_file_io_in_registry() -> None:
-    from bigfoot._registry import PLUGIN_REGISTRY, VALID_PLUGIN_NAMES
+    from tripwire._registry import PLUGIN_REGISTRY, VALID_PLUGIN_NAMES
 
     assert "file_io" in VALID_PLUGIN_NAMES
     entry = next(e for e in PLUGIN_REGISTRY if e.name == "file_io")
-    assert entry.import_path == "bigfoot.plugins.file_io_plugin"
+    assert entry.import_path == "tripwire.plugins.file_io_plugin"
     assert entry.class_name == "FileIoPlugin"
     assert entry.availability_check == "always"
     assert entry.default_enabled is False
@@ -1280,17 +1280,17 @@ def test_file_io_in_registry() -> None:
 #   CHECK: all_unasserted() returns the interaction.
 #   MUTATION: Auto-asserting would return empty list from all_unasserted().
 #   ESCAPE: Nothing reasonable -- exact length and source_id check.
-def test_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    p = FileIoPlugin(bigfoot_verifier)
+    p = FileIoPlugin(tripwire_verifier)
     p.mock_operation("open", "/tmp/f.txt", returns="data")
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         f = builtins.open("/tmp/f.txt")
         f.close()
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "file_io:open"

@@ -1,4 +1,4 @@
-"""Integration tests: exercise the full bigfoot system end-to-end.
+"""Integration tests: exercise the full tripwire system end-to-end.
 
 Each test is self-contained. No real network calls are made.
 """
@@ -8,7 +8,7 @@ import concurrent.futures
 
 import pytest
 
-from bigfoot import (
+from tripwire import (
     MockPlugin,
     SandboxNotActiveError,
     StrictVerifier,
@@ -16,7 +16,7 @@ from bigfoot import (
     UnmockedInteractionError,
     UnusedMocksError,
 )
-from bigfoot._context import get_verifier_or_raise
+from tripwire._context import get_verifier_or_raise
 
 pytestmark = pytest.mark.integration
 
@@ -232,7 +232,7 @@ def testget_verifier_or_raise_raises_sandbox_not_active_error() -> None:
 def test_http_plugin_mock_response_full_round_trip() -> None:
     """Full httpx round-trip: register mock, call inside sandbox, assert, verify_all passes."""
     httpx = pytest.importorskip("httpx")
-    from bigfoot.plugins.http import HttpPlugin
+    from tripwire.plugins.http import HttpPlugin
 
     verifier = StrictVerifier()
     # Retrieve the auto-created HttpPlugin instead of creating a duplicate
@@ -274,8 +274,8 @@ def test_conflict_error_raised_when_httpx_already_patched() -> None:
     is already patched by a third-party library before HttpPlugin activates.
     """
     httpx = pytest.importorskip("httpx")
-    from bigfoot._errors import ConflictError
-    from bigfoot.plugins.http import HttpPlugin
+    from tripwire._errors import ConflictError
+    from tripwire.plugins.http import HttpPlugin
 
     # Save guard fixture state (session fixture may have installed patches)
     saved_count = HttpPlugin._install_count
@@ -316,7 +316,7 @@ async def test_run_in_executor_propagates_context_var() -> None:
     """run_in_executor propagates ContextVars via centralized context propagation.
 
     Previously this was handled by HttpPlugin._patch_run_in_executor.
-    Now handled by bigfoot._context_propagation (installed at pytest_configure).
+    Now handled by tripwire._context_propagation (installed at pytest_configure).
 
     Uses a dedicated test ContextVar instead of _active_verifier to avoid
     triggering interceptor side effects (socket/http interceptors inspect

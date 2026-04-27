@@ -1,3 +1,3 @@
 # JwtPlugin
 
-::: bigfoot.plugins.jwt_plugin.JwtPlugin
+::: tripwire.plugins.jwt_plugin.JwtPlugin

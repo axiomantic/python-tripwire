@@ -1,7 +1,7 @@
-# bigfoot
+# tripwire
 
-[![CI](https://github.com/axiomantic/bigfoot/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/bigfoot/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/bigfoot)](https://pypi.org/project/bigfoot/)
+[![CI](https://github.com/axiomantic/tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/tripwire/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/tripwire)](https://pypi.org/project/tripwire/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -12,15 +12,15 @@ You've had tests pass in CI and then watched the thing they were supposedly test
 
 This is what testing with `unittest.mock` is like. It gives you the tools to mock things, but it's entirely on you to remember to assert every call, verify every argument, and notice when production code starts making calls your tests don't account for. Most of the time, you won't. Not because you're careless, but because `unittest.mock` is designed around silence -- if you forget to check something, it has no way of telling you.
 
-bigfoot replaces `unittest.mock` with mocking that actually enforces correctness.
+tripwire replaces `unittest.mock` with mocking that actually enforces correctness.
 
 ```bash
-pip install bigfoot[all]
+pip install tripwire[all]
 ```
 
 ## The three guarantees
 
-bigfoot intercepts every external call your code makes and enforces three rules that `unittest.mock` leaves entirely to you:
+tripwire intercepts every external call your code makes and enforces three rules that `unittest.mock` leaves entirely to you:
 
 1. **Every call must be pre-authorized.** Code makes a call with no registered mock? `UnmockedInteractionError`, immediately.
 2. **Every recorded interaction must be explicitly asserted.** Forget to assert an interaction? `UnassertedInteractionsError` at teardown.
@@ -40,23 +40,23 @@ def test_payment(mock_post):
     # Called with wrong amount? Test passes.
     # Added a second HTTP call? Test passes.
 
-# bigfoot -- every interaction is accounted for
+# tripwire -- every interaction is accounted for
 def test_payment():
-    bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
+    tripwire.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
-    with bigfoot:
+    with tripwire:
         result = create_charge(5000)
 
     # MUST assert this or test fails at teardown
-    bigfoot.http.assert_request(
+    tripwire.http.assert_request(
         "POST", "https://api.stripe.com/v1/charges",
         headers=IsInstance(dict), body='{"amount": 5000}',
     ).assert_response(200, IsInstance(dict), '{"id": "ch_123"}')
     assert result["id"] == "ch_123"
 ```
 
-| Scenario | unittest.mock | bigfoot |
+| Scenario | unittest.mock | tripwire |
 |----------|---------------|---------|
 | Mocked function is never called | Passes silently | `UnusedMocksError` |
 | Wrong arguments | Only caught if you add `assert_called_with` | `InteractionMismatchError` |
@@ -67,35 +67,35 @@ def test_payment():
 
 ## Firewall mode
 
-Firewall mode is on by default. When your test session starts, bigfoot installs interceptors that catch any real I/O call happening outside a sandbox.
+Firewall mode is on by default. When your test session starts, tripwire installs interceptors that catch any real I/O call happening outside a sandbox.
 
-In `"warn"` mode (the default), accidental calls emit a `GuardedCallWarning` and proceed normally, so your existing suite keeps working while showing you exactly which calls are unguarded. Set `guard = "error"` under `[tool.bigfoot]` in your `pyproject.toml` for strict enforcement.
+In `"warn"` mode (the default), accidental calls emit a `GuardedCallWarning` and proceed normally, so your existing suite keeps working while showing you exactly which calls are unguarded. Set `guard = "error"` under `[tool.tripwire]` in your `pyproject.toml` for strict enforcement.
 
 ```python
-from bigfoot import M
+from tripwire import M
 
 # Selectively permit real calls within a scope
-with bigfoot.allow("dns", "socket"):
+with tripwire.allow("dns", "socket"):
     ...
 
 # Or via marker for an entire test
 @pytest.mark.allow("dns", "socket")
 
 # Granular patterns
-with bigfoot.allow(M(protocol="http", host="*.example.com")):
+with tripwire.allow(M(protocol="http", host="*.example.com")):
     ...
 
 # Set a ceiling that inner blocks cannot widen
-with bigfoot.restrict("http", "subprocess"):
+with tripwire.restrict("http", "subprocess"):
     ...
 ```
 
-Configure project-wide allow/deny rules in `[tool.bigfoot.firewall]` in your `pyproject.toml`.
+Configure project-wide allow/deny rules in `[tool.tripwire.firewall]` in your `pyproject.toml`.
 
 ## Quick Start
 
 ```python
-import bigfoot
+import tripwire
 from dirty_equals import IsInstance
 
 def create_charge(amount):
@@ -106,23 +106,23 @@ def create_charge(amount):
     return response.json()
 
 def test_payment_flow():
-    bigfoot.http.mock_response("POST", "https://api.stripe.com/v1/charges",
+    tripwire.http.mock_response("POST", "https://api.stripe.com/v1/charges",
                                json={"id": "ch_123"}, status=200)
 
-    with bigfoot:
+    with tripwire:
         result = create_charge(5000)
 
-    bigfoot.http.assert_request(
+    tripwire.http.assert_request(
         "POST", "https://api.stripe.com/v1/charges",
         headers=IsInstance(dict), body='{"amount": 5000}',
     ).assert_response(200, IsInstance(dict), '{"id": "ch_123"}')
     assert result["id"] == "ch_123"
 ```
 
-If you forget the `assert_request()` call, bigfoot fails the test at teardown:
+If you forget the `assert_request()` call, tripwire fails the test at teardown:
 
 ```
-E   bigfoot._errors.UnassertedInteractionsError: 1 interaction was not asserted.
+E   tripwire._errors.UnassertedInteractionsError: 1 interaction was not asserted.
 E
 E       http.assert_request(
 E           "POST",
@@ -143,21 +143,21 @@ The error output includes every field with its actual value, so you can usually 
 ## How it works
 
 1. **Register mocks** before the sandbox (`mock_response`, `mock_run`, `returns`, etc.)
-2. **Open the sandbox** with `with bigfoot:` (or `async with bigfoot:`)
+2. **Open the sandbox** with `with tripwire:` (or `async with tripwire:`)
 3. **Code runs normally** inside the sandbox, but external calls are intercepted and recorded
 4. **Assert interactions** after the sandbox closes, in order
 5. **`verify_all()`** runs automatically at test teardown via the pytest plugin
 
-Since bigfoot uses a module-level API, there are no fixtures to set up or inject. You just import it.
+Since tripwire uses a module-level API, there are no fixtures to set up or inject. You just import it.
 
 ## Coming from unittest.mock
 
 ### Concepts mapping
 
-| unittest.mock | bigfoot equivalent | Notes |
+| unittest.mock | tripwire equivalent | Notes |
 |---------------|-------------------|-------|
-| `@patch("module.Class")` | `bigfoot.mock("module:Class")` | Colon-separated import path |
-| `@patch.object(obj, "attr")` | `bigfoot.mock.object(obj, "attr")` | Same idea, stricter enforcement |
+| `@patch("module.Class")` | `tripwire.mock("module:Class")` | Colon-separated import path |
+| `@patch.object(obj, "attr")` | `tripwire.mock.object(obj, "attr")` | Same idea, stricter enforcement |
 | `MagicMock()` | Plugin-specific mocks | `mock_response`, `mock_run`, `mock_command`, etc. |
 | `mock.return_value = X` | `.returns(X)` | Explicit, typed return values |
 | `mock.side_effect = Exception` | `mock_error(..., raises=Exception)` | Explicit error mocking |
@@ -183,18 +183,18 @@ def test_fetch_user(mock_get):
     mock_get.assert_called_once_with("https://api.example.com/users/42")
     assert user["name"] == "Alice"
 
-# AFTER: bigfoot
+# AFTER: tripwire
 from dirty_equals import IsInstance
 
 def test_fetch_user():
-    bigfoot.http.mock_response(
+    tripwire.http.mock_response(
         "GET", "https://api.example.com/users/42",
         json={"name": "Alice"}, status=200,
     )
-    with bigfoot:
+    with tripwire:
         user = fetch_user(42)
 
-    bigfoot.http.assert_request(
+    tripwire.http.assert_request(
         "GET", "https://api.example.com/users/42",
         headers=IsInstance(dict), body=None,
     ).assert_response(200, IsInstance(dict), '{"name": "Alice"}')
@@ -214,16 +214,16 @@ def test_deploy(mock_run):
     result = deploy("prod")
     mock_run.assert_called_once()
 
-# AFTER: bigfoot
+# AFTER: tripwire
 def test_deploy():
-    bigfoot.subprocess_mock.mock_run(
+    tripwire.subprocess_mock.mock_run(
         ["kubectl", "apply", "-f", "prod.yaml"],
         returncode=0, stdout="deployed",
     )
-    with bigfoot:
+    with tripwire:
         result = deploy("prod")
 
-    bigfoot.subprocess_mock.assert_run(
+    tripwire.subprocess_mock.assert_run(
         ["kubectl", "apply", "-f", "prod.yaml"],
         returncode=0, stdout="deployed",
     )
@@ -241,12 +241,12 @@ def test_cached_lookup(mock_cache):
     result = lookup("key")
     mock_cache.get.assert_called_once_with("key")
 
-# AFTER: bigfoot
+# AFTER: tripwire
 def test_cached_lookup():
-    cache_mock = bigfoot.mock("myapp.services:cache")
+    cache_mock = tripwire.mock("myapp.services:cache")
     cache_mock.get.returns("cached_value")
 
-    with bigfoot:
+    with tripwire:
         result = lookup("key")
 
     cache_mock.get.assert_call(args=("key",), kwargs={}, returned="cached_value")
@@ -254,39 +254,39 @@ def test_cached_lookup():
 
 ### Incremental adoption
 
-You do not have to migrate your entire test suite at once. bigfoot and `unittest.mock` can coexist in the same project:
+You do not have to migrate your entire test suite at once. tripwire and `unittest.mock` can coexist in the same project:
 
-1. **Start with guard mode.** Install bigfoot and run your suite. Guard mode (default `"warn"`) will show you every real I/O call across all tests without breaking anything.
-2. **Migrate test by test.** Pick tests that touch HTTP, subprocess, or database calls first -- these benefit most from bigfoot's strict enforcement.
+1. **Start with guard mode.** Install tripwire and run your suite. Guard mode (default `"warn"`) will show you every real I/O call across all tests without breaking anything.
+2. **Migrate test by test.** Pick tests that touch HTTP, subprocess, or database calls first -- these benefit most from tripwire's strict enforcement.
 3. **Escalate to strict guard mode.** Once coverage is high, set `guard = "error"` in `pyproject.toml` to catch any remaining leaks.
 
 ## Plugins
 
-bigfoot ships with 27 plugins covering the most common external dependencies:
+tripwire ships with 27 plugins covering the most common external dependencies:
 
 | Category | Plugins | Intercepts |
 |----------|---------|------------|
-| **General** | [MockPlugin](https://axiomantic.github.io/bigfoot/guides/mock-plugin/), [LoggingPlugin](https://axiomantic.github.io/bigfoot/guides/logging-plugin/) | Named mock proxies, `logging` module |
-| **HTTP** | [HttpPlugin](https://axiomantic.github.io/bigfoot/guides/http-plugin/) | `httpx`, `requests`, `urllib`, `aiohttp` |
-| **Subprocess** | [SubprocessPlugin](https://axiomantic.github.io/bigfoot/guides/subprocess-plugin/), [PopenPlugin](https://axiomantic.github.io/bigfoot/guides/popen-plugin/), [AsyncSubprocessPlugin](https://axiomantic.github.io/bigfoot/guides/async-subprocess-plugin/) | `subprocess.run`, `shutil.which`, `Popen`, `asyncio.create_subprocess_*` |
-| **Database** | [DatabasePlugin](https://axiomantic.github.io/bigfoot/guides/database-plugin/), [Psycopg2Plugin](https://axiomantic.github.io/bigfoot/guides/psycopg2-plugin/), [AsyncpgPlugin](https://axiomantic.github.io/bigfoot/guides/asyncpg-plugin/), [MongoPlugin](https://axiomantic.github.io/bigfoot/guides/mongo-plugin/), [ElasticsearchPlugin](https://axiomantic.github.io/bigfoot/guides/elasticsearch-plugin/) | `sqlite3`, `psycopg2`, `asyncpg`, `pymongo`, `elasticsearch` |
-| **Cache** | [RedisPlugin](https://axiomantic.github.io/bigfoot/guides/redis-plugin/), [MemcachePlugin](https://axiomantic.github.io/bigfoot/guides/memcache-plugin/) | `redis`, `pymemcache` |
-| **Network** | [SmtpPlugin](https://axiomantic.github.io/bigfoot/guides/smtp-plugin/), [SocketPlugin](https://axiomantic.github.io/bigfoot/guides/socket-plugin/), [WebSocket](https://axiomantic.github.io/bigfoot/guides/websocket-plugin/), [DnsPlugin](https://axiomantic.github.io/bigfoot/guides/dns-plugin/), [SshPlugin](https://axiomantic.github.io/bigfoot/guides/ssh-plugin/), [GrpcPlugin](https://axiomantic.github.io/bigfoot/guides/grpc-plugin/) | `smtplib`, `socket`, `websockets`, `websocket-client`, DNS resolution, `paramiko`, `grpcio` |
-| **Cloud & Messaging** | [Boto3Plugin](https://axiomantic.github.io/bigfoot/guides/boto3-plugin/), [CeleryPlugin](https://axiomantic.github.io/bigfoot/guides/celery-plugin/), [PikaPlugin](https://axiomantic.github.io/bigfoot/guides/pika-plugin/) | `boto3` (AWS), `celery` tasks, `pika` (RabbitMQ) |
-| **Crypto & Auth** | [JwtPlugin](https://axiomantic.github.io/bigfoot/guides/jwt-plugin/), [CryptoPlugin](https://axiomantic.github.io/bigfoot/guides/crypto-plugin/) | `PyJWT`, `cryptography` |
-| **System** | [FileIoPlugin](https://axiomantic.github.io/bigfoot/guides/file-io-plugin/), [NativePlugin](https://axiomantic.github.io/bigfoot/guides/native-plugin/) | `open`, `pathlib`, `os`; `ctypes`, `cffi` |
+| **General** | [MockPlugin](https://axiomantic.github.io/tripwire/guides/mock-plugin/), [LoggingPlugin](https://axiomantic.github.io/tripwire/guides/logging-plugin/) | Named mock proxies, `logging` module |
+| **HTTP** | [HttpPlugin](https://axiomantic.github.io/tripwire/guides/http-plugin/) | `httpx`, `requests`, `urllib`, `aiohttp` |
+| **Subprocess** | [SubprocessPlugin](https://axiomantic.github.io/tripwire/guides/subprocess-plugin/), [PopenPlugin](https://axiomantic.github.io/tripwire/guides/popen-plugin/), [AsyncSubprocessPlugin](https://axiomantic.github.io/tripwire/guides/async-subprocess-plugin/) | `subprocess.run`, `shutil.which`, `Popen`, `asyncio.create_subprocess_*` |
+| **Database** | [DatabasePlugin](https://axiomantic.github.io/tripwire/guides/database-plugin/), [Psycopg2Plugin](https://axiomantic.github.io/tripwire/guides/psycopg2-plugin/), [AsyncpgPlugin](https://axiomantic.github.io/tripwire/guides/asyncpg-plugin/), [MongoPlugin](https://axiomantic.github.io/tripwire/guides/mongo-plugin/), [ElasticsearchPlugin](https://axiomantic.github.io/tripwire/guides/elasticsearch-plugin/) | `sqlite3`, `psycopg2`, `asyncpg`, `pymongo`, `elasticsearch` |
+| **Cache** | [RedisPlugin](https://axiomantic.github.io/tripwire/guides/redis-plugin/), [MemcachePlugin](https://axiomantic.github.io/tripwire/guides/memcache-plugin/) | `redis`, `pymemcache` |
+| **Network** | [SmtpPlugin](https://axiomantic.github.io/tripwire/guides/smtp-plugin/), [SocketPlugin](https://axiomantic.github.io/tripwire/guides/socket-plugin/), [WebSocket](https://axiomantic.github.io/tripwire/guides/websocket-plugin/), [DnsPlugin](https://axiomantic.github.io/tripwire/guides/dns-plugin/), [SshPlugin](https://axiomantic.github.io/tripwire/guides/ssh-plugin/), [GrpcPlugin](https://axiomantic.github.io/tripwire/guides/grpc-plugin/) | `smtplib`, `socket`, `websockets`, `websocket-client`, DNS resolution, `paramiko`, `grpcio` |
+| **Cloud & Messaging** | [Boto3Plugin](https://axiomantic.github.io/tripwire/guides/boto3-plugin/), [CeleryPlugin](https://axiomantic.github.io/tripwire/guides/celery-plugin/), [PikaPlugin](https://axiomantic.github.io/tripwire/guides/pika-plugin/) | `boto3` (AWS), `celery` tasks, `pika` (RabbitMQ) |
+| **Crypto & Auth** | [JwtPlugin](https://axiomantic.github.io/tripwire/guides/jwt-plugin/), [CryptoPlugin](https://axiomantic.github.io/tripwire/guides/crypto-plugin/) | `PyJWT`, `cryptography` |
+| **System** | [FileIoPlugin](https://axiomantic.github.io/tripwire/guides/file-io-plugin/), [NativePlugin](https://axiomantic.github.io/tripwire/guides/native-plugin/) | `open`, `pathlib`, `os`; `ctypes`, `cffi` |
 
 <details>
 <summary>Plugin examples</summary>
 
 **Subprocess**
 ```python
-bigfoot.subprocess_mock.mock_run(["git", "pull"], returncode=0, stdout="Up to date.\n")
+tripwire.subprocess_mock.mock_run(["git", "pull"], returncode=0, stdout="Up to date.\n")
 ```
 
 **Database (sqlite3)**
 ```python
-bigfoot.db_mock.new_session() \
+tripwire.db_mock.new_session() \
     .expect("connect", returns=None) \
     .expect("execute", returns=[]) \
     .expect("commit", returns=None) \
@@ -295,22 +295,22 @@ bigfoot.db_mock.new_session() \
 
 **Redis**
 ```python
-bigfoot.redis_mock.mock_command("GET", returns=b"cached_value")
+tripwire.redis_mock.mock_command("GET", returns=b"cached_value")
 ```
 
 **MongoDB**
 ```python
-bigfoot.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
+tripwire.mongo_mock.mock_operation("find_one", returns={"_id": "abc", "name": "Alice"})
 ```
 
 **AWS (boto3)**
 ```python
-bigfoot.boto3_mock.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
+tripwire.boto3_mock.mock_api_call("s3", "GetObject", returns={"Body": b"file contents"})
 ```
 
 **RabbitMQ (pika)**
 ```python
-bigfoot.pika_mock.new_session() \
+tripwire.pika_mock.new_session() \
     .expect("connect", returns=None) \
     .expect("channel", returns=None) \
     .expect("publish", returns=None) \
@@ -319,7 +319,7 @@ bigfoot.pika_mock.new_session() \
 
 **SSH (paramiko)**
 ```python
-bigfoot.ssh_mock.new_session() \
+tripwire.ssh_mock.new_session() \
     .expect("connect", returns=None) \
     .expect("exec_command", returns=(b"", b"output\n", b"")) \
     .expect("close", returns=None)
@@ -327,7 +327,7 @@ bigfoot.ssh_mock.new_session() \
 
 **SMTP**
 ```python
-bigfoot.smtp_mock.new_session() \
+tripwire.smtp_mock.new_session() \
     .expect("connect", returns=(220, b"OK")) \
     .expect("ehlo", returns=(250, b"OK")) \
     .expect("sendmail", returns={}) \
@@ -336,12 +336,12 @@ bigfoot.smtp_mock.new_session() \
 
 **Logging**
 ```python
-bigfoot.log_mock.assert_info("User logged in", "myapp")
+tripwire.log_mock.assert_info("User logged in", "myapp")
 ```
 
 **Mock (general)**
 ```python
-svc = bigfoot.mock("myapp.payments:PaymentService")
+svc = tripwire.mock("myapp.payments:PaymentService")
 svc.charge.returns({"status": "ok"})
 ```
 
@@ -352,10 +352,10 @@ svc.charge.returns({"status": "ok"})
 **Concurrent assertions** -- relax FIFO ordering for parallel requests:
 
 ```python
-with bigfoot.in_any_order():
-    bigfoot.http.assert_request(method="GET", url=".../a", headers=IsInstance(dict), body=None,
+with tripwire.in_any_order():
+    tripwire.http.assert_request(method="GET", url=".../a", headers=IsInstance(dict), body=None,
                                 require_response=False)
-    bigfoot.http.assert_request(method="GET", url=".../b", headers=IsInstance(dict), body=None,
+    tripwire.http.assert_request(method="GET", url=".../b", headers=IsInstance(dict), body=None,
                                 require_response=False)
 ```
 
@@ -363,21 +363,21 @@ with bigfoot.in_any_order():
 
 ```python
 # Mock a module-level attribute
-cache_mock = bigfoot.mock("myapp.services:cache")
+cache_mock = tripwire.mock("myapp.services:cache")
 cache_mock.get.returns("cached_value")
 
 # Mock an attribute on a specific object
-mock = bigfoot.mock.object(my_module, "service")
+mock = tripwire.mock.object(my_module, "service")
 
 # Spy on real implementation
-spy = bigfoot.spy("myapp.services:cache")
+spy = tripwire.spy("myapp.services:cache")
 ```
 
 **Context managers** -- sandbox activates all mocks and enforces assertions:
 
 ```python
 # Sandbox activates all mocks, enforces assertions
-with bigfoot.sandbox():
+with tripwire.sandbox():
     result = code_under_test()
 
 # Individual activation (no assertion enforcement)
@@ -389,10 +389,10 @@ with cache_mock:
 
 ```python
 # Mock errors
-bigfoot.http.mock_error("GET", url, raises=httpx.ConnectError("refused"))
+tripwire.http.mock_error("GET", url, raises=httpx.ConnectError("refused"))
 
 # Assert errors
-bigfoot.http.assert_request("GET", url, headers=..., body="",
+tripwire.http.assert_request("GET", url, headers=..., body="",
                             raised=IsInstance(httpx.ConnectError))
 ```
 
@@ -406,48 +406,48 @@ spy.assert_call(args=("bad",), kwargs={}, raised=IsInstance(KeyError))
 **Pass-through** -- delegate to the real service, still record and require assertion:
 
 ```python
-bigfoot.http.pass_through("GET", url)
+tripwire.http.pass_through("GET", url)
 ```
 
 **Configuration** via `pyproject.toml`:
 
 ```toml
-[tool.bigfoot.http]
+[tool.tripwire.http]
 require_response = true  # This is the default; set to false to opt out
 ```
 
-Per-call arguments override project-level settings. See the [configuration guide](https://axiomantic.github.io/bigfoot/guides/configuration/).
+Per-call arguments override project-level settings. See the [configuration guide](https://axiomantic.github.io/tripwire/guides/configuration/).
 
 ## Selective Installation
 
-`bigfoot[all]` installs everything. For a smaller footprint, pick only what you need:
+`tripwire[all]` installs everything. For a smaller footprint, pick only what you need:
 
 ```bash
-pip install bigfoot                       # Core plugins (no optional deps)
-pip install bigfoot[http]                 # + httpx, requests, urllib
-pip install bigfoot[aiohttp]              # + aiohttp
-pip install bigfoot[redis]                # + Redis
-pip install bigfoot[pymemcache]           # + Memcached
-pip install bigfoot[pymongo]              # + MongoDB
-pip install bigfoot[elasticsearch]        # + Elasticsearch/OpenSearch
-pip install bigfoot[psycopg2]             # + PostgreSQL (psycopg2)
-pip install bigfoot[asyncpg]              # + PostgreSQL (asyncpg)
-pip install bigfoot[boto3]                # + AWS SDK
-pip install bigfoot[pika]                 # + RabbitMQ
-pip install bigfoot[celery]               # + Celery tasks
-pip install bigfoot[grpc]                 # + gRPC
-pip install bigfoot[paramiko]             # + SSH
-pip install bigfoot[jwt]                  # + PyJWT
-pip install bigfoot[crypto]               # + cryptography
-pip install bigfoot[cffi]                 # + cffi (C FFI)
-pip install bigfoot[websockets]           # + async WebSocket
-pip install bigfoot[websocket-client]     # + sync WebSocket
-pip install bigfoot[matchers]             # + dirty-equals matchers
+pip install tripwire                       # Core plugins (no optional deps)
+pip install tripwire[http]                 # + httpx, requests, urllib
+pip install tripwire[aiohttp]              # + aiohttp
+pip install tripwire[redis]                # + Redis
+pip install tripwire[pymemcache]           # + Memcached
+pip install tripwire[pymongo]              # + MongoDB
+pip install tripwire[elasticsearch]        # + Elasticsearch/OpenSearch
+pip install tripwire[psycopg2]             # + PostgreSQL (psycopg2)
+pip install tripwire[asyncpg]              # + PostgreSQL (asyncpg)
+pip install tripwire[boto3]                # + AWS SDK
+pip install tripwire[pika]                 # + RabbitMQ
+pip install tripwire[celery]               # + Celery tasks
+pip install tripwire[grpc]                 # + gRPC
+pip install tripwire[paramiko]             # + SSH
+pip install tripwire[jwt]                  # + PyJWT
+pip install tripwire[crypto]               # + cryptography
+pip install tripwire[cffi]                 # + cffi (C FFI)
+pip install tripwire[websockets]           # + async WebSocket
+pip install tripwire[websocket-client]     # + sync WebSocket
+pip install tripwire[matchers]             # + dirty-equals matchers
 ```
 
 ## Documentation
 
-Full API reference, plugin guides, and advanced usage: **[axiomantic.github.io/bigfoot](https://axiomantic.github.io/bigfoot/)**
+Full API reference, plugin guides, and advanced usage: **[axiomantic.github.io/tripwire](https://axiomantic.github.io/tripwire/)**
 
 ## License
 

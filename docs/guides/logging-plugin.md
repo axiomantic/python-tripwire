@@ -1,29 +1,29 @@
 # LoggingPlugin Guide
 
-`LoggingPlugin` intercepts Python's `logging` module globally during a sandbox. It is included in core bigfoot -- no extra required.
+`LoggingPlugin` intercepts Python's `logging` module globally during a sandbox. It is included in core tripwire -- no extra required.
 
 ## Setup
 
-In pytest, access `LoggingPlugin` through the `bigfoot.log_mock` proxy. It auto-creates the plugin for the current test on first use -- no explicit instantiation needed:
+In pytest, access `LoggingPlugin` through the `tripwire.log_mock` proxy. It auto-creates the plugin for the current test on first use -- no explicit instantiation needed:
 
 ```python
-import bigfoot
+import tripwire
 import logging
 
 def test_audit_trail():
     logger = logging.getLogger("myapp.auth")
 
-    with bigfoot:
+    with tripwire:
         logger.info("User logged in")
 
-    bigfoot.log_mock.assert_info("User logged in", "myapp.auth")
+    tripwire.log_mock.assert_info("User logged in", "myapp.auth")
 ```
 
 For manual use outside pytest, construct `LoggingPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.logging_plugin import LoggingPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.logging_plugin import LoggingPlugin
 
 verifier = StrictVerifier()
 lp = LoggingPlugin(verifier)
@@ -42,10 +42,10 @@ This is the same pattern used by `shutil.which` in `SubprocessPlugin`: unmocked 
 
 ## Registering log mocks
 
-Use `bigfoot.log_mock.mock_log(level, message, logger_name=None)` to register expected log calls before entering the sandbox:
+Use `tripwire.log_mock.mock_log(level, message, logger_name=None)` to register expected log calls before entering the sandbox:
 
 ```python
-bigfoot.log_mock.mock_log("INFO", "User logged in", logger_name="myapp.auth")
+tripwire.log_mock.mock_log("INFO", "User logged in", logger_name="myapp.auth")
 ```
 
 Parameters:
@@ -61,13 +61,13 @@ Mocks are consumed in FIFO order. If a log call matches the next mock in the que
 
 ## Asserting log interactions
 
-Use `bigfoot.log_mock.log` as the source in `assert_interaction()`, or use the typed assertion helpers.
+Use `tripwire.log_mock.log` as the source in `assert_interaction()`, or use the typed assertion helpers.
 
 ### Using assert_interaction directly
 
 ```python
-bigfoot.assert_interaction(
-    bigfoot.log_mock.log,
+tripwire.assert_interaction(
+    tripwire.log_mock.log,
     level="INFO",
     message="User logged in",
     logger_name="myapp.auth",
@@ -79,9 +79,9 @@ All three fields (`level`, `message`, `logger_name`) are required.
 ### Using assertion helpers
 
 ```python
-bigfoot.log_mock.assert_log("INFO", "User logged in", "myapp.auth")
-bigfoot.log_mock.assert_info("User logged in", "myapp.auth")
-bigfoot.log_mock.assert_warning("Rate limit approaching", "myapp.auth")
+tripwire.log_mock.assert_log("INFO", "User logged in", "myapp.auth")
+tripwire.log_mock.assert_info("User logged in", "myapp.auth")
+tripwire.log_mock.assert_warning("Rate limit approaching", "myapp.auth")
 ```
 
 Available helpers:
@@ -111,30 +111,30 @@ Assert against the fully formatted message, not the template.
 Different logger names are recorded as-is. You can assert interactions from multiple loggers:
 
 ```python
-import bigfoot
+import tripwire
 import logging
 
 def test_multi_service():
     auth_logger = logging.getLogger("service.auth")
     payment_logger = logging.getLogger("service.payment")
 
-    with bigfoot:
+    with tripwire:
         auth_logger.info("authenticated")
         payment_logger.warning("rate limited")
 
-    bigfoot.log_mock.assert_info("authenticated", "service.auth")
-    bigfoot.log_mock.assert_warning("rate limited", "service.payment")
+    tripwire.log_mock.assert_info("authenticated", "service.auth")
+    tripwire.log_mock.assert_warning("rate limited", "service.payment")
 ```
 
 ## ConflictError
 
-At sandbox entry, `LoggingPlugin` checks whether `logging.Logger._log` has already been patched by another library. If it has been modified by a third party, bigfoot raises `ConflictError`:
+At sandbox entry, `LoggingPlugin` checks whether `logging.Logger._log` has already been patched by another library. If it has been modified by a third party, tripwire raises `ConflictError`:
 
 ```
 ConflictError: target='logging.Logger._log', patcher='unknown'
 ```
 
-Nested bigfoot sandboxes use reference counting and do not conflict with each other.
+Nested tripwire sandboxes use reference counting and do not conflict with each other.
 
 ## Full example
 

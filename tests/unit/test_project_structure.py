@@ -17,13 +17,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
-def test_bigfoot_init_exists() -> None:
-    init = PROJECT_ROOT / "src" / "bigfoot" / "__init__.py"
+def test_tripwire_init_exists() -> None:
+    init = PROJECT_ROOT / "src" / "tripwire" / "__init__.py"
     assert init.exists(), f"Expected {init} to exist"
 
 
-def test_bigfoot_plugins_init_exists() -> None:
-    init = PROJECT_ROOT / "src" / "bigfoot" / "plugins" / "__init__.py"
+def test_tripwire_plugins_init_exists() -> None:
+    init = PROJECT_ROOT / "src" / "tripwire" / "plugins" / "__init__.py"
     assert init.exists(), f"Expected {init} to exist"
 
 
@@ -60,16 +60,16 @@ def test_pyproject_toml_has_pytest11_entry_point() -> None:
     data = tomllib.loads(pyproject.read_bytes().decode())
     entry_points = data.get("project", {}).get("entry-points", {})
     pytest11 = entry_points.get("pytest11", {})
-    assert pytest11 == {"bigfoot": "bigfoot.pytest_plugin"}, (
-        f"[project.entry-points.pytest11] must be {{'bigfoot': 'bigfoot.pytest_plugin'}}, got {pytest11!r}"
+    assert pytest11 == {"tripwire": "tripwire.pytest_plugin"}, (
+        f"[project.entry-points.pytest11] must be {{'tripwire': 'tripwire.pytest_plugin'}}, got {pytest11!r}"
     )
 
 
-def test_pyproject_toml_package_name_is_bigfoot() -> None:
+def test_pyproject_toml_package_name_is_tripwire() -> None:
     pyproject = PROJECT_ROOT / "pyproject.toml"
     data = tomllib.loads(pyproject.read_bytes().decode())
     name = data.get("project", {}).get("name")
-    assert name == "bigfoot", f"[project].name must be 'bigfoot', got {name!r}"
+    assert name == "tripwire", f"[project].name must be 'tripwire', got {name!r}"
 
 
 def test_pyproject_toml_python_requirement() -> None:

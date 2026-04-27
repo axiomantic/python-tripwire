@@ -1,3 +1,3 @@
 # DnsPlugin
 
-::: bigfoot.plugins.dns_plugin.DnsPlugin
+::: tripwire.plugins.dns_plugin.DnsPlugin

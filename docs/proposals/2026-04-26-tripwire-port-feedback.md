@@ -1,19 +1,19 @@
-# Bigfoot improvement proposals: feedback from the tripwire (Nim) port
+# Tripwire improvement proposals: feedback from the tripwire (Nim) port
 
 **Created:** 2026-04-26
-**Project:** bigfoot (`/Users/eek/Development/bigfoot`)
+**Project:** tripwire (`/Users/eek/Development/tripwire`)
 **For:** a fresh Claude Code session - paste this whole file as the first message.
 
 ---
 
 ## Context
 
-You are working on `bigfoot`, a Python testing/sandboxing library. The user is the
+You are working on `tripwire`, a Python testing/sandboxing library. The user is the
 author and the only user. There is no compatibility window to worry about.
 
-Recently I ported (some of) bigfoot's design into `tripwire`, a Nim equivalent
+Recently I ported (some of) tripwire's design into `tripwire`, a Nim equivalent
 used by paperplanes (a Kraken arbitrage bot). The port surfaced several
-design seams in bigfoot worth examining. This file is the prompt to act on
+design seams in tripwire worth examining. This file is the prompt to act on
 that feedback.
 
 The goals here are concrete, prioritized, and bounded. Do them in priority
@@ -30,7 +30,7 @@ for deprecated alias. this is all liquid, baby."
 
 ## Operating directives
 
-- **You are the bigfoot author and the only user.** Single source of authority.
+- **You are the tripwire author and the only user.** Single source of authority.
   No "but what about other users."
 - **Subagents for substantive work** per `~/.claude/CLAUDE.md`. Dispatch them
   for code reads / writes / tests; orchestrate from the main context.
@@ -60,8 +60,8 @@ estimate. Land them in this order; each is independent.
 
 **Priority:** HIGH. This is the biggest one.
 
-**Rationale.** Bigfoot today defaults `guard` to `"warn"`. A fresh project
-that imports bigfoot and writes a test without configuring guard will
+**Rationale.** Tripwire today defaults `guard` to `"warn"`. A fresh project
+that imports tripwire and writes a test without configuring guard will
 silently make real network calls, real subprocess invocations, real DNS
 lookups - they pass through with a warning the test runner may swallow.
 That is the opposite of what a sandbox should do. A testing tool's prime
@@ -76,13 +76,13 @@ loud.
 
 **Concrete change.**
 
-1. In `pyproject.toml` schema and bigfoot's config defaults: set the
-   default for `[tool.bigfoot] guard` to `"error"` (find the constant or
+1. In `pyproject.toml` schema and tripwire's config defaults: set the
+   default for `[tool.tripwire] guard` to `"error"` (find the constant or
    the parser default; grep for `"warn"` near guard parsing).
 2. Update `README.md` and any quickstart docs:
    - State the default is `"error"`.
    - Add a "When to use `warn`" subsection: incremental migration of
-     legacy test suites that have not yet been wrapped in `with bigfoot:`
+     legacy test suites that have not yet been wrapped in `with tripwire:`
      blocks. Caveat that warn mode lets real I/O through and should not
      be the steady state.
 3. Update CHANGELOG.md under `[Unreleased]` with a clear breaking-change
@@ -91,9 +91,9 @@ loud.
 **Acceptance test.**
 
 Add a test that:
-- creates a project with no bigfoot config,
-- imports bigfoot,
-- makes an unmocked HTTP request outside any `with bigfoot:` block,
+- creates a project with no tripwire config,
+- imports tripwire,
+- makes an unmocked HTTP request outside any `with tripwire:` block,
 - asserts an error is raised (not a warning logged).
 
 **Effort.** Small (defaults change + docs + 1 test).
@@ -104,7 +104,7 @@ Add a test that:
 
 **Priority:** HIGH. This prevents `guard="warn"` from being a footgun.
 
-**Rationale.** When `guard="warn"`, bigfoot today probably lets every
+**Rationale.** When `guard="warn"`, tripwire today probably lets every
 unmocked call through. For some plugins that's fine: a Mock plugin's
 "passthrough" is identity, no harm done. For other plugins it's
 destructive: HTTP makes a real network request, subprocess forks a real
@@ -118,24 +118,24 @@ can't passthrough safely, it raises `OutsideSandboxNoPassthroughDefect`
 with a pedagogical message: "plugin X doesn't support outside-sandbox
 passthrough; install a sandbox or set guard=error."
 
-Bigfoot would benefit from the same gate. Otherwise `guard="warn"` is
+Tripwire would benefit from the same gate. Otherwise `guard="warn"` is
 indistinguishable from "make all real I/O happen, with a log line."
 
 **Concrete change.**
 
 1. Add a `passthrough_safe: bool` class attribute (default `False`) to
-   bigfoot's plugin base class.
+   tripwire's plugin base class.
 2. Set `passthrough_safe = True` on Mock-style plugins where passthrough
    is genuinely a no-op or identity. Audit each plugin in the codebase;
    default to False if there is any doubt.
 3. Add a new exception class `UnsafePassthroughError` (or similar; align
-   with bigfoot's existing exception naming convention - read `errors.py`
+   with tripwire's existing exception naming convention - read `errors.py`
    or wherever exceptions live first).
 4. In the guard-mode dispatch path: when `guard="warn"` and an unmocked
    call hits a plugin where `passthrough_safe is False`, raise
    `UnsafePassthroughError` with a message that says, verbatim or close:
    "plugin {name} doesn't support outside-sandbox passthrough; either
-   install a `with bigfoot:` block, set guard='error' to make this fail
+   install a `with tripwire:` block, set guard='error' to make this fail
    loudly, or mark this plugin passthrough_safe=True if you've audited
    that the underlying call has no side effects."
 
@@ -167,7 +167,7 @@ hostile. But DNS and subprocess should fail loud unconditionally.
 Allow per-protocol overrides in `pyproject.toml`:
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 guard = "warn"           # default for everything
 guard.dns = "error"      # except DNS, always raise
 guard.subprocess = "error"
@@ -201,23 +201,23 @@ Config with `guard = "warn"` plus `guard.dns = "error"`:
   forgot a sandbox").
 - `PostTestInteractionDefect`: verifier was popped (sandbox exited) but
   generation counter still active ("your async cleanup is wrong; a
-  Future / Task / Thread survived `with bigfoot:` exit and fired after").
+  Future / Task / Thread survived `with tripwire:` exit and fired after").
 
 These are *genuinely different bugs*. The first is a missing sandbox
 declaration. The second is a leak of in-flight async work past the
 sandbox lifetime. Catching both under one error makes async leak
 debugging much harder than necessary.
 
-If bigfoot today raises one error for both, split them. Verify by reading
-bigfoot's exception hierarchy (`grep -rn "class.*Error\\|class.*Defect" src/`).
+If tripwire today raises one error for both, split them. Verify by reading
+tripwire's exception hierarchy (`grep -rn "class.*Error\\|class.*Defect" src/`).
 
 **Concrete change.**
 
-1. Read bigfoot's current handling of "call fired outside the active
+1. Read tripwire's current handling of "call fired outside the active
    sandbox" - is this one path or already two? If one, split. If already
    two, this proposal is satisfied; move on.
-2. Add `PostSandboxInteractionError` (or whatever fits bigfoot's naming).
-3. Track sandbox generation: when `with bigfoot:` exits, mark the sandbox
+2. Add `PostSandboxInteractionError` (or whatever fits tripwire's naming).
+3. Track sandbox generation: when `with tripwire:` exits, mark the sandbox
    inactive but keep an identity. Calls that fire on a-known-but-inactive
    sandbox raise the post-sandbox error; calls with no sandbox identity
    raise the leaked-interaction error.
@@ -225,8 +225,8 @@ bigfoot's exception hierarchy (`grep -rn "class.*Error\\|class.*Defect" src/`).
 **Acceptance test.**
 
 Two tests:
-- Call without ever entering `with bigfoot:` -> `LeakedInteractionError`.
-- `with bigfoot:` block that schedules an asyncio Task; block exits before
+- Call without ever entering `with tripwire:` -> `LeakedInteractionError`.
+- `with tripwire:` block that schedules an asyncio Task; block exits before
   Task completes; Task makes an unmocked call -> `PostSandboxInteractionError`.
 
 **Effort.** Medium. Generation tracking on the sandbox object plus exception
@@ -238,16 +238,16 @@ split.
 
 **Priority:** LOW-MEDIUM. UX polish, not correctness.
 
-**Rationale.** When bigfoot raises outside a sandbox, the message should
+**Rationale.** When tripwire raises outside a sandbox, the message should
 state the user's mental model, not just the implementation detail. A new
 user seeing the current error has to figure out from context that they
-forgot to wrap in `with bigfoot:`.
+forgot to wrap in `with tripwire:`.
 
 Tripwire's message: `"TRM fired on thread {tid} with no active verifier
 at {file}:{line}"` is functional but mechanical. Better:
 
 > `Call to {plugin}.{method}({args}) at {file}:{line} happened OUTSIDE
-> any "with bigfoot:" block. Wrap the call in a sandbox and add an
+> any "with tripwire:" block. Wrap the call in a sandbox and add an
 > allow(...) for it, OR set guard="warn" in pyproject.toml if the call
 > is intentional and safe.`
 
@@ -256,7 +256,7 @@ at {file}:{line}"` is functional but mechanical. Better:
 Find every outside-sandbox raise site. Update the message to include:
 - Which plugin and method was called
 - The call site (file:line)
-- The user-mental-model framing ("OUTSIDE any `with bigfoot:` block")
+- The user-mental-model framing ("OUTSIDE any `with tripwire:` block")
 - The two options for fixing it
 
 **Acceptance test.**
@@ -274,25 +274,25 @@ This is a regression guard against the message drifting back to mechanical.
 
 **Rationale.** Per-test override lets strict tests live next to permissive
 ones during a guard migration. Natural fit for pytest. Tripwire can't do
-this cleanly because it's compile-time; bigfoot can.
+this cleanly because it's compile-time; tripwire can.
 
 **Concrete change.**
 
-Register a pytest marker `bigfoot_guard("error" | "warn" | dict-form)`.
+Register a pytest marker `tripwire_guard("error" | "warn" | dict-form)`.
 When the test starts, the marker (if present) overrides the project's
 guard setting for the duration of that test. When the test ends, restore
 prior config.
 
 ```python
-@pytest.mark.bigfoot_guard("error")
+@pytest.mark.tripwire_guard("error")
 def test_strict_dns():
     # this test fails loud on any unmocked call
     ...
 ```
 
 Implementation:
-1. Add the marker registration in bigfoot's pytest plugin (find it in
-   `src/bigfoot/pytest_plugin.py` or similar).
+1. Add the marker registration in tripwire's pytest plugin (find it in
+   `src/tripwire/pytest_plugin.py` or similar).
 2. Hook into a pytest fixture (autouse, narrow scope) that reads the
    marker, overrides the config, yields, and restores.
 3. Document in the README and the migration guide.
@@ -300,8 +300,8 @@ Implementation:
 **Acceptance test.**
 
 A test file with two tests:
-- One marked `bigfoot_guard("error")`: makes an unmocked call, expects raise.
-- One marked `bigfoot_guard("warn")`: makes an unmocked call, expects warning.
+- One marked `tripwire_guard("error")`: makes an unmocked call, expects raise.
+- One marked `tripwire_guard("warn")`: makes an unmocked call, expects warning.
 
 **Effort.** Small. Pytest marker registration + fixture + docs.
 
@@ -323,7 +323,7 @@ on unknown values.
 Find the TOML config parser. After reading `guard`, validate the value
 is one of the accepted set. On mismatch, raise a clear error:
 
-> `Invalid value "{got}" for [tool.bigfoot] guard. Expected one of: "warn",
+> `Invalid value "{got}" for [tool.tripwire] guard. Expected one of: "warn",
 > "error". (Per-protocol form also accepted; see docs.)`
 
 Apply the same validation to any other config keys that take a closed set.
@@ -348,7 +348,7 @@ tells the user when to use which:
 - **For new projects:** keep the default `"error"`. Real I/O outside
   sandboxes is almost always a bug.
 - **For migrating legacy test suites:** set `guard = "warn"` while you
-  add `with bigfoot:` blocks incrementally. Plan to flip back to
+  add `with tripwire:` blocks incrementally. Plan to flip back to
   `"error"` once the migration is done.
 - **For mixed CI:** use per-protocol overrides (Proposal 3) to be strict
   on the dangerous protocols (DNS, subprocess) and permissive on the
@@ -370,9 +370,9 @@ during this batch or after.
 
 ### B1 - Vocabulary clarity
 
-Make explicit in docs that `bigfoot.allow(...)` and `bigfoot.restrict(...)`
+Make explicit in docs that `tripwire.allow(...)` and `tripwire.restrict(...)`
 are *sandbox-scoped*, while `guard` is *module-scoped (global)*. They do
-not compose. A user who tries `bigfoot.allow(...)` outside a `with` block
+not compose. A user who tries `tripwire.allow(...)` outside a `with` block
 will get a confusing error because there is no sandbox to attach the
 allow to. Either:
 - document the divide loudly, OR
@@ -381,13 +381,13 @@ allow to. Either:
 
 ### B2 - Async edge case: contextvars + threadpools
 
-Verify `with bigfoot:` survives correctly across:
+Verify `with tripwire:` survives correctly across:
 - `asyncio.to_thread(...)` (which uses a default thread executor)
 - `concurrent.futures.ProcessPoolExecutor` (which fork-execs a child)
 - `asyncio.create_task(...)` (which inherits the current context)
 
 Python's contextvars + threadpools are notoriously subtle. The right
-behavior is probably: `with bigfoot:` state propagates to threads via
+behavior is probably: `with tripwire:` state propagates to threads via
 contextvars (it should "just work"), but does NOT propagate to subprocesses
 (those are a separate process boundary; configure them via env or config
 file, not via context). Document and test.
@@ -412,13 +412,13 @@ Do not push without explicit user approval.
 
 ## Pointers
 
-- `src/bigfoot/` for the implementation
+- `src/tripwire/` for the implementation
 - `tests/` for the test suite
 - `pyproject.toml` for project configuration and config schema
 - `CHANGELOG.md` for release notes
 - `docs/` for the user-facing documentation
 - `~/.claude/CLAUDE.md` for the user's standing operating directives
-- `AGENTS.md` (or `CLAUDE.md`) at the bigfoot repo root for repo-specific
+- `AGENTS.md` (or `CLAUDE.md`) at the tripwire repo root for repo-specific
   conventions; read first
 
 Good luck. The user is patient and rigorous; match the energy.

@@ -1,3 +1,3 @@
 # PikaPlugin
 
-::: bigfoot.plugins.pika_plugin.PikaPlugin
+::: tripwire.plugins.pika_plugin.PikaPlugin

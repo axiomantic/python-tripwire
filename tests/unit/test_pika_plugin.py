@@ -5,12 +5,12 @@ from __future__ import annotations
 import pika as pika_lib
 import pytest
 
-import bigfoot
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.pika_plugin import (
+import tripwire
+from tripwire._context import _current_test_verifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.pika_plugin import (
     _PIKA_AVAILABLE,
     PikaPlugin,
     _FakeBlockingConnection,
@@ -536,7 +536,7 @@ def test_get_unused_mocks_queued_session_never_bound() -> None:
 #   MUTATION: Returning frozenset() from assertable_fields would skip field validation.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_interaction_missing_fields_raises() -> None:
-    from bigfoot._errors import MissingAssertionFieldsError
+    from tripwire._errors import MissingAssertionFieldsError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -565,19 +565,19 @@ def test_assert_interaction_missing_fields_raises() -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong host/port/virtual_host would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_connect_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_assert_connect_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="rabbitmq.local", port=5672, virtual_host="/")
         )
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_assert_publish_helper
@@ -586,14 +586,14 @@ def test_assert_connect_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong exchange/routing_key/body/properties would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_publish_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_assert_publish_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("publish", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -606,15 +606,15 @@ def test_assert_publish_helper(bigfoot_verifier: StrictVerifier) -> None:
         )
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_publish(
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_publish(
         exchange="amq.direct",
         routing_key="test.route",
         body=b"payload",
         properties=None,
     )
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_assert_consume_helper
@@ -623,14 +623,14 @@ def test_assert_publish_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong queue/auto_ack would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_consume_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_assert_consume_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("consume", returns="ctag_1")
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -638,10 +638,10 @@ def test_assert_consume_helper(bigfoot_verifier: StrictVerifier) -> None:
         ch.basic_consume(queue="my_queue", auto_ack=True)
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_consume(queue="my_queue", auto_ack=True)
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_consume(queue="my_queue", auto_ack=True)
+    tripwire.pika_mock.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -688,24 +688,24 @@ def test_pika_available_flag() -> None:
 
 
 # ESCAPE: test_pika_mock_proxy_raises_import_error_when_unavailable
-#   CLAIM: Accessing bigfoot.pika_mock raises ImportError when pika is not installed.
+#   CLAIM: Accessing tripwire.pika_mock raises ImportError when pika is not installed.
 #   PATH:  _PikaProxy.__getattr__ -> checks _PIKA_AVAILABLE -> raises ImportError.
-#   CHECK: ImportError raised with message containing "bigfoot[pika]" and "pip install".
+#   CHECK: ImportError raised with message containing "tripwire[pika]" and "pip install".
 #   MUTATION: Not checking _PIKA_AVAILABLE would defer the error.
 #   ESCAPE: Wrong message would fail the string check.
 def test_pika_mock_proxy_raises_import_error_when_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import bigfoot.plugins.pika_plugin as pika_mod
+    import tripwire.plugins.pika_plugin as pika_mod
 
     monkeypatch.setattr(pika_mod, "_PIKA_AVAILABLE", False)
 
     with pytest.raises(ImportError) as exc_info:
-        _ = bigfoot.pika_mock.new_session  # noqa: B018
+        _ = tripwire.pika_mock.new_session  # noqa: B018
 
     assert str(exc_info.value) == (
-        "bigfoot[pika] is required to use bigfoot.pika_mock. "
-        "Install it with: pip install bigfoot[pika]"
+        "tripwire[pika] is required to use tripwire.pika_mock. "
+        "Install it with: pip install tripwire[pika]"
     )
 
 
@@ -926,7 +926,7 @@ def test_matches_field_by_field() -> None:
 #   MUTATION: Wrong source_id string fails the equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality on each.
 def test_sentinel_properties() -> None:
-    from bigfoot._state_machine_plugin import _StepSentinel
+    from tripwire._state_machine_plugin import _StepSentinel
 
     v, p = _make_verifier_with_plugin()
 
@@ -953,39 +953,39 @@ def test_sentinel_properties() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.pika_mock
+# Module-level proxy: tripwire.pika_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_pika_mock_proxy_new_session
-#   CLAIM: bigfoot.pika_mock.new_session() returns a SessionHandle.
+#   CLAIM: tripwire.pika_mock.new_session() returns a SessionHandle.
 #   PATH:  _PikaProxy.__getattr__("new_session") -> get verifier -> find/create PikaPlugin ->
 #          return plugin.new_session.
 #   CHECK: session is a SessionHandle instance; chaining .expect() does not raise.
 #   MUTATION: Returning None instead of a SessionHandle would fail isinstance check.
 #   ESCAPE: Nothing reasonable -- both the isinstance and the chained .expect() call check it.
-def test_pika_mock_proxy_new_session(bigfoot_verifier: StrictVerifier) -> None:
-    from bigfoot._state_machine_plugin import SessionHandle
+def test_pika_mock_proxy_new_session(tripwire_verifier: StrictVerifier) -> None:
+    from tripwire._state_machine_plugin import SessionHandle
 
-    session = bigfoot.pika_mock.new_session()
+    session = tripwire.pika_mock.new_session()
     assert isinstance(session, SessionHandle)
     result = session.expect("connect", returns=None, required=False)
     assert result is session  # expect() returns self for chaining
 
 
 # ESCAPE: test_pika_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.pika_mock outside a test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.pika_mock outside a test context raises NoActiveVerifierError.
 #   PATH:  _PikaProxy.__getattr__ -> _get_test_verifier_or_raise -> NoActiveVerifierError.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Silently returning None would not raise and hide context failures.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_pika_mock_proxy_raises_outside_context() -> None:
-    from bigfoot._errors import NoActiveVerifierError
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.pika_mock.new_session  # noqa: B018
+            _ = tripwire.pika_mock.new_session  # noqa: B018
     finally:
         _current_test_verifier.reset(token)
 
@@ -1027,14 +1027,14 @@ def test_close_from_connected() -> None:
 #   CHECK: assert_interaction verifies every assertable field for every step.
 #   MUTATION: Wrong detail values in any step fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
-def test_full_publish_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_full_publish_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("publish", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -1046,15 +1046,15 @@ def test_full_publish_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
         )
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_publish(
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_publish(
         exchange="test_exchange",
         routing_key="test.key",
         body=b"hello",
         properties=None,
     )
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_consume_flow_assertions
@@ -1063,14 +1063,14 @@ def test_full_publish_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: assert_interaction verifies every assertable field for every step.
 #   MUTATION: Wrong queue or auto_ack values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
-def test_consume_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_consume_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("consume", returns="ctag_1")
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -1080,10 +1080,10 @@ def test_consume_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
 
     assert tag == "ctag_1"
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_consume(queue="test_queue", auto_ack=True)
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_consume(queue="test_queue", auto_ack=True)
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_ack_nack_flow_assertions
@@ -1092,15 +1092,15 @@ def test_consume_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: assert_interaction verifies delivery_tag and requeue on each step.
 #   MUTATION: Wrong delivery_tag or requeue values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on all assertable steps.
-def test_ack_nack_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_ack_nack_flow_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("ack", returns=None)
     session.expect("nack", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -1109,11 +1109,11 @@ def test_ack_nack_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
         ch.basic_nack(delivery_tag=2, requeue=True)
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_ack(delivery_tag=1)
-    bigfoot.pika_mock.assert_nack(delivery_tag=2, requeue=True)
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_ack(delivery_tag=1)
+    tripwire.pika_mock.assert_nack(delivery_tag=2, requeue=True)
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_close_from_connected_assertions
@@ -1122,19 +1122,19 @@ def test_ack_nack_flow_assertions(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: assert_interaction verifies connect fields; close has no assertable fields.
 #   MUTATION: Wrong host/port/virtual_host fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage.
-def test_close_from_connected_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_close_from_connected_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="rabbitmq.local")
         )
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="rabbitmq.local", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_session_lifecycle_assertions
@@ -1143,14 +1143,14 @@ def test_close_from_connected_assertions(bigfoot_verifier: StrictVerifier) -> No
 #   CHECK: assert_interaction verifies all assertable fields for every step.
 #   MUTATION: Wrong detail values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage.
-def test_session_lifecycle_assertions(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_session_lifecycle_assertions(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("publish", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -1158,12 +1158,12 @@ def test_session_lifecycle_assertions(bigfoot_verifier: StrictVerifier) -> None:
         ch.basic_publish(exchange="", routing_key="q", body=b"data")
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_publish(
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_publish(
         exchange="", routing_key="q", body=b"data", properties=None,
     )
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_multiple_sequential_sessions_assertions
@@ -1173,22 +1173,22 @@ def test_session_lifecycle_assertions(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: assert_interaction verifies fields for every step in both sessions.
 #   MUTATION: Wrong host or routing_key/queue values fail the assertion.
 #   ESCAPE: Nothing reasonable -- full field coverage on both sessions.
-def test_multiple_sequential_sessions_assertions(bigfoot_verifier: StrictVerifier) -> None:
+def test_multiple_sequential_sessions_assertions(tripwire_verifier: StrictVerifier) -> None:
     # First session
-    s1 = bigfoot.pika_mock.new_session()
+    s1 = tripwire.pika_mock.new_session()
     s1.expect("connect", returns=None)
     s1.expect("channel", returns=None)
     s1.expect("publish", returns=None)
     s1.expect("close", returns=None)
 
     # Second session
-    s2 = bigfoot.pika_mock.new_session()
+    s2 = tripwire.pika_mock.new_session()
     s2.expect("connect", returns=None)
     s2.expect("channel", returns=None)
     s2.expect("consume", returns="ctag_2")
     s2.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         # First connection
         conn1 = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="host1")
@@ -1208,18 +1208,18 @@ def test_multiple_sequential_sessions_assertions(bigfoot_verifier: StrictVerifie
     assert tag == "ctag_2"
 
     # Assert first session interactions
-    bigfoot.pika_mock.assert_connect(host="host1", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_publish(
+    tripwire.pika_mock.assert_connect(host="host1", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_publish(
         exchange="", routing_key="q1", body=b"msg1", properties=None,
     )
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_close()
 
     # Assert second session interactions
-    bigfoot.pika_mock.assert_connect(host="host2", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_consume(queue="q2", auto_ack=False)
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="host2", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_consume(queue="q2", auto_ack=False)
+    tripwire.pika_mock.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -1233,14 +1233,14 @@ def test_multiple_sequential_sessions_assertions(bigfoot_verifier: StrictVerifie
 #   CHECK: No exception raised.
 #   MUTATION: Wrong delivery_tag would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_ack_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_assert_ack_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("ack", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -1248,10 +1248,10 @@ def test_assert_ack_helper(bigfoot_verifier: StrictVerifier) -> None:
         ch.basic_ack(delivery_tag=42)
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_ack(delivery_tag=42)
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_ack(delivery_tag=42)
+    tripwire.pika_mock.assert_close()
 
 
 # ESCAPE: test_assert_nack_helper
@@ -1260,14 +1260,14 @@ def test_assert_ack_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised.
 #   MUTATION: Wrong delivery_tag or requeue would raise InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- helper delegates to assert_interaction with full fields.
-def test_assert_nack_helper(bigfoot_verifier: StrictVerifier) -> None:
-    session = bigfoot.pika_mock.new_session()
+def test_assert_nack_helper(tripwire_verifier: StrictVerifier) -> None:
+    session = tripwire.pika_mock.new_session()
     session.expect("connect", returns=None)
     session.expect("channel", returns=None)
     session.expect("nack", returns=None)
     session.expect("close", returns=None)
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         conn = pika_lib.BlockingConnection(
             pika_lib.ConnectionParameters(host="localhost")
         )
@@ -1275,10 +1275,10 @@ def test_assert_nack_helper(bigfoot_verifier: StrictVerifier) -> None:
         ch.basic_nack(delivery_tag=7, requeue=False)
         conn.close()
 
-    bigfoot.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
-    bigfoot.pika_mock.assert_channel()
-    bigfoot.pika_mock.assert_nack(delivery_tag=7, requeue=False)
-    bigfoot.pika_mock.assert_close()
+    tripwire.pika_mock.assert_connect(host="localhost", port=5672, virtual_host="/")
+    tripwire.pika_mock.assert_channel()
+    tripwire.pika_mock.assert_nack(delivery_tag=7, requeue=False)
+    tripwire.pika_mock.assert_close()
 
 
 # ---------------------------------------------------------------------------
@@ -1294,7 +1294,7 @@ def test_assert_nack_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   MUTATION: A no-op assert_connect that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_connect_helper_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -1319,7 +1319,7 @@ def test_assert_connect_helper_rejects_wrong_values() -> None:
 #   MUTATION: A no-op assert_publish that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_publish_helper_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -1353,7 +1353,7 @@ def test_assert_publish_helper_rejects_wrong_values() -> None:
 #   MUTATION: A no-op assert_ack that never checks would not raise.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_assert_ack_helper_rejects_wrong_values() -> None:
-    from bigfoot._errors import InteractionMismatchError
+    from tripwire._errors import InteractionMismatchError
 
     v, p = _make_verifier_with_plugin()
     session = p.new_session()
@@ -1388,7 +1388,7 @@ def test_assert_ack_helper_rejects_wrong_values() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_connect() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1408,7 +1408,7 @@ def test_format_interaction_connect() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_channel() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1428,7 +1428,7 @@ def test_format_interaction_channel() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_publish() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1448,7 +1448,7 @@ def test_format_interaction_publish() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_consume() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1468,7 +1468,7 @@ def test_format_interaction_consume() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_ack() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1488,7 +1488,7 @@ def test_format_interaction_ack() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_nack() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1508,7 +1508,7 @@ def test_format_interaction_nack() -> None:
 #   MUTATION: Wrong format string fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_close() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1528,7 +1528,7 @@ def test_format_interaction_close() -> None:
 #   MUTATION: Wrong fallback format fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_interaction_unknown() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1548,7 +1548,7 @@ def test_format_interaction_unknown() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_mock_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1558,7 +1558,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.pika_mock.new_session().expect('publish', returns=...)"
+    assert result == "    tripwire.pika_mock.new_session().expect('publish', returns=...)"
 
 
 # ESCAPE: test_format_mock_hint_connect
@@ -1568,7 +1568,7 @@ def test_format_mock_hint() -> None:
 #   MUTATION: Wrong method name in hint fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_mock_hint_connect() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1578,7 +1578,7 @@ def test_format_mock_hint_connect() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.pika_mock.new_session().expect('connect', returns=...)"
+    assert result == "    tripwire.pika_mock.new_session().expect('connect', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -1593,7 +1593,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "pika.BlockingConnection.connect(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    bigfoot.pika_mock.new_session().expect('connect', returns=...)"
+        "    tripwire.pika_mock.new_session().expect('connect', returns=...)"
     )
 
 
@@ -1609,7 +1609,7 @@ def test_format_unmocked_hint_publish() -> None:
     assert result == (
         "pika.BlockingConnection.publish(...) was called but no session was queued.\n"
         "Register a session with:\n"
-        "    bigfoot.pika_mock.new_session().expect('publish', returns=...)"
+        "    tripwire.pika_mock.new_session().expect('publish', returns=...)"
     )
 
 
@@ -1620,7 +1620,7 @@ def test_format_unmocked_hint_publish() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_connect() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1630,7 +1630,7 @@ def test_format_assert_hint_connect() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.pika_mock.assert_connect(host='localhost', port=5672, virtual_host='/')"
+    assert result == "    tripwire.pika_mock.assert_connect(host='localhost', port=5672, virtual_host='/')"
 
 
 # ESCAPE: test_format_assert_hint_channel
@@ -1640,7 +1640,7 @@ def test_format_assert_hint_connect() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_channel() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1650,7 +1650,7 @@ def test_format_assert_hint_channel() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.pika_mock.assert_channel()"
+    assert result == "    tripwire.pika_mock.assert_channel()"
 
 
 # ESCAPE: test_format_assert_hint_publish
@@ -1660,7 +1660,7 @@ def test_format_assert_hint_channel() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_publish() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1671,7 +1671,7 @@ def test_format_assert_hint_publish() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.pika_mock.assert_publish("
+        "    tripwire.pika_mock.assert_publish("
         "exchange='amq.direct', routing_key='test', "
         "body=b'msg', properties=None)"
     )
@@ -1684,7 +1684,7 @@ def test_format_assert_hint_publish() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_consume() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1694,7 +1694,7 @@ def test_format_assert_hint_consume() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.pika_mock.assert_consume(queue='my_queue', auto_ack=True)"
+    assert result == "    tripwire.pika_mock.assert_consume(queue='my_queue', auto_ack=True)"
 
 
 # ESCAPE: test_format_assert_hint_ack
@@ -1704,7 +1704,7 @@ def test_format_assert_hint_consume() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_ack() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1714,7 +1714,7 @@ def test_format_assert_hint_ack() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.pika_mock.assert_ack(delivery_tag=42)"
+    assert result == "    tripwire.pika_mock.assert_ack(delivery_tag=42)"
 
 
 # ESCAPE: test_format_assert_hint_nack
@@ -1724,7 +1724,7 @@ def test_format_assert_hint_ack() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_nack() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1734,7 +1734,7 @@ def test_format_assert_hint_nack() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.pika_mock.assert_nack(delivery_tag=5, requeue=False)"
+    assert result == "    tripwire.pika_mock.assert_nack(delivery_tag=5, requeue=False)"
 
 
 # ESCAPE: test_format_assert_hint_close
@@ -1744,7 +1744,7 @@ def test_format_assert_hint_nack() -> None:
 #   MUTATION: Wrong hint text fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_close() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1754,7 +1754,7 @@ def test_format_assert_hint_close() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    bigfoot.pika_mock.assert_close()"
+    assert result == "    tripwire.pika_mock.assert_close()"
 
 
 # ESCAPE: test_format_assert_hint_unknown
@@ -1764,7 +1764,7 @@ def test_format_assert_hint_close() -> None:
 #   MUTATION: Wrong fallback format fails equality check.
 #   ESCAPE: Nothing reasonable -- exact string equality.
 def test_format_assert_hint_unknown() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1774,7 +1774,7 @@ def test_format_assert_hint_unknown() -> None:
         plugin=p,
     )
     result = p.format_assert_hint(interaction)
-    assert result == "    # bigfoot.pika_mock: unknown source_id='pika:unknown_op'"
+    assert result == "    # tripwire.pika_mock: unknown source_id='pika:unknown_op'"
 
 
 # ESCAPE: test_format_unused_mock_hint

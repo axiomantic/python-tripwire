@@ -7,10 +7,10 @@ from typing import Any
 
 import pytest
 
-from bigfoot._errors import InvalidStateError, UnmockedInteractionError
-from bigfoot._state_machine_plugin import ScriptStep, SessionHandle, StateMachinePlugin
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
+from tripwire._errors import InvalidStateError, UnmockedInteractionError
+from tripwire._state_machine_plugin import ScriptStep, SessionHandle, StateMachinePlugin
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
 
 # ---------------------------------------------------------------------------
 # Minimal concrete subclass for testing
@@ -544,7 +544,7 @@ def test_bind_connection_raises_when_queue_empty() -> None:
     # CHECK: pytest.raises verifies the exception type exactly.
     # MUTATION: Raising a different exception type would fail pytest.raises.
     # ESCAPE: Nothing reasonable.
-    # IMPACT: Users would get an obscure error instead of a helpful bigfoot message.
+    # IMPACT: Users would get an obscure error instead of a helpful tripwire message.
     plugin = _make_plugin()
     conn = _make_connection_obj()
     with pytest.raises(UnmockedInteractionError):
@@ -742,7 +742,7 @@ def test_execute_step_does_not_auto_mark_interaction_asserted() -> None:
     # CLAIM: The interaction recorded by _execute_step() has _asserted=False.
     # PATH: _execute_step() calls self.record() but NOT mark_asserted().
     # CHECK: interaction._asserted is False.
-    # MUTATION: Adding a mark_asserted() call would set _asserted=True, defeating bigfoot's
+    # MUTATION: Adding a mark_asserted() call would set _asserted=True, defeating tripwire's
     #           certainty guarantee.
     # ESCAPE: Nothing reasonable.
     # IMPACT: Test authors could no longer trust that unasserted interactions cause test failures.
@@ -856,7 +856,7 @@ def test_execute_step_unasserted_interaction_raises_at_teardown() -> None:
     # MUTATION: Adding mark_asserted() back to _execute_step() would suppress the error.
     # ESCAPE: Nothing reasonable.
     # IMPACT: Tests that forgot assert_interaction() would silently pass instead of failing.
-    from bigfoot._errors import UnassertedInteractionsError
+    from tripwire._errors import UnassertedInteractionsError
 
     v = _make_verifier()
     plugin = _TestPlugin(v)

@@ -1,6 +1,6 @@
 """Tests for PatchSet and PatchTarget."""
 
-from bigfoot._patching import PatchSet, PatchTarget
+from tripwire._patching import PatchSet, PatchTarget
 
 
 class _DummyTarget:

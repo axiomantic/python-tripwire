@@ -1,3 +1,3 @@
 # SubprocessPlugin
 
-::: bigfoot.plugins.subprocess.SubprocessPlugin
+::: tripwire.plugins.subprocess.SubprocessPlugin

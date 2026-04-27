@@ -5,28 +5,28 @@
 ## Installation
 
 ```bash
-pip install bigfoot[jwt]
+pip install tripwire[jwt]
 ```
 
 This installs `PyJWT`.
 
 ## Setup
 
-In pytest, access `JwtPlugin` through the `bigfoot.jwt_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `JwtPlugin` through the `tripwire.jwt_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_token_generation():
-    bigfoot.jwt_mock.mock_encode(returns="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test")
+    tripwire.jwt_mock.mock_encode(returns="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test")
 
-    with bigfoot:
+    with tripwire:
         import jwt
         token = jwt.encode({"user_id": "42", "exp": 1700000000}, "secret", algorithm="HS256")
 
     assert token == "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.test"
 
-    bigfoot.jwt_mock.assert_encode(
+    tripwire.jwt_mock.assert_encode(
         payload={"user_id": "42", "exp": 1700000000},
         algorithm="HS256",
         extra_kwargs={},
@@ -36,8 +36,8 @@ def test_token_generation():
 For manual use outside pytest, construct `JwtPlugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.jwt_plugin import JwtPlugin
+from tripwire import StrictVerifier
+from tripwire.plugins.jwt_plugin import JwtPlugin
 
 verifier = StrictVerifier()
 jwt_mock = JwtPlugin(verifier)
@@ -54,7 +54,7 @@ Each verifier may have at most one `JwtPlugin`. A second `JwtPlugin(verifier)` r
 Register a mock for `jwt.encode()`:
 
 ```python
-bigfoot.jwt_mock.mock_encode(returns="mocked.jwt.token")
+tripwire.jwt_mock.mock_encode(returns="mocked.jwt.token")
 ```
 
 | Parameter | Type | Default | Description |
@@ -68,7 +68,7 @@ bigfoot.jwt_mock.mock_encode(returns="mocked.jwt.token")
 Register a mock for `jwt.decode()`:
 
 ```python
-bigfoot.jwt_mock.mock_decode(returns={"user_id": "42", "role": "admin"})
+tripwire.jwt_mock.mock_decode(returns={"user_id": "42", "role": "admin"})
 ```
 
 | Parameter | Type | Default | Description |
@@ -83,10 +83,10 @@ Each operation (`encode`, `decode`) has its own independent FIFO queue. Multiple
 
 ```python
 def test_multiple_decodes():
-    bigfoot.jwt_mock.mock_decode(returns={"user_id": "1", "role": "admin"})
-    bigfoot.jwt_mock.mock_decode(returns={"user_id": "2", "role": "viewer"})
+    tripwire.jwt_mock.mock_decode(returns={"user_id": "1", "role": "admin"})
+    tripwire.jwt_mock.mock_decode(returns={"user_id": "2", "role": "viewer"})
 
-    with bigfoot:
+    with tripwire:
         import jwt
         claims1 = jwt.decode("token1", "secret", algorithms=["HS256"])
         claims2 = jwt.decode("token2", "secret", algorithms=["HS256"])
@@ -94,20 +94,20 @@ def test_multiple_decodes():
     assert claims1["role"] == "admin"
     assert claims2["role"] == "viewer"
 
-    bigfoot.jwt_mock.assert_decode(token="token1", algorithms=["HS256"], options=None)
-    bigfoot.jwt_mock.assert_decode(token="token2", algorithms=["HS256"], options=None)
+    tripwire.jwt_mock.assert_decode(token="token1", algorithms=["HS256"], options=None)
+    tripwire.jwt_mock.assert_decode(token="token2", algorithms=["HS256"], options=None)
 ```
 
 ## Asserting interactions
 
-Use the typed assertion helpers on `bigfoot.jwt_mock`.
+Use the typed assertion helpers on `tripwire.jwt_mock`.
 
 ### `assert_encode(*, payload, algorithm, extra_kwargs=None)`
 
 Asserts the next `jwt.encode()` interaction.
 
 ```python
-bigfoot.jwt_mock.assert_encode(
+tripwire.jwt_mock.assert_encode(
     payload={"user_id": "42", "exp": 1700000000},
     algorithm="HS256",
     extra_kwargs={},
@@ -125,7 +125,7 @@ bigfoot.jwt_mock.assert_encode(
 Asserts the next `jwt.decode()` interaction.
 
 ```python
-bigfoot.jwt_mock.assert_decode(
+tripwire.jwt_mock.assert_decode(
     token="eyJ0eXAiOiJKV1Qi...",
     algorithms=["HS256"],
     options=None,
@@ -148,19 +148,19 @@ Use the `raises` parameter to simulate JWT errors:
 
 ```python
 import jwt
-import bigfoot
+import tripwire
 
 def test_expired_token():
-    bigfoot.jwt_mock.mock_decode(
+    tripwire.jwt_mock.mock_decode(
         returns=None,
         raises=jwt.ExpiredSignatureError("Signature has expired"),
     )
 
-    with bigfoot:
+    with tripwire:
         with pytest.raises(jwt.ExpiredSignatureError):
             jwt.decode("expired.token", "secret", algorithms=["HS256"])
 
-    bigfoot.jwt_mock.assert_decode(
+    tripwire.jwt_mock.assert_decode(
         token="expired.token",
         algorithms=["HS256"],
         options=None,
@@ -186,17 +186,17 @@ def test_expired_token():
 Mark a mock as optional with `required=False`:
 
 ```python
-bigfoot.jwt_mock.mock_decode(returns={"sub": "test"}, required=False)
+tripwire.jwt_mock.mock_decode(returns={"sub": "test"}, required=False)
 ```
 
 An optional mock that is never triggered does not cause `UnusedMocksError` at teardown.
 
 ## UnmockedInteractionError
 
-When code calls `jwt.encode()` or `jwt.decode()` with no remaining mocks in the queue, bigfoot raises `UnmockedInteractionError`:
+When code calls `jwt.encode()` or `jwt.decode()` with no remaining mocks in the queue, tripwire raises `UnmockedInteractionError`:
 
 ```
 jwt.encode(...) was called but no mock was registered.
 Register a mock with:
-    bigfoot.jwt_mock.mock_encode(returns=...)
+    tripwire.jwt_mock.mock_encode(returns=...)
 ```

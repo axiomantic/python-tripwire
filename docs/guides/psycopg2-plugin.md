@@ -5,24 +5,24 @@
 ## Installation
 
 ```bash
-pip install bigfoot[psycopg2]
+pip install tripwire[psycopg2]
 ```
 
 ## Setup
 
-In pytest, access `Psycopg2Plugin` through the `bigfoot.psycopg2_mock` proxy. It auto-creates the plugin for the current test on first use:
+In pytest, access `Psycopg2Plugin` through the `tripwire.psycopg2_mock` proxy. It auto-creates the plugin for the current test on first use:
 
 ```python
-import bigfoot
+import tripwire
 
 def test_select_users():
-    (bigfoot.psycopg2_mock
+    (tripwire.psycopg2_mock
         .new_session()
         .expect("connect",  returns=None)
         .expect("execute",  returns=[[1, "Alice"], [2, "Bob"]])
         .expect("close",    returns=None))
 
-    with bigfoot:
+    with tripwire:
         import psycopg2
         conn = psycopg2.connect(dsn="dbname=myapp")
         cur = conn.cursor()
@@ -32,16 +32,16 @@ def test_select_users():
 
     assert rows == [[1, "Alice"], [2, "Bob"]]
 
-    bigfoot.psycopg2_mock.assert_connect(dsn="dbname=myapp")
-    bigfoot.psycopg2_mock.assert_execute(sql="SELECT id, name FROM users", parameters=None)
-    bigfoot.psycopg2_mock.assert_close()
+    tripwire.psycopg2_mock.assert_connect(dsn="dbname=myapp")
+    tripwire.psycopg2_mock.assert_execute(sql="SELECT id, name FROM users", parameters=None)
+    tripwire.psycopg2_mock.assert_close()
 ```
 
 For manual use outside pytest, construct `Psycopg2Plugin` explicitly:
 
 ```python
-from bigfoot import StrictVerifier
-from bigfoot.plugins.psycopg2_plugin import Psycopg2Plugin
+from tripwire import StrictVerifier
+from tripwire.plugins.psycopg2_plugin import Psycopg2Plugin
 
 verifier = StrictVerifier()
 pg = Psycopg2Plugin(verifier)
@@ -67,7 +67,7 @@ in_transaction --close--> closed
 Use `new_session()` to create a `SessionHandle` and chain `.expect()` calls:
 
 ```python
-(bigfoot.psycopg2_mock
+(tripwire.psycopg2_mock
     .new_session()
     .expect("connect",  returns=None)
     .expect("execute",  returns=[["row1"], ["row2"]])
@@ -110,10 +110,10 @@ The `assert_connect()` helper accepts whichever parameters were used:
 
 ```python
 # For DSN connections
-bigfoot.psycopg2_mock.assert_connect(dsn="dbname=myapp host=localhost")
+tripwire.psycopg2_mock.assert_connect(dsn="dbname=myapp host=localhost")
 
 # For keyword connections
-bigfoot.psycopg2_mock.assert_connect(host="localhost", port=5432, dbname="myapp", user="admin")
+tripwire.psycopg2_mock.assert_connect(host="localhost", port=5432, dbname="myapp", user="admin")
 ```
 
 ## Cursor behavior
@@ -121,13 +121,13 @@ bigfoot.psycopg2_mock.assert_connect(host="localhost", port=5432, dbname="myapp"
 The fake connection's `cursor()` returns a cursor proxy. Call `execute()` on the cursor, then use standard fetch methods:
 
 ```python
-(bigfoot.psycopg2_mock
+(tripwire.psycopg2_mock
     .new_session()
     .expect("connect",  returns=None)
     .expect("execute",  returns=[[1, "Alice"], [2, "Bob"], [3, "Carol"]])
     .expect("close",    returns=None))
 
-with bigfoot:
+with tripwire:
     conn = psycopg2.connect(dsn="dbname=test")
     cur = conn.cursor()
     cur.execute("SELECT id, name FROM users")
@@ -146,14 +146,14 @@ with bigfoot:
 
 ## Asserting interactions
 
-Each step records an interaction on the timeline. Use the typed assertion helpers on `bigfoot.psycopg2_mock`:
+Each step records an interaction on the timeline. Use the typed assertion helpers on `tripwire.psycopg2_mock`:
 
 ### `assert_connect(**kwargs)`
 
 Asserts the next connect interaction. Pass whichever connection fields were used.
 
 ```python
-bigfoot.psycopg2_mock.assert_connect(dsn="dbname=myapp")
+tripwire.psycopg2_mock.assert_connect(dsn="dbname=myapp")
 ```
 
 ### `assert_execute(*, sql, parameters)`
@@ -161,7 +161,7 @@ bigfoot.psycopg2_mock.assert_connect(dsn="dbname=myapp")
 Asserts the next execute interaction. Both `sql` and `parameters` are required.
 
 ```python
-bigfoot.psycopg2_mock.assert_execute(
+tripwire.psycopg2_mock.assert_execute(
     sql="INSERT INTO users (name) VALUES (%s)",
     parameters=("Alice",),
 )
@@ -172,7 +172,7 @@ bigfoot.psycopg2_mock.assert_execute(
 Asserts the next commit interaction. No fields are required.
 
 ```python
-bigfoot.psycopg2_mock.assert_commit()
+tripwire.psycopg2_mock.assert_commit()
 ```
 
 ### `assert_rollback()`
@@ -180,7 +180,7 @@ bigfoot.psycopg2_mock.assert_commit()
 Asserts the next rollback interaction. No fields are required.
 
 ```python
-bigfoot.psycopg2_mock.assert_rollback()
+tripwire.psycopg2_mock.assert_rollback()
 ```
 
 ### `assert_close()`
@@ -188,7 +188,7 @@ bigfoot.psycopg2_mock.assert_rollback()
 Asserts the next close interaction. No fields are required.
 
 ```python
-bigfoot.psycopg2_mock.assert_close()
+tripwire.psycopg2_mock.assert_close()
 ```
 
 ## Full example

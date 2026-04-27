@@ -1,12 +1,12 @@
-"""Tests for bigfoot._match -- M() pattern matching."""
+"""Tests for tripwire._match -- M() pattern matching."""
 
-from bigfoot._firewall_request import (
+from tripwire._firewall_request import (
     DnsFirewallRequest,
     HttpFirewallRequest,
     RedisFirewallRequest,
     SubprocessFirewallRequest,
 )
-from bigfoot._match import M
+from tripwire._match import M
 
 
 class TestProtocolMatch:

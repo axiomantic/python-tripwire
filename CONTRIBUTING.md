@@ -1,13 +1,13 @@
-# Contributing to bigfoot
+# Contributing to tripwire
 
-Thanks for your interest in contributing to bigfoot! This guide will help you get started.
+Thanks for your interest in contributing to tripwire! This guide will help you get started.
 
 ## Development Setup
 
 ```bash
 # Clone the repo
-git clone https://github.com/axiomantic/bigfoot.git
-cd bigfoot
+git clone https://github.com/axiomantic/tripwire.git
+cd tripwire
 
 # Create a virtual environment
 python -m venv .venv
@@ -46,7 +46,7 @@ mypy src/
 ## Making Changes
 
 1. **Fork the repo** and create a branch from `main`.
-2. **Write tests first.** bigfoot uses test-driven development. Every new feature or bug fix needs tests.
+2. **Write tests first.** tripwire uses test-driven development. Every new feature or bug fix needs tests.
 3. **Run the full test suite** before submitting. All tests must pass.
 4. **Run linting and type checking.** Zero warnings required.
 5. **Keep commits focused.** One logical change per commit.
@@ -56,7 +56,7 @@ mypy src/
 - Keep PR titles short and descriptive.
 - Include a summary of what changed and why in the PR description.
 - If your PR adds a new plugin, include:
-  - The plugin implementation in `src/bigfoot/plugins/`
+  - The plugin implementation in `src/tripwire/plugins/`
   - Unit tests in `tests/unit/`
   - A README section documenting the plugin
   - A mkdocs guide in `docs/guides/`
@@ -64,7 +64,7 @@ mypy src/
 
 ## Writing Plugins
 
-See the [Writing Plugins](https://axiomantic.github.io/bigfoot/guides/writing-plugins/) guide for the full protocol. Key points:
+See the [Writing Plugins](https://axiomantic.github.io/tripwire/guides/writing-plugins/) guide for the full protocol. Key points:
 
 - Subclass `BasePlugin` and implement all abstract methods.
 - Every field in `interaction.details` must be assertable. No silent fields.
@@ -80,8 +80,8 @@ See the [Writing Plugins](https://axiomantic.github.io/bigfoot/guides/writing-pl
 
 ## Reporting Issues
 
-- Use the [issue tracker](https://github.com/axiomantic/bigfoot/issues).
-- For bugs, include: Python version, bigfoot version, minimal reproduction, and full traceback.
+- Use the [issue tracker](https://github.com/axiomantic/tripwire/issues).
+- For bugs, include: Python version, tripwire version, minimal reproduction, and full traceback.
 - For feature requests, describe the use case and why existing plugins don't cover it.
 
 ## License

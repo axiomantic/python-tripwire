@@ -7,15 +7,15 @@ import ctypes.util
 
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._timeline import Interaction
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.native_plugin import (
+from tripwire._timeline import Interaction
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.native_plugin import (
     CdllProxy,
     NativeMockConfig,
     NativePlugin,
@@ -181,18 +181,18 @@ def test_unused_mock_excludes_required_false() -> None:
 #   CHECK: MissingAssertionFieldsError raised; missing_fields == frozenset({"args"}).
 #   MUTATION: Returning frozenset() from assertable_fields skips the check entirely.
 #   ESCAPE: Nothing reasonable -- exact frozenset equality on missing_fields.
-def test_missing_fields_error(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_missing_fields_error(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     # Use assert_interaction directly without 'args' to trigger missing fields
     sentinel = _NativeSentinel("native:libm:sqrt")
     with pytest.raises(MissingAssertionFieldsError) as exc_info:
-        bigfoot_verifier.assert_interaction(
+        tripwire_verifier.assert_interaction(
             sentinel,
             library="libm",
             function="sqrt",
@@ -201,7 +201,7 @@ def test_missing_fields_error(bigfoot_verifier: StrictVerifier) -> None:
     assert exc_info.value.missing_fields == frozenset({"args"})
 
     # Assert correctly for teardown
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ---------------------------------------------------------------------------
@@ -215,15 +215,15 @@ def test_missing_fields_error(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No exception raised (test passes cleanly).
 #   MUTATION: Wrong source_id generation in assert_call would cause InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- test either passes or raises.
-def test_assert_call_typed_helper_positive(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_call_typed_helper_positive(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_assert_call_typed_helper_negative_wrong_args
@@ -232,19 +232,19 @@ def test_assert_call_typed_helper_positive(bigfoot_verifier: StrictVerifier) -> 
 #   CHECK: InteractionMismatchError raised.
 #   MUTATION: Skipping field comparison would pass with wrong args.
 #   ESCAPE: Nothing reasonable -- exact exception type check.
-def test_assert_call_typed_helper_negative_wrong_args(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_call_typed_helper_negative_wrong_args(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.native_mock.assert_call("libm", "sqrt", args=(999,))
+        tripwire.native_mock.assert_call("libm", "sqrt", args=(999,))
 
     # Assert correctly for teardown
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_assert_call_typed_helper_negative_wrong_function
@@ -253,19 +253,19 @@ def test_assert_call_typed_helper_negative_wrong_args(bigfoot_verifier: StrictVe
 #   CHECK: InteractionMismatchError raised.
 #   MUTATION: Not comparing source_id would pass with wrong function.
 #   ESCAPE: Nothing reasonable -- exact exception type check.
-def test_assert_call_typed_helper_negative_wrong_function(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_call_typed_helper_negative_wrong_function(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.native_mock.assert_call("libm", "cos", args=(42,))
+        tripwire.native_mock.assert_call("libm", "cos", args=(42,))
 
     # Assert correctly for teardown
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_assert_call_typed_helper_negative_wrong_library
@@ -274,19 +274,19 @@ def test_assert_call_typed_helper_negative_wrong_function(bigfoot_verifier: Stri
 #   CHECK: InteractionMismatchError raised.
 #   MUTATION: Not comparing library field would pass with wrong library.
 #   ESCAPE: Nothing reasonable -- exact exception type check.
-def test_assert_call_typed_helper_negative_wrong_library(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_call_typed_helper_negative_wrong_library(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.native_mock.assert_call("libz", "sqrt", args=(42,))
+        tripwire.native_mock.assert_call("libz", "sqrt", args=(42,))
 
     # Assert correctly for teardown
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ def test_assert_call_typed_helper_negative_wrong_library(bigfoot_verifier: Stric
 #   MUTATION: Skipping conflict check allows double-patching silently.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_activate_detects_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
-    from bigfoot._errors import ConflictError
+    from tripwire._errors import ConflictError
 
     v, p = _make_verifier_with_plugin()
 
@@ -356,7 +356,7 @@ def test_exception_propagation() -> None:
 #   MUTATION: Requiring cffi unconditionally would raise ImportError.
 #   ESCAPE: Nothing reasonable -- test passes or raises ImportError.
 def test_graceful_degradation_cffi_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.native_plugin as np_mod
+    import tripwire.plugins.native_plugin as np_mod
 
     monkeypatch.setattr(np_mod, "_CFFI_AVAILABLE", False)
 
@@ -522,7 +522,7 @@ def test_serialize_arg_plain_python_passthrough() -> None:
 def test_cffi_abi_mode_dlopen_returns_proxy() -> None:
     import cffi  # noqa: I001
 
-    from bigfoot.plugins.native_plugin import CffiProxy
+    from tripwire.plugins.native_plugin import CffiProxy
 
     v, p = _make_verifier_with_plugin()
     p.mock_call("libm", "sqrt", returns=6.48)
@@ -551,7 +551,7 @@ def test_cffi_abi_mode_dlopen_returns_proxy() -> None:
 #   MUTATION: Setting True would include it in default set; is False check fails.
 #   ESCAPE: Nothing reasonable -- exact boolean equality.
 def test_not_default_enabled() -> None:
-    from bigfoot._registry import PLUGIN_REGISTRY
+    from tripwire._registry import PLUGIN_REGISTRY
 
     native_entry = None
     for entry in PLUGIN_REGISTRY:
@@ -561,7 +561,7 @@ def test_not_default_enabled() -> None:
 
     assert native_entry is not None
     assert native_entry.default_enabled is False
-    assert native_entry.import_path == "bigfoot.plugins.native_plugin"
+    assert native_entry.import_path == "tripwire.plugins.native_plugin"
     assert native_entry.class_name == "NativePlugin"
     assert native_entry.availability_check == "always"
 
@@ -577,16 +577,16 @@ def test_not_default_enabled() -> None:
 #   CHECK: Interaction details match exact expected values.
 #   MUTATION: Recording wrong library/function/args fails assertion.
 #   ESCAPE: Nothing reasonable -- exact field equality via assert_interaction.
-def test_flow_assert_interaction_records_details(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_flow_assert_interaction_records_details(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
     # Check the recorded interaction details
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "native:libm:sqrt"
@@ -597,7 +597,7 @@ def test_flow_assert_interaction_records_details(bigfoot_verifier: StrictVerifie
     }
 
     # Assert to satisfy teardown
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ESCAPE: test_flow_interactions_not_auto_asserted
@@ -606,20 +606,20 @@ def test_flow_assert_interaction_records_details(bigfoot_verifier: StrictVerifie
 #   CHECK: timeline.all_unasserted() returns 1 interaction.
 #   MUTATION: Auto-asserting in record() would return 0 unasserted.
 #   ESCAPE: Nothing reasonable -- exact count check.
-def test_flow_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_flow_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.native_mock.mock_call("libm", "sqrt", returns=6.48)
-    with bigfoot.sandbox():
+    tripwire.native_mock.mock_call("libm", "sqrt", returns=6.48)
+    with tripwire.sandbox():
         lib = ctypes.CDLL("libm")
         lib.sqrt(42)
 
-    interactions = bigfoot_verifier._timeline.all_unasserted()
+    interactions = tripwire_verifier._timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "native:libm:sqrt"
 
     # Assert to satisfy teardown
-    bigfoot.native_mock.assert_call("libm", "sqrt", args=(42,))
+    tripwire.native_mock.assert_call("libm", "sqrt", args=(42,))
 
 
 # ---------------------------------------------------------------------------
@@ -696,7 +696,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     result = p.format_mock_hint(interaction)
-    assert result == "    bigfoot.native_mock.mock_call('libm', 'sqrt', returns=...)"
+    assert result == "    tripwire.native_mock.mock_call('libm', 'sqrt', returns=...)"
 
 
 # ESCAPE: test_format_unmocked_hint
@@ -711,7 +711,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "libm.sqrt(...) was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.native_mock.mock_call('libm', 'sqrt', returns=...)"
+        "    tripwire.native_mock.mock_call('libm', 'sqrt', returns=...)"
     )
 
 
@@ -731,7 +731,7 @@ def test_format_assert_hint() -> None:
     )
     result = p.format_assert_hint(interaction)
     assert result == (
-        "    bigfoot.native_mock.assert_call(\n"
+        "    tripwire.native_mock.assert_call(\n"
         "        library='libm',\n"
         "        function='sqrt',\n"
         "        args=(42,),\n"
@@ -890,57 +890,57 @@ def test_activate_deactivate_reference_counting() -> None:
 
 
 # ESCAPE: test_native_plugin_in_all
-#   CLAIM: NativePlugin and native_mock are exported from bigfoot.__all__.
-#   PATH:  bigfoot.__all__ includes "NativePlugin" and "native_mock".
+#   CLAIM: NativePlugin and native_mock are exported from tripwire.__all__.
+#   PATH:  tripwire.__all__ includes "NativePlugin" and "native_mock".
 #   CHECK: Both names present in __all__.
 #   MUTATION: Omitting either from __all__ fails membership.
 #   ESCAPE: Nothing reasonable -- exact membership check.
 def test_native_plugin_in_all() -> None:
-    import bigfoot
+    import tripwire
 
-    assert "NativePlugin" in bigfoot.__all__
-    assert "native_mock" in bigfoot.__all__
+    assert "NativePlugin" in tripwire.__all__
+    assert "native_mock" in tripwire.__all__
 
 
-# ESCAPE: test_native_plugin_importable_from_bigfoot
-#   CLAIM: NativePlugin is importable from bigfoot and is the correct class.
-#   PATH:  bigfoot.NativePlugin is bigfoot.plugins.native_plugin.NativePlugin.
+# ESCAPE: test_native_plugin_importable_from_tripwire
+#   CLAIM: NativePlugin is importable from tripwire and is the correct class.
+#   PATH:  tripwire.NativePlugin is tripwire.plugins.native_plugin.NativePlugin.
 #   CHECK: Identity check passes.
 #   MUTATION: Wrong class or missing import fails identity.
 #   ESCAPE: Nothing reasonable -- identity check.
-def test_native_plugin_importable_from_bigfoot() -> None:
-    import bigfoot
-    from bigfoot.plugins.native_plugin import NativePlugin as _NativePlugin
+def test_native_plugin_importable_from_tripwire() -> None:
+    import tripwire
+    from tripwire.plugins.native_plugin import NativePlugin as _NativePlugin
 
-    assert bigfoot.NativePlugin is _NativePlugin
+    assert tripwire.NativePlugin is _NativePlugin
 
 
 # ESCAPE: test_native_mock_proxy_type
-#   CLAIM: bigfoot.native_mock is a _NativeProxy instance.
-#   PATH:  bigfoot.native_mock is a module-level proxy.
-#   CHECK: type(bigfoot.native_mock).__name__ == "_NativeProxy".
+#   CLAIM: tripwire.native_mock is a _NativeProxy instance.
+#   PATH:  tripwire.native_mock is a module-level proxy.
+#   CHECK: type(tripwire.native_mock).__name__ == "_NativeProxy".
 #   MUTATION: Wrong proxy type fails name check.
 #   ESCAPE: Nothing reasonable -- exact string equality on type name.
 def test_native_mock_proxy_type() -> None:
-    import bigfoot
+    import tripwire
 
-    assert type(bigfoot.native_mock).__name__ == "_NativeProxy"
+    assert type(tripwire.native_mock).__name__ == "_NativeProxy"
 
 
 # ESCAPE: test_native_mock_proxy_raises_outside_context
-#   CLAIM: Accessing bigfoot.native_mock outside test context raises NoActiveVerifierError.
+#   CLAIM: Accessing tripwire.native_mock outside test context raises NoActiveVerifierError.
 #   PATH:  _NativeProxy.__getattr__ -> _get_test_verifier_or_raise -> raises.
 #   CHECK: NoActiveVerifierError raised.
 #   MUTATION: Not raising allows silent use outside tests.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_native_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            _ = bigfoot.native_mock.mock_call
+            _ = tripwire.native_mock.mock_call
     finally:
         _current_test_verifier.reset(token)
 
@@ -1039,7 +1039,7 @@ def test_serialize_arg_null_pointer() -> None:
 #   MUTATION: Not checking _closed in __getattr__ allows access after close.
 #   ESCAPE: Nothing reasonable -- exact exception type.
 def test_cffi_proxy_close_blocks_access() -> None:
-    from bigfoot.plugins.native_plugin import CffiProxy
+    from tripwire.plugins.native_plugin import CffiProxy
 
     v, p = _make_verifier_with_plugin()
     proxy = CffiProxy("libm", p)
@@ -1095,8 +1095,8 @@ def test_matches_returns_false_on_comparison_exception() -> None:
 #   MUTATION: Not raising allows silent failure.
 #   ESCAPE: Nothing reasonable -- exact exception type and message.
 def test_get_native_plugin_raises_without_native_plugin() -> None:
-    from bigfoot._context import _active_verifier
-    from bigfoot.plugins.native_plugin import _get_native_plugin
+    from tripwire._context import _active_verifier
+    from tripwire.plugins.native_plugin import _get_native_plugin
 
     v = StrictVerifier()
     # Remove any NativePlugin from the verifier's plugins
@@ -1107,7 +1107,7 @@ def test_get_native_plugin_raises_without_native_plugin() -> None:
         with pytest.raises(RuntimeError) as exc_info:
             _get_native_plugin()
         assert str(exc_info.value) == (
-            "BUG: bigfoot NativePlugin interceptor is active but no "
+            "BUG: tripwire NativePlugin interceptor is active but no "
             "NativePlugin is registered on the current verifier."
         )
     finally:

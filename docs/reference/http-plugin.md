@@ -1,3 +1,3 @@
 # HttpPlugin
 
-::: bigfoot.plugins.http.HttpPlugin
+::: tripwire.plugins.http.HttpPlugin

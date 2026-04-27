@@ -5,14 +5,14 @@ from __future__ import annotations
 import grpc
 import pytest
 
-from bigfoot._context import _current_test_verifier
-from bigfoot._errors import (
+from tripwire._context import _current_test_verifier
+from tripwire._errors import (
     InteractionMismatchError,
     MissingAssertionFieldsError,
     UnmockedInteractionError,
 )
-from bigfoot._verifier import StrictVerifier
-from bigfoot.plugins.grpc_plugin import (
+from tripwire._verifier import StrictVerifier
+from tripwire.plugins.grpc_plugin import (
     _GRPC_AVAILABLE,
     GrpcMockConfig,
     GrpcPlugin,
@@ -77,14 +77,14 @@ def test_grpc_available_flag() -> None:
 #   MUTATION: Not checking the flag and proceeding normally would not raise.
 #   ESCAPE: Raising ImportError with a different message fails the exact string check.
 def test_activate_raises_when_grpc_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bigfoot.plugins.grpc_plugin as _gp
+    import tripwire.plugins.grpc_plugin as _gp
 
     v, p = _make_verifier_with_plugin()
     monkeypatch.setattr(_gp, "_GRPC_AVAILABLE", False)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install bigfoot[grpc] to use GrpcPlugin: pip install bigfoot[grpc]"
+        "Install tripwire[grpc] to use GrpcPlugin: pip install tripwire[grpc]"
     )
 
 
@@ -204,17 +204,17 @@ def test_reference_counting_nested() -> None:
 #   CHECK: Return value equals the mock value; interaction on timeline has correct details.
 #   MUTATION: Not recording the interaction leaves timeline empty. Wrong return value fails equality.
 #   ESCAPE: Nothing reasonable -- exact equality on return value and interaction details.
-def test_unary_unary_basic_interception(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_unary_unary_basic_interception(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"response-data")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"response-data")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         result = stub(b"request-data")
 
     assert result == b"response-data"
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"request-data",
         metadata=None,
@@ -233,7 +233,7 @@ def test_unary_unary_basic_interception(bigfoot_verifier: StrictVerifier) -> Non
 #   MUTATION: Returning a subset would miss fields.
 #   ESCAPE: Nothing reasonable -- exact frozenset comparison.
 def test_assertable_fields_returns_all_detail_keys() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -263,10 +263,10 @@ def test_assertable_fields_returns_all_detail_keys() -> None:
 #   CHECK: UnmockedInteractionError raised with correct source_id.
 #   MUTATION: Not raising lets the call pass through.
 #   ESCAPE: Raising a different exception fails the type check.
-def test_unmocked_error_when_no_mock_registered(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_unmocked_error_when_no_mock_registered(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    with bigfoot.sandbox():
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Missing")
         with pytest.raises(UnmockedInteractionError) as exc_info:
@@ -320,27 +320,27 @@ def test_get_unused_mocks_excludes_required_false() -> None:
 #   CHECK: MissingAssertionFieldsError raised.
 #   MUTATION: Not checking fields passes the test.
 #   ESCAPE: Nothing reasonable -- error type check.
-def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_missing_fields_raises_error(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req")
 
     # Only provide method, missing call_type, request, metadata
-    from bigfoot.plugins.grpc_plugin import _GrpcSentinel
+    from tripwire.plugins.grpc_plugin import _GrpcSentinel
 
     sentinel = _GrpcSentinel("grpc:unary_unary:/pkg.Svc/Do")
     with pytest.raises(MissingAssertionFieldsError):
-        bigfoot_verifier.assert_interaction(
+        tripwire_verifier.assert_interaction(
             sentinel,
             method="/pkg.Svc/Do",
         )
 
     # Now assert correctly so teardown passes
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -358,16 +358,16 @@ def test_missing_fields_raises_error(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable -- exact field matching.
-def test_assert_unary_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_unary_unary_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req")
 
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -380,18 +380,18 @@ def test_assert_unary_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No error raised when fields match.
 #   MUTATION: Wrong field mapping raises InteractionMismatchError.
 #   ESCAPE: Nothing reasonable.
-def test_assert_unary_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_unary_stream_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/ServerStream", returns=[b"r1", b"r2"])
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_stream("/pkg.Svc/ServerStream", returns=[b"r1", b"r2"])
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_stream("/pkg.Svc/ServerStream")
         response_iter = stub(b"req")
         responses = list(response_iter)
 
     assert responses == [b"r1", b"r2"]
-    bigfoot.grpc_mock.assert_unary_stream(
+    tripwire.grpc_mock.assert_unary_stream(
         method="/pkg.Svc/ServerStream",
         request=b"req",
         metadata=None,
@@ -404,17 +404,17 @@ def test_assert_unary_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No error raised; request is materialized list.
 #   MUTATION: Not consuming the iterator means request would be wrong.
 #   ESCAPE: Nothing reasonable.
-def test_assert_stream_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_stream_unary_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_stream_unary("/pkg.Svc/ClientStream", returns=b"merged")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_stream_unary("/pkg.Svc/ClientStream", returns=b"merged")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_unary("/pkg.Svc/ClientStream")
         result = stub(iter([b"c1", b"c2"]))
 
     assert result == b"merged"
-    bigfoot.grpc_mock.assert_stream_unary(
+    tripwire.grpc_mock.assert_stream_unary(
         method="/pkg.Svc/ClientStream",
         request=[b"c1", b"c2"],
         metadata=None,
@@ -427,18 +427,18 @@ def test_assert_stream_unary_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: No error raised; request is materialized list.
 #   MUTATION: Not consuming the request iterator means request would be wrong.
 #   ESCAPE: Nothing reasonable.
-def test_assert_stream_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_stream_stream_helper(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_stream_stream("/pkg.Svc/Bidi", returns=[b"s1", b"s2"])
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_stream_stream("/pkg.Svc/Bidi", returns=[b"s1", b"s2"])
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_stream("/pkg.Svc/Bidi")
         response_iter = stub(iter([b"c1"]))
         responses = list(response_iter)
 
     assert responses == [b"s1", b"s2"]
-    bigfoot.grpc_mock.assert_stream_stream(
+    tripwire.grpc_mock.assert_stream_stream(
         method="/pkg.Svc/Bidi",
         request=[b"c1"],
         metadata=None,
@@ -456,23 +456,23 @@ def test_assert_stream_stream_helper(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: InteractionMismatchError raised.
 #   MUTATION: Always matching would not raise.
 #   ESCAPE: Nothing reasonable -- type check.
-def test_assert_unary_unary_wrong_request_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_unary_unary_wrong_request_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"actual-request")
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.grpc_mock.assert_unary_unary(
+        tripwire.grpc_mock.assert_unary_unary(
             method="/pkg.Svc/Do",
             request=b"WRONG-request",
             metadata=None,
         )
     # Assert correctly so teardown passes
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"actual-request",
         metadata=None,
@@ -485,23 +485,23 @@ def test_assert_unary_unary_wrong_request_raises(bigfoot_verifier: StrictVerifie
 #   CHECK: InteractionMismatchError raised.
 #   MUTATION: Not checking method field means wrong method passes.
 #   ESCAPE: Nothing reasonable.
-def test_assert_unary_unary_wrong_method_raises(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_assert_unary_unary_wrong_method_raises(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req")
 
     with pytest.raises(InteractionMismatchError):
-        bigfoot.grpc_mock.assert_unary_unary(
+        tripwire.grpc_mock.assert_unary_unary(
             method="/pkg.Svc/WRONG",
             request=b"req",
             metadata=None,
         )
     # Assert correctly
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -540,19 +540,19 @@ def test_conflict_detection_double_activate() -> None:
 #   CHECK: The exact exception instance is raised.
 #   MUTATION: Not checking raises means the mock return value is returned instead.
 #   ESCAPE: Raising a different exception fails the identity check.
-def test_exception_propagation(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_exception_propagation(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     err = grpc.RpcError()
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Fail", returns=None, raises=err)
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Fail", returns=None, raises=err)
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Fail")
         with pytest.raises(grpc.RpcError) as exc_info:
             stub(b"req")
 
     assert exc_info.value is err
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Fail",
         request=b"req",
         metadata=None,
@@ -571,18 +571,18 @@ def test_exception_propagation(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: Collected list equals the configured responses.
 #   MUTATION: Not returning an iterator means direct return (not iterable).
 #   ESCAPE: Nothing reasonable -- exact list equality.
-def test_server_streaming_returns_iterator(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_server_streaming_returns_iterator(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/Stream", returns=[b"a", b"b", b"c"])
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_stream("/pkg.Svc/Stream", returns=[b"a", b"b", b"c"])
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_stream("/pkg.Svc/Stream")
         response_iter = stub(b"req")
         responses = list(response_iter)
 
     assert responses == [b"a", b"b", b"c"]
-    bigfoot.grpc_mock.assert_unary_stream(
+    tripwire.grpc_mock.assert_unary_stream(
         method="/pkg.Svc/Stream",
         request=b"req",
         metadata=None,
@@ -600,17 +600,17 @@ def test_server_streaming_returns_iterator(bigfoot_verifier: StrictVerifier) -> 
 #   CHECK: Interaction request equals the materialized list.
 #   MUTATION: Not consuming the iterator means request is the iterator object.
 #   ESCAPE: Nothing reasonable -- exact list equality.
-def test_client_streaming_materializes_request(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_client_streaming_materializes_request(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_stream_unary("/pkg.Svc/Upload", returns=b"done")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_stream_unary("/pkg.Svc/Upload", returns=b"done")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_unary("/pkg.Svc/Upload")
         result = stub(iter([b"chunk1", b"chunk2", b"chunk3"]))
 
     assert result == b"done"
-    bigfoot.grpc_mock.assert_stream_unary(
+    tripwire.grpc_mock.assert_stream_unary(
         method="/pkg.Svc/Upload",
         request=[b"chunk1", b"chunk2", b"chunk3"],
         metadata=None,
@@ -628,18 +628,18 @@ def test_client_streaming_materializes_request(bigfoot_verifier: StrictVerifier)
 #   CHECK: Both request and response match expected.
 #   MUTATION: Not consuming request or not returning iterator fails.
 #   ESCAPE: Nothing reasonable.
-def test_bidi_streaming(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_bidi_streaming(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_stream_stream("/pkg.Svc/Chat", returns=[b"r1", b"r2"])
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_stream_stream("/pkg.Svc/Chat", returns=[b"r1", b"r2"])
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_stream("/pkg.Svc/Chat")
         response_iter = stub(iter([b"c1", b"c2"]))
         responses = list(response_iter)
 
     assert responses == [b"r1", b"r2"]
-    bigfoot.grpc_mock.assert_stream_stream(
+    tripwire.grpc_mock.assert_stream_stream(
         method="/pkg.Svc/Chat",
         request=[b"c1", b"c2"],
         metadata=None,
@@ -657,18 +657,18 @@ def test_bidi_streaming(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: Request is empty list; responses are empty list.
 #   MUTATION: Failing on empty input means the test fails.
 #   ESCAPE: Nothing reasonable -- exact equality on empty lists.
-def test_empty_streams(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_empty_streams(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_stream_stream("/pkg.Svc/Empty", returns=[])
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_stream_stream("/pkg.Svc/Empty", returns=[])
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.stream_stream("/pkg.Svc/Empty")
         response_iter = stub(iter([]))
         responses = list(response_iter)
 
     assert responses == []
-    bigfoot.grpc_mock.assert_stream_stream(
+    tripwire.grpc_mock.assert_stream_stream(
         method="/pkg.Svc/Empty",
         request=[],
         metadata=None,
@@ -686,12 +686,12 @@ def test_empty_streams(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: Partial responses collected; then the error is raised on next iteration.
 #   MUTATION: Not raising after responses means no error on exhaustion.
 #   ESCAPE: Nothing reasonable -- exact list + exception identity.
-def test_mid_stream_error(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_mid_stream_error(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     err = grpc.RpcError()
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/PartialFail", returns=[b"p1", b"p2"], raises=err)
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_stream("/pkg.Svc/PartialFail", returns=[b"p1", b"p2"], raises=err)
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_stream("/pkg.Svc/PartialFail")
         response_iter = stub(b"req")
@@ -702,7 +702,7 @@ def test_mid_stream_error(bigfoot_verifier: StrictVerifier) -> None:
 
     assert collected == [b"p1", b"p2"]
     assert exc_info.value is err
-    bigfoot.grpc_mock.assert_unary_stream(
+    tripwire.grpc_mock.assert_unary_stream(
         method="/pkg.Svc/PartialFail",
         request=b"req",
         metadata=None,
@@ -779,16 +779,16 @@ def test_mock_stream_iterator_empty_with_error() -> None:
 #   CHECK: timeline.all_unasserted() contains the interaction.
 #   MUTATION: Auto-asserting in the interceptor means all_unasserted() would be empty.
 #   ESCAPE: Nothing reasonable -- exact check on unasserted list.
-def test_grpc_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_grpc_interactions_not_auto_asserted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"ok")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req")
 
-    timeline = bigfoot_verifier._timeline
+    timeline = tripwire_verifier._timeline
     interactions = timeline.all_unasserted()
     assert len(interactions) == 1
     assert interactions[0].source_id == "grpc:unary_unary:/pkg.Svc/Do"
@@ -799,7 +799,7 @@ def test_grpc_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -
         "metadata": None,
     }
     # Assert it so verify_all() at teardown succeeds
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req",
         metadata=None,
@@ -817,12 +817,12 @@ def test_grpc_interactions_not_auto_asserted(bigfoot_verifier: StrictVerifier) -
 #   CHECK: Results match FIFO order.
 #   MUTATION: LIFO or random order fails the equality checks.
 #   ESCAPE: Nothing reasonable.
-def test_fifo_queue_ordering(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_fifo_queue_ordering(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"first")
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"second")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"first")
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"second")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         r1 = stub(b"req1")
@@ -830,12 +830,12 @@ def test_fifo_queue_ordering(bigfoot_verifier: StrictVerifier) -> None:
 
     assert r1 == b"first"
     assert r2 == b"second"
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req1",
         metadata=None,
     )
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req2",
         metadata=None,
@@ -848,18 +848,18 @@ def test_fifo_queue_ordering(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: UnmockedInteractionError raised on the second call.
 #   MUTATION: Not raising allows unlimited calls.
 #   ESCAPE: Nothing reasonable.
-def test_unmocked_after_queue_exhausted(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_unmocked_after_queue_exhausted(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"only-one")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"only-one")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Do")
         stub(b"req1")  # consumes the mock
         with pytest.raises(UnmockedInteractionError):
             stub(b"req2")
 
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Do",
         request=b"req1",
         metadata=None,
@@ -877,17 +877,17 @@ def test_unmocked_after_queue_exhausted(bigfoot_verifier: StrictVerifier) -> Non
 #   CHECK: Asserted metadata matches what was passed.
 #   MUTATION: Not recording metadata means assertion fails.
 #   ESCAPE: Nothing reasonable.
-def test_metadata_passed_through(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_metadata_passed_through(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
     meta = (("authorization", "Bearer token"),)
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Auth", returns=b"ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Auth", returns=b"ok")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Auth")
         stub(b"req", metadata=meta)
 
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Auth",
         request=b"req",
         metadata=(("authorization", "Bearer token"),),
@@ -905,18 +905,18 @@ def test_metadata_passed_through(bigfoot_verifier: StrictVerifier) -> None:
 #   CHECK: Call through secure_channel works identically.
 #   MUTATION: Not patching secure_channel means call fails.
 #   ESCAPE: Nothing reasonable.
-def test_secure_channel_interception(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_secure_channel_interception(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Secure", returns=b"secure-ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Secure", returns=b"secure-ok")
+    with tripwire.sandbox():
         creds = grpc.ssl_channel_credentials()
         channel = grpc.secure_channel("localhost:443", creds)
         stub = channel.unary_unary("/pkg.Svc/Secure")
         result = stub(b"req")
 
     assert result == b"secure-ok"
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Secure",
         request=b"req",
         metadata=None,
@@ -935,7 +935,7 @@ def test_secure_channel_interception(bigfoot_verifier: StrictVerifier) -> None:
 #   MUTATION: Wrong format string fails equality.
 #   ESCAPE: Nothing reasonable -- exact string comparison.
 def test_format_interaction() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -961,7 +961,7 @@ def test_format_interaction() -> None:
 #   MUTATION: Wrong format fails equality.
 #   ESCAPE: Nothing reasonable.
 def test_format_mock_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -976,7 +976,7 @@ def test_format_mock_hint() -> None:
         plugin=p,
     )
     assert p.format_mock_hint(interaction) == (
-        "    bigfoot.grpc_mock.mock_unary_unary('/pkg.Svc/Do', returns=...)"
+        "    tripwire.grpc_mock.mock_unary_unary('/pkg.Svc/Do', returns=...)"
     )
 
 
@@ -996,7 +996,7 @@ def test_format_unmocked_hint() -> None:
     assert result == (
         "grpc.unary_unary('/pkg.Svc/Do') was called but no mock was registered.\n"
         "Register a mock with:\n"
-        "    bigfoot.grpc_mock.mock_unary_unary('/pkg.Svc/Do', returns=...)"
+        "    tripwire.grpc_mock.mock_unary_unary('/pkg.Svc/Do', returns=...)"
     )
 
 
@@ -1007,7 +1007,7 @@ def test_format_unmocked_hint() -> None:
 #   MUTATION: Wrong format fails equality.
 #   ESCAPE: Nothing reasonable.
 def test_format_assert_hint() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1022,7 +1022,7 @@ def test_format_assert_hint() -> None:
         plugin=p,
     )
     assert p.format_assert_hint(interaction) == (
-        "    bigfoot.grpc_mock.assert_unary_unary(\n"
+        "    tripwire.grpc_mock.assert_unary_unary(\n"
         "        method='/pkg.Svc/Do',\n"
         "        request=b'data',\n"
         "        metadata=None,\n"
@@ -1067,7 +1067,7 @@ def test_format_unused_mock_hint() -> None:
 #   MUTATION: Always returning True fails the False check.
 #   ESCAPE: Nothing reasonable.
 def test_matches_field_comparison() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     v, p = _make_verifier_with_plugin()
     interaction = Interaction(
@@ -1094,28 +1094,28 @@ def test_matches_field_comparison() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Module-level proxy: bigfoot.grpc_mock
+# Module-level proxy: tripwire.grpc_mock
 # ---------------------------------------------------------------------------
 
 
 # ESCAPE: test_grpc_mock_proxy_works
-#   CLAIM: bigfoot.grpc_mock.mock_unary_unary() works when verifier is active.
+#   CLAIM: tripwire.grpc_mock.mock_unary_unary() works when verifier is active.
 #   PATH:  _GrpcProxy.__getattr__("mock_unary_unary") -> get verifier ->
 #          find/create GrpcPlugin -> return plugin.mock_unary_unary.
 #   CHECK: The proxy call does not raise and the mock is registered and consumed.
 #   MUTATION: Returning None instead of the plugin fails with AttributeError.
 #   ESCAPE: Nothing reasonable.
-def test_grpc_mock_proxy_works(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_grpc_mock_proxy_works(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Proxy", returns=b"proxy-ok")
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Proxy", returns=b"proxy-ok")
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
         stub = channel.unary_unary("/pkg.Svc/Proxy")
         result = stub(b"req")
 
     assert result == b"proxy-ok"
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Proxy",
         request=b"req",
         metadata=None,
@@ -1129,14 +1129,14 @@ def test_grpc_mock_proxy_works(bigfoot_verifier: StrictVerifier) -> None:
 #   MUTATION: Not checking for active verifier allows access.
 #   ESCAPE: Nothing reasonable.
 def test_grpc_mock_proxy_raises_outside_context() -> None:
-    import bigfoot
-    from bigfoot._errors import NoActiveVerifierError
+    import tripwire
+    from tripwire._errors import NoActiveVerifierError
 
     # Ensure no verifier is active
     token = _current_test_verifier.set(None)
     try:
         with pytest.raises(NoActiveVerifierError):
-            bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
+            tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Do", returns=b"val")
     finally:
         _current_test_verifier.reset(token)
 
@@ -1147,16 +1147,16 @@ def test_grpc_mock_proxy_raises_outside_context() -> None:
 
 
 # ESCAPE: test_grpc_plugin_in_all
-#   CLAIM: GrpcPlugin and grpc_mock are exported in bigfoot.__all__.
+#   CLAIM: GrpcPlugin and grpc_mock are exported in tripwire.__all__.
 #   PATH:  __init__.py __all__ list.
 #   CHECK: Both names are in __all__.
 #   MUTATION: Removing from __all__ fails the membership check.
 #   ESCAPE: Nothing reasonable.
 def test_grpc_plugin_in_all() -> None:
-    import bigfoot
+    import tripwire
 
-    assert "GrpcPlugin" in bigfoot.__all__
-    assert "grpc_mock" in bigfoot.__all__
+    assert "GrpcPlugin" in tripwire.__all__
+    assert "grpc_mock" in tripwire.__all__
 
 
 # ---------------------------------------------------------------------------
@@ -1170,12 +1170,12 @@ def test_grpc_plugin_in_all() -> None:
 #   CHECK: Each call consumes from its own queue.
 #   MUTATION: Sharing queues means first call exhausts the wrong mock.
 #   ESCAPE: Nothing reasonable.
-def test_separate_queues_per_call_type(bigfoot_verifier: StrictVerifier) -> None:
-    import bigfoot
+def test_separate_queues_per_call_type(tripwire_verifier: StrictVerifier) -> None:
+    import tripwire
 
-    bigfoot.grpc_mock.mock_unary_unary("/pkg.Svc/Multi", returns=b"unary-resp")
-    bigfoot.grpc_mock.mock_unary_stream("/pkg.Svc/Multi", returns=[b"stream-resp"])
-    with bigfoot.sandbox():
+    tripwire.grpc_mock.mock_unary_unary("/pkg.Svc/Multi", returns=b"unary-resp")
+    tripwire.grpc_mock.mock_unary_stream("/pkg.Svc/Multi", returns=[b"stream-resp"])
+    with tripwire.sandbox():
         channel = grpc.insecure_channel("localhost:50051")
 
         unary_stub = channel.unary_unary("/pkg.Svc/Multi")
@@ -1186,12 +1186,12 @@ def test_separate_queues_per_call_type(bigfoot_verifier: StrictVerifier) -> None
 
     assert r1 == b"unary-resp"
     assert r2 == [b"stream-resp"]
-    bigfoot.grpc_mock.assert_unary_unary(
+    tripwire.grpc_mock.assert_unary_unary(
         method="/pkg.Svc/Multi",
         request=b"req1",
         metadata=None,
     )
-    bigfoot.grpc_mock.assert_unary_stream(
+    tripwire.grpc_mock.assert_unary_stream(
         method="/pkg.Svc/Multi",
         request=b"req2",
         metadata=None,
@@ -1210,7 +1210,7 @@ def test_separate_queues_per_call_type(bigfoot_verifier: StrictVerifier) -> None
 #   MUTATION: Removing the except block propagates the error instead of returning False.
 #   ESCAPE: Nothing reasonable -- exact boolean check.
 def test_matches_returns_false_on_eq_exception() -> None:
-    from bigfoot._timeline import Interaction
+    from tripwire._timeline import Interaction
 
     class BrokenEq:
         def __eq__(self, other: object) -> bool:
@@ -1247,8 +1247,8 @@ def test_matches_returns_false_on_eq_exception() -> None:
 #   MUTATION: Not raising means the function returns None or wrong plugin.
 #   ESCAPE: Nothing reasonable -- exact message comparison.
 def test_get_grpc_plugin_raises_without_grpc_plugin() -> None:
-    from bigfoot._context import _active_verifier
-    from bigfoot.plugins.grpc_plugin import _get_grpc_plugin
+    from tripwire._context import _active_verifier
+    from tripwire.plugins.grpc_plugin import _get_grpc_plugin
 
     v = StrictVerifier()
     # Remove all GrpcPlugin instances from the verifier's plugin list
@@ -1258,7 +1258,7 @@ def test_get_grpc_plugin_raises_without_grpc_plugin() -> None:
         with pytest.raises(RuntimeError) as exc_info:
             _get_grpc_plugin()
         assert str(exc_info.value) == (
-            "BUG: bigfoot GrpcPlugin interceptor is active but no "
+            "BUG: tripwire GrpcPlugin interceptor is active but no "
             "GrpcPlugin is registered on the current verifier."
         )
     finally:

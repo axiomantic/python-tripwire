@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-04-26
+
+### Changed
+- **Breaking:** Renamed package `bigfoot` to `tripwire`. PyPI distribution, Python import name, public API symbols, exception class names, internal sentinels, pytest fixtures, pytest entry-point, and the `[tool.bigfoot]` config table all rename to `tripwire` / `[tool.tripwire]`. No deprecation alias. A `[tool.bigfoot]` section in pyproject.toml raises `ConfigMigrationError` with a clear rename hint.
+- **Breaking:** Internal source-id sentinels restructured from underscore-flat (`bigfoot_subprocess_run`) to colon-namespaced `<library>:<method>` (e.g., `subprocess:run`, `httpx:get`, `socket:connect`). User-facing only via `GuardedCallError` messages and the `source_id` argument of plugin APIs. The `tripwire:` prefix is intentionally omitted because the namespace is implicit inside the tripwire package.
+- **Breaking:** Default `[tool.tripwire] guard` flipped from `"warn"` to `"error"`. New projects fail loud on unmocked I/O outside a sandbox. To preserve prior behavior during legacy migration, set `guard = "warn"` explicitly.
+
+### Added
+- `ConfigMigrationError` (subclass of `TripwireError`) raised when `[tool.bigfoot]` is present in pyproject.toml during config load.
+
 ## [0.19.2] - 2026-04-08
 
 ### Changed

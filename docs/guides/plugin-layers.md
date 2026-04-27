@@ -1,6 +1,6 @@
 # Plugin Layers
 
-bigfoot plugins intercept I/O at different abstraction levels. High-level plugins (boto3, gRPC, elasticsearch) sit above low-level plugins (HTTP, socket). By default, all available plugins are active simultaneously, which means a single operation can be intercepted at multiple layers.
+tripwire plugins intercept I/O at different abstraction levels. High-level plugins (boto3, gRPC, elasticsearch) sit above low-level plugins (HTTP, socket). By default, all available plugins are active simultaneously, which means a single operation can be intercepted at multiple layers.
 
 ## The layered interception model
 
@@ -26,16 +26,16 @@ For example, with both `boto3` and `http` enabled:
 ```python
 def test_s3_both_layers():
     # Must mock at BOTH levels
-    bigfoot.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
-    bigfoot.http.mock_request("PUT", "https://s3.amazonaws.com/...", returns=httpx.Response(200))
+    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
+    tripwire.http.mock_request("PUT", "https://s3.amazonaws.com/...", returns=httpx.Response(200))
 
-    with bigfoot:
+    with tripwire:
         client = boto3.client("s3")
         client.get_object(Bucket="my-bucket", Key="file.txt")
 
     # Must assert at BOTH levels
-    bigfoot.boto3_mock.assert_boto3_call(service="s3", operation="GetObject", params={...})
-    bigfoot.http.assert_request("PUT", "https://s3.amazonaws.com/...")
+    tripwire.boto3_mock.assert_boto3_call(service="s3", operation="GetObject", params={...})
+    tripwire.http.assert_request("PUT", "https://s3.amazonaws.com/...")
 ```
 
 This is almost never what you want. Testing at two layers simultaneously adds noise without adding confidence.
@@ -49,18 +49,18 @@ Use `disabled_plugins` to pick the layer that matches your test's intent:
 Disable the low-level plugin. You test the logical operation without caring about HTTP details.
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 disabled_plugins = ["http", "socket"]
 ```
 
 ```python
-def test_s3_get(bigfoot):
-    bigfoot.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
+def test_s3_get(tripwire):
+    tripwire.boto3_mock.mock_call("s3", "GetObject", returns={"Body": b"data", "ContentLength": 4})
 
-    with bigfoot:
+    with tripwire:
         response = boto3.client("s3").get_object(Bucket="b", Key="k")
 
-    bigfoot.boto3_mock.assert_boto3_call(
+    tripwire.boto3_mock.assert_boto3_call(
         service="s3", operation="GetObject",
         params={"Bucket": "b", "Key": "k"},
     )
@@ -71,7 +71,7 @@ def test_s3_get(bigfoot):
 Disable the high-level plugin. Useful when you need to verify exact HTTP behavior, headers, or retry logic.
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 disabled_plugins = ["boto3"]
 ```
 
@@ -93,23 +93,23 @@ Requires mocking and asserting at both layers. Only do this if you genuinely nee
 For projects that use multiple high-level plugins (e.g., both boto3 and elasticsearch), disabling the shared low-level layer once covers all of them:
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 disabled_plugins = ["http", "socket"]
 ```
 
 ## Configuration
 
-Add `disabled_plugins` to `[tool.bigfoot]` in your `pyproject.toml`:
+Add `disabled_plugins` to `[tool.tripwire]` in your `pyproject.toml`:
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 disabled_plugins = ["http", "socket"]
 ```
 
 Alternatively, use `enabled_plugins` to allowlist only the plugins you need. The two options are mutually exclusive:
 
 ```toml
-[tool.bigfoot]
+[tool.tripwire]
 # Only these plugins will be active -- everything else is off.
 enabled_plugins = ["boto3", "subprocess", "logging"]
 ```

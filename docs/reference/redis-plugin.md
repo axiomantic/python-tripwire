@@ -1,3 +1,3 @@
 # RedisPlugin
 
-::: bigfoot.plugins.redis_plugin.RedisPlugin
+::: tripwire.plugins.redis_plugin.RedisPlugin

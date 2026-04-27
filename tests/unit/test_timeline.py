@@ -3,7 +3,7 @@
 import threading
 from unittest.mock import MagicMock
 
-from bigfoot._timeline import Interaction, Timeline
+from tripwire._timeline import Interaction, Timeline
 
 
 def _make_interaction(source_id: str = "mock:Svc.method", seq: int = 0) -> Interaction:
@@ -94,7 +94,7 @@ def test_interaction_asserted_flag_defaults_false() -> None:
 
 def test_mark_asserted_outside_record_succeeds() -> None:
     """mark_asserted() called after record() has returned succeeds normally."""
-    from bigfoot._timeline import Interaction, Timeline
+    from tripwire._timeline import Interaction, Timeline
 
     # We need a real plugin-like object that uses BasePlugin.record()
     # Use ConcretePlugin-style stub with a real Timeline
@@ -109,7 +109,7 @@ def test_mark_asserted_outside_record_succeeds() -> None:
             self.verifier = _V()
 
         def record(self, interaction: Interaction) -> None:
-            from bigfoot._recording import _recording_in_progress
+            from tripwire._recording import _recording_in_progress
             token = _recording_in_progress.set(True)
             try:
                 self.verifier._timeline.append(interaction)
@@ -128,9 +128,9 @@ def test_mark_asserted_inside_record_raises_auto_assert_error() -> None:
     """mark_asserted() called while _recording_in_progress is True raises AutoAssertError."""
     import pytest
 
-    from bigfoot._errors import AutoAssertError
-    from bigfoot._recording import _recording_in_progress
-    from bigfoot._timeline import Interaction, Timeline
+    from tripwire._errors import AutoAssertError
+    from tripwire._recording import _recording_in_progress
+    from tripwire._timeline import Interaction, Timeline
 
     timeline = Timeline()
     interaction = Interaction(source_id="test:y", sequence=0, details={}, plugin=MagicMock())

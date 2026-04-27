@@ -3,8 +3,8 @@
 import sys
 import types
 
-from bigfoot._mock_plugin import ImportSiteMock, MockPlugin
-from bigfoot._verifier import SandboxContext, StrictVerifier
+from tripwire._mock_plugin import ImportSiteMock, MockPlugin
+from tripwire._verifier import SandboxContext, StrictVerifier
 
 
 def _create_fake_module(name: str, **attrs: object) -> types.ModuleType:
@@ -23,15 +23,15 @@ def _drain_unused_mocks(plugin: MockPlugin) -> None:
                 config.required = False
 
 
-def test_sandbox_activates_mocks_with_enforce_true(bigfoot_verifier: StrictVerifier) -> None:
+def test_sandbox_activates_mocks_with_enforce_true(tripwire_verifier: StrictVerifier) -> None:
     """Sandbox entry activates all registered mocks with enforce=True."""
     mod = _create_fake_module("_test_sandbox_act", fn=lambda: "real")
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         mock = ImportSiteMock(path="_test_sandbox_act:fn", plugin=plugin)
         mock.returns("mocked")
 
-        ctx = SandboxContext(bigfoot_verifier)
+        ctx = SandboxContext(tripwire_verifier)
         ctx._enter()
         assert mock._active is True
         assert mock._enforce is True
@@ -41,15 +41,15 @@ def test_sandbox_activates_mocks_with_enforce_true(bigfoot_verifier: StrictVerif
         del sys.modules["_test_sandbox_act"]
 
 
-def test_sandbox_deactivates_mocks_on_exit(bigfoot_verifier: StrictVerifier) -> None:
+def test_sandbox_deactivates_mocks_on_exit(tripwire_verifier: StrictVerifier) -> None:
     """Sandbox exit deactivates all registered mocks."""
     mod = _create_fake_module("_test_sandbox_deact", fn=lambda: "real")
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         mock = ImportSiteMock(path="_test_sandbox_deact:fn", plugin=plugin)
         mock.returns("mocked")
 
-        ctx = SandboxContext(bigfoot_verifier)
+        ctx = SandboxContext(tripwire_verifier)
         ctx._enter()
         assert mock._active is True
         ctx._exit()
@@ -60,7 +60,7 @@ def test_sandbox_deactivates_mocks_on_exit(bigfoot_verifier: StrictVerifier) -> 
         del sys.modules["_test_sandbox_deact"]
 
 
-def test_sandbox_deactivates_mocks_in_reverse_order(bigfoot_verifier: StrictVerifier) -> None:
+def test_sandbox_deactivates_mocks_in_reverse_order(tripwire_verifier: StrictVerifier) -> None:
     """Mocks are deactivated in reverse activation order."""
     deactivation_order: list[str] = []
 
@@ -68,7 +68,7 @@ def test_sandbox_deactivates_mocks_in_reverse_order(bigfoot_verifier: StrictVeri
         "_test_sandbox_order", fn1=lambda: "r1", fn2=lambda: "r2"
     )
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         m1 = ImportSiteMock(path="_test_sandbox_order:fn1", plugin=plugin)
         m1.returns("m1")
         m2 = ImportSiteMock(path="_test_sandbox_order:fn2", plugin=plugin)
@@ -86,7 +86,7 @@ def test_sandbox_deactivates_mocks_in_reverse_order(bigfoot_verifier: StrictVeri
             deactivation_order.append("m2")
             orig_deact_2()
 
-        ctx = SandboxContext(bigfoot_verifier)
+        ctx = SandboxContext(tripwire_verifier)
         ctx._enter()
 
         # Monkey-patch deactivate to track order
@@ -100,12 +100,12 @@ def test_sandbox_deactivates_mocks_in_reverse_order(bigfoot_verifier: StrictVeri
         del sys.modules["_test_sandbox_order"]
 
 
-def test_sandbox_deactivates_mocks_before_plugins(bigfoot_verifier: StrictVerifier) -> None:
+def test_sandbox_deactivates_mocks_before_plugins(tripwire_verifier: StrictVerifier) -> None:
     """Mocks deactivate before plugins during sandbox exit."""
     order: list[str] = []
     mod = _create_fake_module("_test_sandbox_order2", fn=lambda: "real")
     try:
-        plugin = MockPlugin(bigfoot_verifier)
+        plugin = MockPlugin(tripwire_verifier)
         orig_deactivate = plugin.deactivate
 
         def track_plugin_deactivate() -> None:
@@ -123,7 +123,7 @@ def test_sandbox_deactivates_mocks_before_plugins(bigfoot_verifier: StrictVerifi
             order.append("mock")
             orig_mock_deact()
 
-        ctx = SandboxContext(bigfoot_verifier)
+        ctx = SandboxContext(tripwire_verifier)
         ctx._enter()
         mock._deactivate = track_mock_deactivate  # type: ignore[assignment]
         ctx._exit()
