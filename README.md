@@ -69,7 +69,7 @@ def test_payment():
 
 Firewall mode is on by default. When your test session starts, tripwire installs interceptors that catch any real I/O call happening outside a sandbox.
 
-In `"warn"` mode (the default), accidental calls emit a `GuardedCallWarning` and proceed normally, so your existing suite keeps working while showing you exactly which calls are unguarded. Set `guard = "error"` under `[tool.tripwire]` in your `pyproject.toml` for strict enforcement.
+In `"error"` mode (the default since 0.20.0), an accidental call raises `GuardedCallError` and stops the test on the spot. Set `guard = "warn"` under `[tool.tripwire]` in your `pyproject.toml` for the legacy non-blocking behavior, where calls emit a `GuardedCallWarning` and proceed.
 
 ```python
 from tripwire import M
@@ -277,9 +277,9 @@ def test_cached_lookup():
 
 You do not have to migrate your entire test suite at once. tripwire and `unittest.mock` can coexist in the same project:
 
-1. **Start with guard mode.** Install tripwire and run your suite. Guard mode (default `"warn"`) will show you every real I/O call across all tests without breaking anything.
+1. **Start in warn mode.** Install tripwire and set `guard = "warn"` in `[tool.tripwire]`; the suite keeps running while every real I/O call shows up as a `GuardedCallWarning` you can triage.
 2. **Migrate test by test.** Pick tests that touch HTTP, subprocess, or database calls first -- these benefit most from tripwire's strict enforcement.
-3. **Escalate to strict guard mode.** Once coverage is high, set `guard = "error"` in `pyproject.toml` to catch any remaining leaks.
+3. **Drop the override.** Once coverage is high, remove `guard = "warn"` to fall back to the 0.20.0 default of `"error"` and catch any remaining leaks.
 
 ## Plugins
 
