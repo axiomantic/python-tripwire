@@ -4,6 +4,7 @@
 import contextvars
 import difflib
 import itertools
+import threading
 import warnings
 from importlib.metadata import entry_points
 from types import TracebackType
@@ -450,9 +451,15 @@ class StrictVerifier:
 class SandboxContext:
     """Activates all plugins and mocks. Supports both sync (with) and async (async with)."""
 
-    # Process-wide set of currently active sandbox_ids. add() / discard()
-    # of distinct keys are independent under the GIL; no lock required.
+    # Process-wide set of currently active sandbox_ids. ALL reads and
+    # mutations MUST be performed while holding _active_sandbox_ids_lock.
+    # Stock CPython's GIL implicitly serializes set operations, but the
+    # free-threaded build (PEP 703) does not — concurrent set.add /
+    # set.discard / `in` checks against a shared `set` can corrupt its
+    # internal hash table and hang in `__contains__`. The lock is
+    # uncontended on the GIL build, so this is effectively a no-op there.
     _active_sandbox_ids: ClassVar[set[int]] = set()
+    _active_sandbox_ids_lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(self, verifier: StrictVerifier) -> None:
         self._verifier = verifier
@@ -468,7 +475,8 @@ class SandboxContext:
         # site in BasePlugin.record() sees a consistent ContextVar value
         # for any interaction recorded during plugin/mock activation.
         self.sandbox_id = next(_sandbox_id_counter)
-        SandboxContext._active_sandbox_ids.add(self.sandbox_id)
+        with SandboxContext._active_sandbox_ids_lock:
+            SandboxContext._active_sandbox_ids.add(self.sandbox_id)
         self._sandbox_id_token = _current_sandbox_id.set(self.sandbox_id)
 
         self._token = _active_verifier.set(self._verifier)
@@ -522,7 +530,8 @@ class SandboxContext:
                 _current_sandbox_id.reset(self._sandbox_id_token)
                 self._sandbox_id_token = None
             if self.sandbox_id is not None:
-                SandboxContext._active_sandbox_ids.discard(self.sandbox_id)
+                with SandboxContext._active_sandbox_ids_lock:
+                    SandboxContext._active_sandbox_ids.discard(self.sandbox_id)
             raise BaseExceptionGroup("tripwire sandbox activation failed", errors)
 
         return self._verifier
@@ -559,7 +568,8 @@ class SandboxContext:
                 _current_sandbox_id.reset(self._sandbox_id_token)
                 self._sandbox_id_token = None
             if self.sandbox_id is not None:
-                SandboxContext._active_sandbox_ids.discard(self.sandbox_id)
+                with SandboxContext._active_sandbox_ids_lock:
+                    SandboxContext._active_sandbox_ids.discard(self.sandbox_id)
 
     def __enter__(self) -> StrictVerifier:
         return self._enter()

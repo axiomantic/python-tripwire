@@ -82,7 +82,13 @@ def _detect_post_sandbox() -> int | None:
     sid = _current_sandbox_id.get()
     if sid is None:
         return None
-    if sid in SandboxContext._active_sandbox_ids:
+    # Hold the lock for the membership check: under PEP 703 free-threaded
+    # CPython, an unsynchronized `in` check against a `set` being mutated
+    # on another thread can corrupt the hash table and hang. The lock is
+    # uncontended on the GIL build, so this is effectively a no-op there.
+    with SandboxContext._active_sandbox_ids_lock:
+        active = sid in SandboxContext._active_sandbox_ids
+    if active:
         # Sandbox is still active in the process; Branch 1 should have
         # caught this. Defensive: do not fire post-sandbox here.
         return None
