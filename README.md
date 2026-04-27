@@ -100,6 +100,19 @@ def test_strict():
     ...
 ```
 
+## Picking the right guard default
+
+- **New projects**: keep `guard = "error"` (the default since 0.20.0). Loud failures catch unmocked I/O early.
+- **Legacy migration**: set `guard = "warn"` temporarily while you add `tripwire.allow` and mocks to existing tests.
+- **Mixed CI**: use `[tool.tripwire.guard]` for per-protocol levels. Example:
+
+  ```toml
+  [tool.tripwire.guard]
+  default = "warn"
+  subprocess = "error"
+  dns = "error"
+  ```
+
 ## Quick Start
 
 ```python
