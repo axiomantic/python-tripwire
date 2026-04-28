@@ -111,8 +111,42 @@ def install_context_propagation() -> None:
             *args: Any,  # noqa: ANN401
             **kwargs: Any,  # noqa: ANN401
         ) -> Any:  # noqa: ANN401
+            # Capture the caller's context so the work item runs with the
+            # caller's ContextVars (active verifier, sandbox id, guard, etc.).
             ctx = contextvars.copy_context()
-            return _original_submit(self, ctx.run, fn, *args, **kwargs)
+
+            # Run the underlying submit() inside an empty context so any
+            # newly spawned worker thread starts with a CLEAN base context
+            # rather than inheriting our ContextVars. This matters on PEP
+            # 703 free-threaded CPython 3.14+, where ``sys.flags
+            # .thread_inherit_context`` is True and a new thread inherits
+            # its base context from the spawning thread. Without the empty
+            # wrapper, a long-lived worker thread spawned during a sandbox
+            # carries ``_active_verifier`` (et al.) in its base context for
+            # the rest of its life. ``concurrent.futures._WorkItem.run``
+            # invokes ``future.set_result()`` AFTER ``ctx.run(self.task)``
+            # returns, so the future done-callbacks (notably asyncio's
+            # ``_call_set_state`` -> ``loop.call_soon_threadsafe`` ->
+            # ``loop._write_to_self`` -> ``csock.send(b'\\0')``) execute in
+            # the worker's BASE context. If that context still carries an
+            # active verifier, our socket/logging/etc. interceptors fire
+            # against asyncio's internal self-pipe socket, raise
+            # ``UnmockedInteractionError``, and the wakeup is silently
+            # dropped by ``Future._invoke_callbacks``. The asyncio loop
+            # then sleeps in ``selector.select()`` forever.
+            #
+            # By spawning the worker in an empty context, the work item
+            # itself still sees the captured context (because ``ctx.run``
+            # is what executes ``fn``), but post-work-item bookkeeping
+            # (set_result, done-callbacks, idle wait) runs in a clean
+            # context where no verifier is active and our patched
+            # interceptors fall through to the originals.
+            empty_ctx = contextvars.Context()
+
+            def _do_submit() -> Any:  # noqa: ANN401
+                return _original_submit(self, ctx.run, fn, *args, **kwargs)
+
+            return empty_ctx.run(_do_submit)
 
         ThreadPoolExecutor.submit = _patched_submit  # type: ignore[assignment]
 

@@ -204,6 +204,82 @@ class TestThreadPoolExecutorPropagation:
         assert result1 == "first_submit"
         assert result2 == "second_submit"
 
+    def test_worker_base_context_does_not_inherit_parent_contextvars(self) -> None:
+        """Regression: worker thread's BASE context (the one that runs
+        ``set_result``, future done-callbacks, and the idle ``work_queue.get``
+        loop) MUST NOT inherit the spawning thread's ContextVars.
+
+        On PEP 703 free-threaded CPython 3.14+ with
+        ``sys.flags.thread_inherit_context``, a new thread inherits its
+        base context from the spawning thread. Without the empty-context
+        wrapper around ``_original_submit``, a long-lived ThreadPoolExecutor
+        worker spawned during a sandbox would carry ``_active_verifier`` (or
+        any other tripwire ContextVar) in its base context for the rest of
+        its life.
+
+        The work item itself still sees the captured caller context (because
+        ``ctx.run`` is what executes the user's function), but post-work
+        bookkeeping like ``Future.set_result`` and its done-callbacks runs
+        in the worker's BASE context. If that context held an active
+        verifier, our patched stdlib interceptors (socket, logging, etc.)
+        would fire on asyncio's internal self-pipe socket, raise
+        ``UnmockedInteractionError``, and the wakeup would be silently
+        dropped by ``Future._invoke_callbacks``, hanging the asyncio loop
+        in ``selector.select()`` forever.
+
+        This test asserts the invariant: a callback added to a future
+        completed by a TPE worker thread runs in a context where
+        ``_test_var.get()`` is the default, NOT the value the parent set
+        before submitting.
+        """
+        install_context_propagation()
+
+        # Pre-create the executor and warm a worker thread BEFORE setting
+        # the ContextVar, so that the callback test below can attach a
+        # done-callback to a future whose set_result will fire on a
+        # worker thread that is already waiting on the work queue.
+        captured: list[str] = []
+        callback_started = threading.Event()
+        gate = threading.Event()
+
+        def worker_blocks() -> str:
+            # Block until the test attaches the callback and signals.
+            assert gate.wait(timeout=5), "test never released the gate"
+            return _test_var.get()
+
+        def callback(_fut: concurrent.futures.Future[str]) -> None:
+            # This runs on the worker thread inside set_result(), AFTER
+            # ctx.run(work) returns. It executes in the worker's BASE
+            # context (not the captured caller context). With the fix,
+            # the base context is empty and _test_var.get() returns the
+            # default.
+            captured.append(_test_var.get())
+            callback_started.set()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            # Set ContextVar AFTER pool exists; submit captures THIS context.
+            token = _test_var.set("parent_value")
+            future = pool.submit(worker_blocks)
+            future.add_done_callback(callback)
+            # Now release the worker so set_result + callback fire while
+            # the worker is still on its base context.
+            gate.set()
+            worker_saw = future.result(timeout=5)
+            assert callback_started.wait(timeout=5), "callback never ran"
+            _test_var.reset(token)
+
+        # The work item itself ran in the captured context.
+        assert worker_saw == "parent_value"
+        # The done-callback ran in the worker's BASE context, which must
+        # be empty (default value), not the parent's "parent_value".
+        assert captured == ["unset"], (
+            f"Worker thread base context leaked parent ContextVars: "
+            f"callback saw {captured[0]!r} instead of 'unset'. This is the "
+            f"asyncio-hang regression: future done-callbacks running in the "
+            f"worker's base context will see the parent's tripwire state and "
+            f"trigger interceptor failures on asyncio's self-pipe socket."
+        )
+
 
 # ---------------------------------------------------------------------------
 # Install / uninstall idempotency
