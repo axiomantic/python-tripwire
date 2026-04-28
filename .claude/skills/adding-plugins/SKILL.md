@@ -245,7 +245,7 @@ def clean_plugin_counts() -> None:
 Run the test file and confirm all tests fail (no implementation yet):
 
 ```bash
-cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/unit/test_[name]_plugin.py -v
+cd [PROJECT_ROOT] && uv run pytest tests/unit/test_[name]_plugin.py -v
 ```
 
 ### 3.3 Write Plugin Implementation
@@ -412,12 +412,12 @@ And add to the `all` extra.
 ### 3.5 Run Tests
 
 ```bash
-cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/unit/test_[name]_plugin.py tests/unit/test_init.py -v
+cd [PROJECT_ROOT] && uv run pytest tests/unit/test_[name]_plugin.py tests/unit/test_init.py -v
 ```
 
 Then full suite:
 ```bash
-cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/ -x
+cd [PROJECT_ROOT] && uv run pytest tests/ -x
 ```
 
 ---
@@ -466,7 +466,7 @@ If `auditing-green-mirage` skill is available, invoke it. Otherwise, verify:
 ### Gate 5: Full Test Suite
 
 ```bash
-cd /Users/elijahrutschman/Development/tripwire && uv run pytest tests/ -x
+cd [PROJECT_ROOT] && uv run pytest tests/ -x
 ```
 
 ALL tests must pass.
