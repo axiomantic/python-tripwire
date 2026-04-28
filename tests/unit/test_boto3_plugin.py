@@ -73,7 +73,7 @@ def test_activate_raises_when_boto3_unavailable(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install tripwire[boto3] to use Boto3Plugin: pip install tripwire[boto3]"
+        "Install python-tripwire[boto3] to use Boto3Plugin: pip install python-tripwire[boto3]"
     )
 
 

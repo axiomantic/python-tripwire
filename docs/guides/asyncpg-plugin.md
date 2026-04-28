@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[asyncpg]
+pip install python-tripwire[asyncpg]
 ```
 
 ## Setup

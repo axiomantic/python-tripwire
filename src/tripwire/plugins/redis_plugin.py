@@ -200,7 +200,8 @@ class RedisPlugin(BasePlugin):
         """Install Redis.execute_command patch."""
         if not _REDIS_AVAILABLE:
             raise ImportError(
-                "Install tripwire[redis] to use RedisPlugin: pip install tripwire[redis]"
+                "Install python-tripwire[redis] to use RedisPlugin: "
+                "pip install python-tripwire[redis]"
             )
         # Patch __init__ to capture connection metadata
         if RedisPlugin._original_init is None:

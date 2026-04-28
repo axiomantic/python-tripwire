@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[redis]
+pip install python-tripwire[redis]
 ```
 
 This installs `redis>=4.0.0`.

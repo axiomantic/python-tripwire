@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[elasticsearch]
+pip install python-tripwire[elasticsearch]
 ```
 
 This installs `elasticsearch`.

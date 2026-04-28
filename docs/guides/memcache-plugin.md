@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[pymemcache]
+pip install python-tripwire[pymemcache]
 ```
 
 This installs `pymemcache`.

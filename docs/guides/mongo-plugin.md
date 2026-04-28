@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[pymongo]
+pip install python-tripwire[pymongo]
 ```
 
 This installs `pymongo`.

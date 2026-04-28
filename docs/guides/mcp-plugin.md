@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[mcp]
+pip install python-tripwire[mcp]
 ```
 
 This installs the `mcp` SDK.

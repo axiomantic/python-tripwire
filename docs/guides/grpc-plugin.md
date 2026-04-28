@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[grpc]
+pip install python-tripwire[grpc]
 ```
 
 This installs `grpcio`.

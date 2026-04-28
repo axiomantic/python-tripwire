@@ -936,8 +936,8 @@ def test_ssh_mock_proxy_raises_import_error_when_unavailable(
         _ = tripwire.ssh.new_session  # noqa: B018
 
     assert str(exc_info.value) == (
-        "tripwire[ssh] is required to use tripwire.ssh. "
-        "Install it with: pip install tripwire[ssh]"
+        "python-tripwire[ssh] is required to use tripwire.ssh. "
+        "Install it with: pip install python-tripwire[ssh]"
     )
 
 

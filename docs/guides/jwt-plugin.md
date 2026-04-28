@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[jwt]
+pip install python-tripwire[jwt]
 ```
 
 This installs `PyJWT`.

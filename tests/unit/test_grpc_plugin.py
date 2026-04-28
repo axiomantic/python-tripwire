@@ -84,7 +84,7 @@ def test_activate_raises_when_grpc_unavailable(monkeypatch: pytest.MonkeyPatch) 
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install tripwire[grpc] to use GrpcPlugin: pip install tripwire[grpc]"
+        "Install python-tripwire[grpc] to use GrpcPlugin: pip install python-tripwire[grpc]"
     )
 
 

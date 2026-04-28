@@ -1,7 +1,7 @@
 # tripwire
 
-[![CI](https://github.com/axiomantic/tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/tripwire/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/tripwire)](https://pypi.org/project/tripwire/)
+[![CI](https://github.com/axiomantic/python-tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/python-tripwire/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/python-tripwire)](https://pypi.org/project/python-tripwire/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -15,7 +15,7 @@ This is what testing with `unittest.mock` is like. It gives you the tools to moc
 tripwire replaces `unittest.mock` with mocking that actually enforces correctness.
 
 ```bash
-pip install tripwire[all]
+pip install python-tripwire[all]
 ```
 
 ## The three guarantees
@@ -445,29 +445,29 @@ Per-call arguments override project-level settings. See the [configuration guide
 
 ## Selective Installation
 
-`tripwire[all]` installs everything. For a smaller footprint, pick only what you need:
+`python-tripwire[all]` installs everything. For a smaller footprint, pick only what you need:
 
 ```bash
-pip install tripwire                       # Core plugins (no optional deps)
-pip install tripwire[http]                 # + httpx, requests, urllib
-pip install tripwire[aiohttp]              # + aiohttp
-pip install tripwire[redis]                # + Redis
-pip install tripwire[pymemcache]           # + Memcached
-pip install tripwire[pymongo]              # + MongoDB
-pip install tripwire[elasticsearch]        # + Elasticsearch/OpenSearch
-pip install tripwire[psycopg2]             # + PostgreSQL (psycopg2)
-pip install tripwire[asyncpg]              # + PostgreSQL (asyncpg)
-pip install tripwire[boto3]                # + AWS SDK
-pip install tripwire[pika]                 # + RabbitMQ
-pip install tripwire[celery]               # + Celery tasks
-pip install tripwire[grpc]                 # + gRPC
-pip install tripwire[paramiko]             # + SSH
-pip install tripwire[jwt]                  # + PyJWT
-pip install tripwire[crypto]               # + cryptography
-pip install tripwire[cffi]                 # + cffi (C FFI)
-pip install tripwire[websockets]           # + async WebSocket
-pip install tripwire[websocket-client]     # + sync WebSocket
-pip install tripwire[matchers]             # + dirty-equals matchers
+pip install python-tripwire                       # Core plugins (no optional deps)
+pip install python-tripwire[http]                 # + httpx, requests, urllib
+pip install python-tripwire[aiohttp]              # + aiohttp
+pip install python-tripwire[redis]                # + Redis
+pip install python-tripwire[pymemcache]           # + Memcached
+pip install python-tripwire[pymongo]              # + MongoDB
+pip install python-tripwire[elasticsearch]        # + Elasticsearch/OpenSearch
+pip install python-tripwire[psycopg2]             # + PostgreSQL (psycopg2)
+pip install python-tripwire[asyncpg]              # + PostgreSQL (asyncpg)
+pip install python-tripwire[boto3]                # + AWS SDK
+pip install python-tripwire[pika]                 # + RabbitMQ
+pip install python-tripwire[celery]               # + Celery tasks
+pip install python-tripwire[grpc]                 # + gRPC
+pip install python-tripwire[paramiko]             # + SSH
+pip install python-tripwire[jwt]                  # + PyJWT
+pip install python-tripwire[crypto]               # + cryptography
+pip install python-tripwire[cffi]                 # + cffi (C FFI)
+pip install python-tripwire[websockets]           # + async WebSocket
+pip install python-tripwire[websocket-client]     # + sync WebSocket
+pip install python-tripwire[matchers]             # + dirty-equals matchers
 ```
 
 ## Documentation

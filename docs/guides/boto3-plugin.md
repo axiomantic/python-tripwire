@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[boto3]
+pip install python-tripwire[boto3]
 ```
 
 This installs `botocore`.

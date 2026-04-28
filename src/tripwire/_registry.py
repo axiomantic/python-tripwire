@@ -264,7 +264,7 @@ def resolve_enabled_plugins(
                     raise TripwireConfigError(
                         f"Plugin '{e.name}' is in enabled_plugins but its "
                         f"dependency '{e.availability_check}' is not installed. "
-                        f"Install with: pip install tripwire[{e.name}]"
+                        f"Install with: pip install python-tripwire[{e.name}]"
                     )
                 result.append(e)
         return result

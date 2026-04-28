@@ -67,7 +67,7 @@ def test_activate_raises_when_pymemcache_unavailable(monkeypatch: pytest.MonkeyP
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install tripwire[pymemcache] to use MemcachePlugin: pip install tripwire[pymemcache]"
+        "Install python-tripwire[pymemcache] to use MemcachePlugin: pip install python-tripwire[pymemcache]"
     )
 
 

@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install tripwire[pika]
+pip install python-tripwire[pika]
 ```
 
 This installs `pika`.

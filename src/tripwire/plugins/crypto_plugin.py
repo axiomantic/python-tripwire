@@ -283,7 +283,8 @@ class CryptoPlugin(BasePlugin):
         """Install cryptography Fernet and RSA patches."""
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
-                "Install tripwire[crypto] to use CryptoPlugin: pip install tripwire[crypto]"
+                "Install python-tripwire[crypto] to use CryptoPlugin: "
+                "pip install python-tripwire[crypto]"
             )
         CryptoPlugin._original_encrypt = _Fernet.encrypt
         CryptoPlugin._original_decrypt = _Fernet.decrypt

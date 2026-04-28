@@ -64,7 +64,7 @@ def test_activate_raises_when_jwt_unavailable(monkeypatch: pytest.MonkeyPatch) -
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install tripwire[jwt] to use JwtPlugin: pip install tripwire[jwt]"
+        "Install python-tripwire[jwt] to use JwtPlugin: pip install python-tripwire[jwt]"
     )
 
 

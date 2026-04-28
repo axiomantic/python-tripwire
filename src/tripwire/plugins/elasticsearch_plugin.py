@@ -222,8 +222,8 @@ class ElasticsearchPlugin(BasePlugin):
         """Install Elasticsearch method patches."""
         if not _ELASTICSEARCH_AVAILABLE:
             raise ImportError(
-                "Install tripwire[elasticsearch] to use ElasticsearchPlugin: "
-                "pip install tripwire[elasticsearch]"
+                "Install python-tripwire[elasticsearch] to use ElasticsearchPlugin: "
+                "pip install python-tripwire[elasticsearch]"
             )
         es_cls = es_lib.Elasticsearch
 

@@ -64,8 +64,8 @@ def test_activate_raises_when_elasticsearch_unavailable(monkeypatch: pytest.Monk
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install tripwire[elasticsearch] to use ElasticsearchPlugin: "
-        "pip install tripwire[elasticsearch]"
+        "Install python-tripwire[elasticsearch] to use ElasticsearchPlugin: "
+        "pip install python-tripwire[elasticsearch]"
     )
 
 

@@ -5,7 +5,7 @@
 Install everything:
 
 ```bash
-pip install tripwire[all]
+pip install python-tripwire[all]
 ```
 
 This includes all plugins and their optional dependencies (httpx, requests, aiohttp, websockets, websocket-client, redis, psycopg2, asyncpg, dirty-equals).
@@ -15,20 +15,20 @@ This includes all plugins and their optional dependencies (httpx, requests, aioh
 For a more compact installation, pick only the extras you need:
 
 ```bash
-pip install tripwire                       # Core plugins (no extra deps)
-pip install tripwire[http]                 # + HttpPlugin (httpx, requests, urllib)
-pip install tripwire[aiohttp]              # + aiohttp support for HttpPlugin
-pip install tripwire[psycopg2]             # + Psycopg2Plugin (PostgreSQL)
-pip install tripwire[asyncpg]              # + AsyncpgPlugin (async PostgreSQL)
-pip install tripwire[websockets]           # + AsyncWebSocketPlugin
-pip install tripwire[websocket-client]     # + SyncWebSocketPlugin
-pip install tripwire[redis]                # + RedisPlugin
-pip install tripwire[matchers]             # + dirty-equals matchers
+pip install python-tripwire                       # Core plugins (no extra deps)
+pip install python-tripwire[http]                 # + HttpPlugin (httpx, requests, urllib)
+pip install python-tripwire[aiohttp]              # + aiohttp support for HttpPlugin
+pip install python-tripwire[psycopg2]             # + Psycopg2Plugin (PostgreSQL)
+pip install python-tripwire[asyncpg]              # + AsyncpgPlugin (async PostgreSQL)
+pip install python-tripwire[websockets]           # + AsyncWebSocketPlugin
+pip install python-tripwire[websocket-client]     # + SyncWebSocketPlugin
+pip install python-tripwire[redis]                # + RedisPlugin
+pip install python-tripwire[matchers]             # + dirty-equals matchers
 ```
 
 ### Core plugins (no extra dependencies)
 
-These plugins are always available with a bare `pip install tripwire`:
+These plugins are always available with a bare `pip install python-tripwire`:
 
 - `MockPlugin` -- general-purpose mock objects
 - `SubprocessPlugin` -- `subprocess.run` and `shutil.which`
@@ -44,7 +44,7 @@ These plugins are always available with a bare `pip install tripwire`:
 [dirty-equals](https://dirty-equals.helpmanual.io/) matchers can be used as expected field values in assertions:
 
 ```bash
-pip install tripwire[matchers]
+pip install python-tripwire[matchers]
 ```
 
 ## pytest fixture

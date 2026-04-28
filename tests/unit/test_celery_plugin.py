@@ -81,7 +81,7 @@ def test_activate_raises_when_celery_unavailable(monkeypatch: pytest.MonkeyPatch
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install tripwire[celery] to use CeleryPlugin: pip install tripwire[celery]"
+        "Install python-tripwire[celery] to use CeleryPlugin: pip install python-tripwire[celery]"
     )
 
 

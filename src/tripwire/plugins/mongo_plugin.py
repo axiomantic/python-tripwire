@@ -307,7 +307,8 @@ class MongoPlugin(BasePlugin):
         """Install pymongo Collection method patches."""
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
-                "Install tripwire[mongo] to use MongoPlugin: pip install tripwire[mongo]"
+                "Install python-tripwire[mongo] to use MongoPlugin: "
+                "pip install python-tripwire[mongo]"
             )
 
         # Patch MongoClient.__init__ to capture connection metadata
