@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "python-tripwire"
-version = "0.20.0"
+version = "0.20.1"
 description = "Full-certainty test mocking: every call recorded and verified"
 requires-python = ">=3.10"
 readme = "README.md"
