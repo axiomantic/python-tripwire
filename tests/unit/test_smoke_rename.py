@@ -15,6 +15,7 @@ from __future__ import annotations
 import importlib.metadata
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -24,9 +25,22 @@ import pytest
 _FORBIDDEN_NAME = "b" + "igfoot"
 
 
+def _expected_version() -> str:
+    """Source-of-truth version from pyproject.toml.
+
+    Reading from pyproject avoids a hardcoded version literal that has to be
+    updated alongside every release bump (the previous literal "0.20.0" broke
+    the suite on the 0.20.1 release-trigger bump).
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    with (repo_root / "pyproject.toml").open("rb") as fh:
+        return tomllib.load(fh)["project"]["version"]
+
+
 # C1-T1
 def test_import_tripwire_resolves() -> None:
-    """`import tripwire` resolves under src/tripwire/ and metadata version == 0.20.0.
+    """`import tripwire` resolves under src/tripwire/ and metadata version
+    matches pyproject.toml.
 
     The codebase audit confirmed no `tripwire.__version__` symbol is exposed,
     so version is sourced exclusively from package metadata (pyproject.toml).
@@ -40,20 +54,22 @@ def test_import_tripwire_resolves() -> None:
         f"tripwire imported from {module_path}, expected under {expected_pkg_dir}"
     )
 
-    assert importlib.metadata.version("python-tripwire") == "0.20.0"
+    assert importlib.metadata.version("python-tripwire") == _expected_version()
 
 
 # C1-T2
 @pytest.mark.allow("subprocess")
 def test_pytest_entrypoint_registered() -> None:
-    """The `tripwire` pytest11 entry-point is registered against tripwire 0.20.0
-    AND `pytest --trace-config` actually loads `tripwire.pytest_plugin`.
+    """The `tripwire` pytest11 entry-point is registered against the version
+    declared in pyproject.toml AND `pytest --trace-config` actually loads
+    `tripwire.pytest_plugin`.
 
     The two halves together guard against:
     - A stale legacy entry-point (e.g., `bigfoot`) still being registered.
     - The entry-point existing in metadata but failing to load at pytest start.
     """
-    # Half 1: the pytest11 entry-point is registered against python-tripwire 0.20.0.
+    # Half 1: the pytest11 entry-point is registered against python-tripwire
+    # at the version declared in pyproject.toml.
     dist = importlib.metadata.distribution("python-tripwire")
     pytest11_eps = [ep for ep in dist.entry_points if ep.group == "pytest11"]
     assert pytest11_eps == [
@@ -63,7 +79,7 @@ def test_pytest_entrypoint_registered() -> None:
             group="pytest11",
         )
     ], f"unexpected pytest11 entry-points: {pytest11_eps!r}"
-    assert dist.version == "0.20.0"
+    assert dist.version == _expected_version()
 
     # Half 2: `pytest --trace-config` actually loads tripwire.pytest_plugin.
     result = subprocess.run(
