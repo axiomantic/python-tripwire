@@ -1,0 +1,3021 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Full-certainty test mocking for Python.">
+      
+      
+      
+        <link rel="canonical" href="https://axiomantic.github.io/tripwire/0.21/proposals/2026-04-26-tripwire-port-feedback/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Tripwire improvement proposals: feedback from the tripwire (Nim) port - tripwire</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#tripwire-improvement-proposals-feedback-from-the-tripwire-nim-port" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="tripwire" class="md-header__button md-logo" aria-label="tripwire" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tripwire
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Tripwire improvement proposals: feedback from the tripwire (Nim) port
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/axiomantic/pytest-tripwire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    axiomantic/pytest-tripwire
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="tripwire" class="md-nav__button md-logo" aria-label="tripwire" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    tripwire
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/axiomantic/pytest-tripwire" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    axiomantic/pytest-tripwire
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/mock-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MockPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/http-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HttpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/logging-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoggingPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/popen-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PopenPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/async-subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncSubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/database-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DatabasePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/psycopg2-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Psycopg2Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/asyncpg-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncpgPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/smtp-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SmtpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/socket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SocketPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/redis-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RedisPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/memcache-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemcachePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/mongo-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MongoPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/elasticsearch-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ElasticsearchPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/boto3-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boto3Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/celery-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CeleryPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/pika-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PikaPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ssh-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SshPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/grpc-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GrpcPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/dns-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DnsPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/jwt-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JwtPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/crypto-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CryptoPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/file-io-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FileIoPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/native-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NativePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/websocket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/stateful-plugins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stateful Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/async/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Async Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/pytest-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pytest Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/mcp-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    McpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/writing-plugins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/guard-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guard Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/threading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Threading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/plugin-layers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plugin Layers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/verifier/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StrictVerifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/mock-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MockPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HttpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/logging-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LoggingPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/popen-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PopenPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/async-subprocess-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncSubprocessPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/database-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DatabasePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/psycopg2-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Psycopg2Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/asyncpg-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AsyncpgPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/smtp-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SmtpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/socket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SocketPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/redis-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RedisPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/memcache-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemcachePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/mongo-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MongoPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/elasticsearch-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ElasticsearchPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/boto3-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boto3Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/celery-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CeleryPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/pika-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PikaPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ssh-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SshPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/grpc-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GrpcPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/dns-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DnsPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/jwt-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JwtPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/crypto-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CryptoPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/file-io-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FileIoPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/native-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NativePlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/websocket-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Plugins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/mcp-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    McpPlugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operating-directives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operating directives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#proposals-in-priority-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposals, in priority order
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Proposals, in priority order">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#proposal-1-default-guard-to-error-not-warn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 1 - Default guard to "error", not "warn"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-2-per-plugin-passthrough_safe-declaration-distinct-error" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 2 - Per-plugin passthrough_safe declaration + distinct error
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-3-per-protocol-guard-granularity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 3 - Per-protocol guard granularity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-4-distinguish-no-sandbox-ever-from-post-sandbox-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 4 - Distinguish "no sandbox ever" from "post-sandbox interaction"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-5-pedagogical-error-messages-for-outside-sandbox-failures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 5 - Pedagogical error messages for outside-sandbox failures
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-6-pytest-marker-for-per-test-guard-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 6 - Pytest marker for per-test guard override
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-7-strict-toml-schema-validation-at-parse-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 7 - Strict TOML schema validation at parse time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#proposal-8-readme-what-default-should-i-pick-guidance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Proposal 8 - README "what default should I pick?" guidance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bonus-documentation-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bonus: documentation work
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bonus: documentation work">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b1-vocabulary-clarity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B1 - Vocabulary clarity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b2-async-edge-case-contextvars-threadpools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B2 - Async edge case: contextvars + threadpools
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-done-looks-like" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What "done" looks like
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pointers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pointers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="tripwire-improvement-proposals-feedback-from-the-tripwire-nim-port">Tripwire improvement proposals: feedback from the tripwire (Nim) port<a class="headerlink" href="#tripwire-improvement-proposals-feedback-from-the-tripwire-nim-port" title="Permanent link">&para;</a></h1>
+<p><strong>Created:</strong> 2026-04-26
+<strong>Project:</strong> tripwire (<code>/Users/eek/Development/tripwire</code>)
+<strong>For:</strong> a fresh Claude Code session - paste this whole file as the first message.</p>
+<hr />
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>You are working on <code>tripwire</code>, a Python testing/sandboxing library. The user is the
+author and the only user. There is no compatibility window to worry about.</p>
+<p>Recently I ported (some of) tripwire's design into <code>tripwire</code>, a Nim equivalent
+used by paperplanes (a Kraken arbitrage bot). The port surfaced several
+design seams in tripwire worth examining. This file is the prompt to act on
+that feedback.</p>
+<p>The goals here are concrete, prioritized, and bounded. Do them in priority
+order. After each, run the test suite (or write tests first per the user's
+preference) and commit. Do NOT bundle multiple proposals into one commit;
+each lands separately.</p>
+<p>The user's standing direction (verbatim): "If there is a bug, fix it. If there
+is a missing feature, add it." "What is most correct, most ergonomic? we don't
+care about blast radius, we just want what is correct and right." "no need
+for deprecated alias. this is all liquid, baby."</p>
+<hr />
+<h2 id="operating-directives">Operating directives<a class="headerlink" href="#operating-directives" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>You are the tripwire author and the only user.</strong> Single source of authority.
+  No "but what about other users."</li>
+<li><strong>Subagents for substantive work</strong> per <code>~/.claude/CLAUDE.md</code>. Dispatch them
+  for code reads / writes / tests; orchestrate from the main context.</li>
+<li><strong>TDD where it fits.</strong> Behavioral changes get a failing test first.</li>
+<li><strong>No commits with AI attribution</strong> (no <code>Co-Authored-By</code>, no "Generated with
+  Claude," no bot signatures).</li>
+<li><strong>No GitHub issue references</strong> in commit messages, PR titles, or PR
+  descriptions (no <code>#123</code>, no <code>fixes #X</code>).</li>
+<li><strong>No em-dashes</strong> in any user-facing text. Use <code>-</code> or restructure.</li>
+<li><strong>No <code>--no-verify</code></strong> on commits. If a hook fails, fix it.</li>
+<li><strong>No push without explicit user approval.</strong> Local commits are pre-authorized;
+  pushes are not.</li>
+<li><strong>Worktree</strong> if the change set spans many files. Optional.</li>
+<li>Run <code>python -m pytest</code> (or whatever the project uses; verify via <code>pyproject.toml</code>)
+  before each commit. Don't regress.</li>
+</ul>
+<hr />
+<h2 id="proposals-in-priority-order">Proposals, in priority order<a class="headerlink" href="#proposals-in-priority-order" title="Permanent link">&para;</a></h2>
+<p>Each proposal has: rationale, concrete change, acceptance test, and effort
+estimate. Land them in this order; each is independent.</p>
+<hr />
+<h3 id="proposal-1-default-guard-to-error-not-warn">Proposal 1 - Default <code>guard</code> to <code>"error"</code>, not <code>"warn"</code><a class="headerlink" href="#proposal-1-default-guard-to-error-not-warn" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> HIGH. This is the biggest one.</p>
+<p><strong>Rationale.</strong> Tripwire today defaults <code>guard</code> to <code>"warn"</code>. A fresh project
+that imports tripwire and writes a test without configuring guard will
+silently make real network calls, real subprocess invocations, real DNS
+lookups - they pass through with a warning the test runner may swallow.
+That is the opposite of what a sandbox should do. A testing tool's prime
+directive is "no surprise side effects." Default-warn violates that.</p>
+<p>The tripwire port deliberately defaults to error. A dev who wants warn
+opts in. CI never accidentally hits real DNS.</p>
+<p>The README sells "warn" as the gentle on-ramp. That's fine; reframe it
+as a <em>legacy-migration</em> mode, not a default. New projects should fail
+loud.</p>
+<p><strong>Concrete change.</strong></p>
+<ol>
+<li>In <code>pyproject.toml</code> schema and tripwire's config defaults: set the
+   default for <code>[tool.tripwire] guard</code> to <code>"error"</code> (find the constant or
+   the parser default; grep for <code>"warn"</code> near guard parsing).</li>
+<li>Update <code>README.md</code> and any quickstart docs:</li>
+<li>State the default is <code>"error"</code>.</li>
+<li>Add a "When to use <code>warn</code>" subsection: incremental migration of
+     legacy test suites that have not yet been wrapped in <code>with tripwire:</code>
+     blocks. Caveat that warn mode lets real I/O through and should not
+     be the steady state.</li>
+<li>Update CHANGELOG.md under <code>[Unreleased]</code> with a clear breaking-change
+   note.</li>
+</ol>
+<p><strong>Acceptance test.</strong></p>
+<p>Add a test that:
+- creates a project with no tripwire config,
+- imports tripwire,
+- makes an unmocked HTTP request outside any <code>with tripwire:</code> block,
+- asserts an error is raised (not a warning logged).</p>
+<p><strong>Effort.</strong> Small (defaults change + docs + 1 test).</p>
+<hr />
+<h3 id="proposal-2-per-plugin-passthrough_safe-declaration-distinct-error">Proposal 2 - Per-plugin <code>passthrough_safe</code> declaration + distinct error<a class="headerlink" href="#proposal-2-per-plugin-passthrough_safe-declaration-distinct-error" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> HIGH. This prevents <code>guard="warn"</code> from being a footgun.</p>
+<p><strong>Rationale.</strong> When <code>guard="warn"</code>, tripwire today probably lets every
+unmocked call through. For some plugins that's fine: a Mock plugin's
+"passthrough" is identity, no harm done. For other plugins it's
+destructive: HTTP makes a real network request, subprocess forks a real
+process, DNS hits a real resolver, file writes mutate the disk. CI
+quotas, external state, and real money can all be at risk.</p>
+<p>Tripwire's plugin base class has <code>supportsPassthrough() -&gt; bool</code>. Mock
+returns true; httpclient, subprocess, websock, and chronos return false.
+When tripwire's outside-sandbox guard mode is set to warn but the plugin
+can't passthrough safely, it raises <code>OutsideSandboxNoPassthroughDefect</code>
+with a pedagogical message: "plugin X doesn't support outside-sandbox
+passthrough; install a sandbox or set guard=error."</p>
+<p>Tripwire would benefit from the same gate. Otherwise <code>guard="warn"</code> is
+indistinguishable from "make all real I/O happen, with a log line."</p>
+<p><strong>Concrete change.</strong></p>
+<ol>
+<li>Add a <code>passthrough_safe: bool</code> class attribute (default <code>False</code>) to
+   tripwire's plugin base class.</li>
+<li>Set <code>passthrough_safe = True</code> on Mock-style plugins where passthrough
+   is genuinely a no-op or identity. Audit each plugin in the codebase;
+   default to False if there is any doubt.</li>
+<li>Add a new exception class <code>UnsafePassthroughError</code> (or similar; align
+   with tripwire's existing exception naming convention - read <code>errors.py</code>
+   or wherever exceptions live first).</li>
+<li>In the guard-mode dispatch path: when <code>guard="warn"</code> and an unmocked
+   call hits a plugin where <code>passthrough_safe is False</code>, raise
+   <code>UnsafePassthroughError</code> with a message that says, verbatim or close:
+   "plugin {name} doesn't support outside-sandbox passthrough; either
+   install a <code>with tripwire:</code> block, set guard='error' to make this fail
+   loudly, or mark this plugin passthrough_safe=True if you've audited
+   that the underlying call has no side effects."</li>
+</ol>
+<p><strong>Acceptance test.</strong></p>
+<p>Two cases:
+- guard=warn + Mock plugin (passthrough_safe=True) -&gt; warning logged,
+  call returns the underlying value.
+- guard=warn + HTTP plugin (passthrough_safe=False) -&gt; raises
+  UnsafePassthroughError with the helpful message.</p>
+<p><strong>Effort.</strong> Small to medium. The guts are one new attribute and one new
+branch in the guard dispatch path. The audit of which plugins are
+genuinely safe is the larger piece.</p>
+<hr />
+<h3 id="proposal-3-per-protocol-guard-granularity">Proposal 3 - Per-protocol guard granularity<a class="headerlink" href="#proposal-3-per-protocol-guard-granularity" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> MEDIUM. Quality-of-life feature, not a correctness fix.</p>
+<p><strong>Rationale.</strong> <code>guard</code> today is a single binary global. Operators in
+practice want different strictness for different protocols. Pytest
+collectors stat() lots of files; defaulting to error on file I/O is
+hostile. But DNS and subprocess should fail loud unconditionally.</p>
+<p><strong>Concrete change.</strong></p>
+<p>Allow per-protocol overrides in <code>pyproject.toml</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[tool.tripwire]</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">guard</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;warn&quot;</span><span class="w">           </span><span class="c1"># default for everything</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">guard</span><span class="p">.</span><span class="n">dns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;error&quot;</span><span class="w">      </span><span class="c1"># except DNS, always raise</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">guard</span><span class="p">.</span><span class="n">subprocess</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;error&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">guard</span><span class="p">.</span><span class="n">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;warn&quot;</span><span class="w">      </span><span class="c1"># explicit, even though same as default</span>
+</code></pre></div>
+<p>Implementation:
+1. Extend the config parser to accept a dict-or-string under <code>guard</code>. If
+   string: backward-compatible global. If dict: per-protocol with a
+   default key (or use <code>guard</code> itself as the default and <code>guard.X</code> for
+   overrides; pick whichever schema is cleanest in TOML).
+2. Wire the per-protocol values through the dispatch path. The plugin
+   knows its own protocol identifier already.</p>
+<p><strong>Acceptance test.</strong></p>
+<p>Config with <code>guard = "warn"</code> plus <code>guard.dns = "error"</code>:
+- Outside-sandbox HTTP call -&gt; warns (or passthrough per Proposal 2).
+- Outside-sandbox DNS lookup -&gt; raises.</p>
+<p><strong>Effort.</strong> Medium. Config schema + dispatch wiring + tests.</p>
+<hr />
+<h3 id="proposal-4-distinguish-no-sandbox-ever-from-post-sandbox-interaction">Proposal 4 - Distinguish "no sandbox ever" from "post-sandbox interaction"<a class="headerlink" href="#proposal-4-distinguish-no-sandbox-ever-from-post-sandbox-interaction" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> MEDIUM. Async-debugging quality issue.</p>
+<p><strong>Rationale.</strong> Tripwire has two distinct defects:
+- <code>LeakedInteractionDefect</code>: TRM fired with empty verifier stack ("you
+  forgot a sandbox").
+- <code>PostTestInteractionDefect</code>: verifier was popped (sandbox exited) but
+  generation counter still active ("your async cleanup is wrong; a
+  Future / Task / Thread survived <code>with tripwire:</code> exit and fired after").</p>
+<p>These are <em>genuinely different bugs</em>. The first is a missing sandbox
+declaration. The second is a leak of in-flight async work past the
+sandbox lifetime. Catching both under one error makes async leak
+debugging much harder than necessary.</p>
+<p>If tripwire today raises one error for both, split them. Verify by reading
+tripwire's exception hierarchy (<code>grep -rn "class.*Error\\|class.*Defect" src/</code>).</p>
+<p><strong>Concrete change.</strong></p>
+<ol>
+<li>Read tripwire's current handling of "call fired outside the active
+   sandbox" - is this one path or already two? If one, split. If already
+   two, this proposal is satisfied; move on.</li>
+<li>Add <code>PostSandboxInteractionError</code> (or whatever fits tripwire's naming).</li>
+<li>Track sandbox generation: when <code>with tripwire:</code> exits, mark the sandbox
+   inactive but keep an identity. Calls that fire on a-known-but-inactive
+   sandbox raise the post-sandbox error; calls with no sandbox identity
+   raise the leaked-interaction error.</li>
+</ol>
+<p><strong>Acceptance test.</strong></p>
+<p>Two tests:
+- Call without ever entering <code>with tripwire:</code> -&gt; <code>LeakedInteractionError</code>.
+- <code>with tripwire:</code> block that schedules an asyncio Task; block exits before
+  Task completes; Task makes an unmocked call -&gt; <code>PostSandboxInteractionError</code>.</p>
+<p><strong>Effort.</strong> Medium. Generation tracking on the sandbox object plus exception
+split.</p>
+<hr />
+<h3 id="proposal-5-pedagogical-error-messages-for-outside-sandbox-failures">Proposal 5 - Pedagogical error messages for outside-sandbox failures<a class="headerlink" href="#proposal-5-pedagogical-error-messages-for-outside-sandbox-failures" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> LOW-MEDIUM. UX polish, not correctness.</p>
+<p><strong>Rationale.</strong> When tripwire raises outside a sandbox, the message should
+state the user's mental model, not just the implementation detail. A new
+user seeing the current error has to figure out from context that they
+forgot to wrap in <code>with tripwire:</code>.</p>
+<p>Tripwire's message: <code>"TRM fired on thread {tid} with no active verifier
+at {file}:{line}"</code> is functional but mechanical. Better:</p>
+<blockquote>
+<p><code>Call to {plugin}.{method}({args}) at {file}:{line} happened OUTSIDE
+any "with tripwire:" block. Wrap the call in a sandbox and add an
+allow(...) for it, OR set guard="warn" in pyproject.toml if the call
+is intentional and safe.</code></p>
+</blockquote>
+<p><strong>Concrete change.</strong></p>
+<p>Find every outside-sandbox raise site. Update the message to include:
+- Which plugin and method was called
+- The call site (file:line)
+- The user-mental-model framing ("OUTSIDE any <code>with tripwire:</code> block")
+- The two options for fixing it</p>
+<p><strong>Acceptance test.</strong></p>
+<p>Capture the exception message and assert it contains the framing strings.
+This is a regression guard against the message drifting back to mechanical.</p>
+<p><strong>Effort.</strong> Small. String changes + assert tests.</p>
+<hr />
+<h3 id="proposal-6-pytest-marker-for-per-test-guard-override">Proposal 6 - Pytest marker for per-test guard override<a class="headerlink" href="#proposal-6-pytest-marker-for-per-test-guard-override" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> LOW-MEDIUM. Migration affordance.</p>
+<p><strong>Rationale.</strong> Per-test override lets strict tests live next to permissive
+ones during a guard migration. Natural fit for pytest. Tripwire can't do
+this cleanly because it's compile-time; tripwire can.</p>
+<p><strong>Concrete change.</strong></p>
+<p>Register a pytest marker <code>tripwire_guard("error" | "warn" | dict-form)</code>.
+When the test starts, the marker (if present) overrides the project's
+guard setting for the duration of that test. When the test ends, restore
+prior config.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">tripwire_guard</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">test_strict_dns</span><span class="p">():</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="c1"># this test fails loud on any unmocked call</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="o">...</span>
+</code></pre></div>
+<p>Implementation:
+1. Add the marker registration in tripwire's pytest plugin (find it in
+   <code>src/tripwire/pytest_plugin.py</code> or similar).
+2. Hook into a pytest fixture (autouse, narrow scope) that reads the
+   marker, overrides the config, yields, and restores.
+3. Document in the README and the migration guide.</p>
+<p><strong>Acceptance test.</strong></p>
+<p>A test file with two tests:
+- One marked <code>tripwire_guard("error")</code>: makes an unmocked call, expects raise.
+- One marked <code>tripwire_guard("warn")</code>: makes an unmocked call, expects warning.</p>
+<p><strong>Effort.</strong> Small. Pytest marker registration + fixture + docs.</p>
+<hr />
+<h3 id="proposal-7-strict-toml-schema-validation-at-parse-time">Proposal 7 - Strict TOML schema validation at parse time<a class="headerlink" href="#proposal-7-strict-toml-schema-validation-at-parse-time" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> LOW. Footgun-prevention.</p>
+<p><strong>Rationale.</strong> <code>guard = "Warn"</code> (capital W) versus <code>guard = "warn"</code> is the
+kind of typo that silently does the wrong thing if the parser falls back
+to a default. Validate strictly. Reject unknown values at parse time.</p>
+<p>Tripwire's parser validates against the enum at parse time and raises
+on unknown values.</p>
+<p><strong>Concrete change.</strong></p>
+<p>Find the TOML config parser. After reading <code>guard</code>, validate the value
+is one of the accepted set. On mismatch, raise a clear error:</p>
+<blockquote>
+<p><code>Invalid value "{got}" for [tool.tripwire] guard. Expected one of: "warn",
+"error". (Per-protocol form also accepted; see docs.)</code></p>
+</blockquote>
+<p>Apply the same validation to any other config keys that take a closed set.</p>
+<p><strong>Acceptance test.</strong></p>
+<p>Config with <code>guard = "Warn"</code> (typo) -&gt; ImportError or ConfigError at
+collection time, not silent warn-or-error fallback.</p>
+<p><strong>Effort.</strong> Small. Validation function + tests.</p>
+<hr />
+<h3 id="proposal-8-readme-what-default-should-i-pick-guidance">Proposal 8 - README "what default should I pick?" guidance<a class="headerlink" href="#proposal-8-readme-what-default-should-i-pick-guidance" title="Permanent link">&para;</a></h3>
+<p><strong>Priority:</strong> LOW. Docs only.</p>
+<p><strong>Rationale.</strong> Both modes are described neutrally today. After Proposal 1
+flips the default, the README needs a clear positioning paragraph that
+tells the user when to use which:</p>
+<ul>
+<li><strong>For new projects:</strong> keep the default <code>"error"</code>. Real I/O outside
+  sandboxes is almost always a bug.</li>
+<li><strong>For migrating legacy test suites:</strong> set <code>guard = "warn"</code> while you
+  add <code>with tripwire:</code> blocks incrementally. Plan to flip back to
+  <code>"error"</code> once the migration is done.</li>
+<li><strong>For mixed CI:</strong> use per-protocol overrides (Proposal 3) to be strict
+  on the dangerous protocols (DNS, subprocess) and permissive on the
+  safe ones (file).</li>
+</ul>
+<p><strong>Concrete change.</strong> Edit the README. Add a section under the
+configuration docs.</p>
+<p><strong>Acceptance test.</strong> N/A (docs).</p>
+<p><strong>Effort.</strong> Small.</p>
+<hr />
+<h2 id="bonus-documentation-work">Bonus: documentation work<a class="headerlink" href="#bonus-documentation-work" title="Permanent link">&para;</a></h2>
+<p>These don't ship as code but are worth noting. Decide whether to land them
+during this batch or after.</p>
+<h3 id="b1-vocabulary-clarity">B1 - Vocabulary clarity<a class="headerlink" href="#b1-vocabulary-clarity" title="Permanent link">&para;</a></h3>
+<p>Make explicit in docs that <code>tripwire.allow(...)</code> and <code>tripwire.restrict(...)</code>
+are <em>sandbox-scoped</em>, while <code>guard</code> is <em>module-scoped (global)</em>. They do
+not compose. A user who tries <code>tripwire.allow(...)</code> outside a <code>with</code> block
+will get a confusing error because there is no sandbox to attach the
+allow to. Either:
+- document the divide loudly, OR
+- raise a clear error from <code>allow()</code> / <code>restrict()</code> when called outside
+  a sandbox, with a message that points the user at <code>guard</code> instead.</p>
+<h3 id="b2-async-edge-case-contextvars-threadpools">B2 - Async edge case: contextvars + threadpools<a class="headerlink" href="#b2-async-edge-case-contextvars-threadpools" title="Permanent link">&para;</a></h3>
+<p>Verify <code>with tripwire:</code> survives correctly across:
+- <code>asyncio.to_thread(...)</code> (which uses a default thread executor)
+- <code>concurrent.futures.ProcessPoolExecutor</code> (which fork-execs a child)
+- <code>asyncio.create_task(...)</code> (which inherits the current context)</p>
+<p>Python's contextvars + threadpools are notoriously subtle. The right
+behavior is probably: <code>with tripwire:</code> state propagates to threads via
+contextvars (it should "just work"), but does NOT propagate to subprocesses
+(those are a separate process boundary; configure them via env or config
+file, not via context). Document and test.</p>
+<hr />
+<h2 id="what-done-looks-like">What "done" looks like<a class="headerlink" href="#what-done-looks-like" title="Permanent link">&para;</a></h2>
+<p>Per proposal:
+1. A failing test is committed first (TDD).
+2. The implementation is committed second.
+3. Proposals are landed in priority order, NOT bundled.
+4. CHANGELOG.md <code>[Unreleased]</code> entry per proposal.
+5. README and other docs updated where applicable.
+6. <code>python -m pytest</code> (or the project's actual test command) is green
+   after each commit.</p>
+<p>Final state: 8 proposals' worth of commits on a branch ready to push.
+Do not push without explicit user approval.</p>
+<hr />
+<h2 id="pointers">Pointers<a class="headerlink" href="#pointers" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>src/tripwire/</code> for the implementation</li>
+<li><code>tests/</code> for the test suite</li>
+<li><code>pyproject.toml</code> for project configuration and config schema</li>
+<li><code>CHANGELOG.md</code> for release notes</li>
+<li><code>docs/</code> for the user-facing documentation</li>
+<li><code>~/.claude/CLAUDE.md</code> for the user's standing operating directives</li>
+<li><code>AGENTS.md</code> (or <code>CLAUDE.md</code>) at the tripwire repo root for repo-specific
+  conventions; read first</li>
+</ul>
+<p>Good luck. The user is patient and rigorous; match the energy.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "content.code.annotate", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
