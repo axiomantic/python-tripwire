@@ -385,7 +385,7 @@ def test_async_websocket_raises_import_error_when_websockets_unavailable(
       CLAIM: Accessing any attribute on async_websocket raises ImportError with
              instructions when tripwire.plugins.websocket_plugin._WEBSOCKETS_AVAILABLE is False.
       PATH:  _AsyncWebSocketProxy.__getattr__ -> checks _WEBSOCKETS_AVAILABLE -> raises ImportError.
-      CHECK: Raises ImportError with message containing "python-tripwire[websockets]" and "pip install".
+      CHECK: Raises ImportError with message containing "pytest-tripwire[websockets]" and "pip install".
       MUTATION: If __getattr__ does not check _WEBSOCKETS_AVAILABLE, the error is deferred to
                 activate() time (inside a test context), and the message will be different or absent.
       ESCAPE: A proxy that checks availability but emits a wrong message would still pass the
@@ -399,7 +399,7 @@ def test_async_websocket_raises_import_error_when_websockets_unavailable(
     with pytest.raises(ImportError) as exc_info:
         _ = tripwire.async_websocket.new_session  # noqa: B018
 
-    assert "python-tripwire[websockets]" in str(exc_info.value)
+    assert "pytest-tripwire[websockets]" in str(exc_info.value)
     assert "pip install" in str(exc_info.value)
 
 
@@ -499,7 +499,7 @@ def test_sync_websocket_raises_import_error_when_websocket_client_unavailable(
       CLAIM: Accessing any attribute on sync_websocket raises ImportError with
              instructions when tripwire.plugins.websocket_plugin._WEBSOCKET_CLIENT_AVAILABLE is False.
       PATH:  _SyncWebSocketProxy.__getattr__ -> checks _WEBSOCKET_CLIENT_AVAILABLE -> raises ImportError.
-      CHECK: Raises ImportError with message containing "python-tripwire[websocket-client]" and "pip install".
+      CHECK: Raises ImportError with message containing "pytest-tripwire[websocket-client]" and "pip install".
       MUTATION: If __getattr__ does not check _WEBSOCKET_CLIENT_AVAILABLE, the error is deferred
                 to activate() time (inside a test context), and the message will be different or absent.
       ESCAPE: A proxy that checks availability but emits a wrong message would still pass the
@@ -513,7 +513,7 @@ def test_sync_websocket_raises_import_error_when_websocket_client_unavailable(
     with pytest.raises(ImportError) as exc_info:
         _ = tripwire.sync_websocket.new_session  # noqa: B018
 
-    assert "python-tripwire[websocket-client]" in str(exc_info.value)
+    assert "pytest-tripwire[websocket-client]" in str(exc_info.value)
     assert "pip install" in str(exc_info.value)
 
 

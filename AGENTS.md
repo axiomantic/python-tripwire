@@ -108,7 +108,7 @@ def test_something():
 - **Never** put inline code examples in guide "Full example" sections. Always use snippet includes from `examples/`.
 - **Every** new plugin guide must have a corresponding `examples/` directory with working tests.
 - If a library generates DEBUG logs (boto3, pymongo, celery, etc.), add an autouse fixture to silence them so they don't interfere with LoggingPlugin.
-- **Never** use `pytest.importorskip()` in tests. All optional dependencies are included in `python-tripwire[dev]` and are expected to be installed. Skipping on missing imports is a green mirage.
+- **Never** use `pytest.importorskip()` in tests. All optional dependencies are included in `pytest-tripwire[dev]` and are expected to be installed. Skipping on missing imports is a green mirage.
 - The `.claude/skills/adding-plugins/SKILL.md` skill automates the full plugin creation lifecycle including examples and docs.
 
 ## Selective Installation
@@ -116,10 +116,10 @@ def test_something():
 Core plugins (subprocess, logging, database, socket, file-io, native, dns) require no extras. Optional plugins need:
 
 ```bash
-pip install python-tripwire[all]        # Everything
-pip install python-tripwire[http]       # httpx, requests, urllib
-pip install python-tripwire[redis]      # redis
-pip install python-tripwire[boto3]      # botocore
-pip install python-tripwire[pymongo]    # pymongo
+pip install pytest-tripwire[all]        # Everything
+pip install pytest-tripwire[http]       # httpx, requests, urllib
+pip install pytest-tripwire[redis]      # redis
+pip install pytest-tripwire[boto3]      # botocore
+pip install pytest-tripwire[pymongo]    # pymongo
 # ... see pyproject.toml [project.optional-dependencies] for full list
 ```

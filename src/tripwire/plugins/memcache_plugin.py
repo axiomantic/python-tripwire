@@ -231,8 +231,8 @@ class MemcachePlugin(BasePlugin):
         """Install pymemcache Client method patches."""
         if not _PYMEMCACHE_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[pymemcache] to use MemcachePlugin: "
-                "pip install python-tripwire[pymemcache]"
+                "Install pytest-tripwire[pymemcache] to use MemcachePlugin: "
+                "pip install pytest-tripwire[pymemcache]"
             )
         from pymemcache.client.base import Client
 

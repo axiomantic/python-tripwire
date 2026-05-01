@@ -81,7 +81,7 @@ def test_activate_raises_when_redis_unavailable(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install python-tripwire[redis] to use RedisPlugin: pip install python-tripwire[redis]"
+        "Install pytest-tripwire[redis] to use RedisPlugin: pip install pytest-tripwire[redis]"
     )
 
 

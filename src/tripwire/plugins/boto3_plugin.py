@@ -257,8 +257,8 @@ class Boto3Plugin(BasePlugin):
         """
         if not _BOTO3_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[boto3] to use Boto3Plugin: "
-                "pip install python-tripwire[boto3]"
+                "Install pytest-tripwire[boto3] to use Boto3Plugin: "
+                "pip install pytest-tripwire[boto3]"
             )
         # Save current env values and inject dummy credentials
         for key, value in self._CREDENTIAL_ENV_VARS.items():

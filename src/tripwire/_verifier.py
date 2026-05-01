@@ -116,7 +116,7 @@ class StrictVerifier:
                     raise TripwireConfigError(
                         f"Plugin '{entry.name}' is in enabled_plugins but failed "
                         f"to import. Ensure its dependencies are installed: "
-                        f"pip install python-tripwire[{entry.name}]"
+                        f"pip install pytest-tripwire[{entry.name}]"
                     )
                 # Silent skip only for default-enabled (not explicitly listed) plugins
 

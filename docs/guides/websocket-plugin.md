@@ -12,13 +12,13 @@ Both use the same state machine and assertion pattern.
 === "Async (websockets)"
 
     ```bash
-    pip install python-tripwire[websockets]
+    pip install pytest-tripwire[websockets]
     ```
 
 === "Sync (websocket-client)"
 
     ```bash
-    pip install python-tripwire[websocket-client]
+    pip install pytest-tripwire[websocket-client]
     ```
 
 ## State machine

@@ -228,8 +228,8 @@ class AsyncWebSocketPlugin(StateMachinePlugin):
     def install_patches(self) -> None:
         if not _WEBSOCKETS_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[websockets] to use AsyncWebSocketPlugin: "
-                "pip install python-tripwire[websockets]"
+                "Install pytest-tripwire[websockets] to use AsyncWebSocketPlugin: "
+                "pip install pytest-tripwire[websockets]"
             )
         import websockets as _ws
 
@@ -479,8 +479,8 @@ class SyncWebSocketPlugin(StateMachinePlugin):
     def install_patches(self) -> None:
         if not _WEBSOCKET_CLIENT_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[websocket-client] to use SyncWebSocketPlugin: "
-                "pip install python-tripwire[websocket-client]"
+                "Install pytest-tripwire[websocket-client] to use SyncWebSocketPlugin: "
+                "pip install pytest-tripwire[websocket-client]"
             )
         import websocket as _wsc
 

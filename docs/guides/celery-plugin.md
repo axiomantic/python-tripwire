@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install python-tripwire[celery]
+pip install pytest-tripwire[celery]
 ```
 
 This installs `celery`.

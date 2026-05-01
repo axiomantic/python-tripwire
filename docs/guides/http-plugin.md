@@ -1,16 +1,16 @@
 # HttpPlugin Guide
 
-`HttpPlugin` intercepts HTTP calls made through `httpx` (sync and async), `requests`, `urllib`, and `aiohttp` (if installed). It requires the `python-tripwire[http]` extra. For aiohttp support, also install `python-tripwire[aiohttp]`.
+`HttpPlugin` intercepts HTTP calls made through `httpx` (sync and async), `requests`, `urllib`, and `aiohttp` (if installed). It requires the `pytest-tripwire[http]` extra. For aiohttp support, also install `pytest-tripwire[aiohttp]`.
 
 ## Installation
 
 ```bash
-pip install python-tripwire[http]              # httpx, requests, urllib
-pip install python-tripwire[aiohttp]           # + aiohttp support
-pip install python-tripwire[http,aiohttp]      # both
+pip install pytest-tripwire[http]              # httpx, requests, urllib
+pip install pytest-tripwire[aiohttp]           # + aiohttp support
+pip install pytest-tripwire[http,aiohttp]      # both
 ```
 
-`python-tripwire[http]` installs `httpx>=0.25.0` and `requests>=2.31.0`. `python-tripwire[aiohttp]` installs `aiohttp>=3.9.0`.
+`pytest-tripwire[http]` installs `httpx>=0.25.0` and `requests>=2.31.0`. `pytest-tripwire[aiohttp]` installs `aiohttp>=3.9.0`.
 
 ## Setup
 
@@ -363,7 +363,7 @@ See the [Configuration Guide](configuration.md) for full details on `[tool.tripw
 
 ## Using with aiohttp
 
-Requires `python-tripwire[aiohttp]`. If aiohttp is not installed, `HttpPlugin` works normally for other transports.
+Requires `pytest-tripwire[aiohttp]`. If aiohttp is not installed, `HttpPlugin` works normally for other transports.
 
 ```python
 import tripwire, aiohttp

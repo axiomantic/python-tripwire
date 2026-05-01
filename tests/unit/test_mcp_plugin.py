@@ -71,7 +71,7 @@ def test_activate_raises_when_mcp_unavailable(monkeypatch: pytest.MonkeyPatch) -
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install python-tripwire[mcp] to use McpPlugin: pip install python-tripwire[mcp]"
+        "Install pytest-tripwire[mcp] to use McpPlugin: pip install pytest-tripwire[mcp]"
     )
 
 

@@ -6,7 +6,7 @@ Thanks for your interest in contributing to tripwire! This guide will help you g
 
 ```bash
 # Clone the repo
-git clone https://github.com/axiomantic/python-tripwire.git
+git clone https://github.com/axiomantic/pytest-tripwire.git
 cd tripwire
 
 # Create a virtual environment
@@ -80,7 +80,7 @@ See the [Writing Plugins](https://axiomantic.github.io/tripwire/guides/writing-p
 
 ## Reporting Issues
 
-- Use the [issue tracker](https://github.com/axiomantic/python-tripwire/issues).
+- Use the [issue tracker](https://github.com/axiomantic/pytest-tripwire/issues).
 - For bugs, include: Python version, tripwire version, minimal reproduction, and full traceback.
 - For feature requests, describe the use case and why existing plugins don't cover it.
 

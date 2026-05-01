@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install python-tripwire[grpc]
+pip install pytest-tripwire[grpc]
 ```
 
 This installs `grpcio`.

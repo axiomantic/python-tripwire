@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install python-tripwire[paramiko]
+pip install pytest-tripwire[paramiko]
 ```
 
 This installs `paramiko`.

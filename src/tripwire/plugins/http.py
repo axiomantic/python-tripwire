@@ -17,8 +17,8 @@ try:
     import requests.adapters
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
-        "python-tripwire[http] extra is required to use HttpPlugin. "
-        "Install with: pip install python-tripwire[http]"
+        "pytest-tripwire[http] extra is required to use HttpPlugin. "
+        "Install with: pip install pytest-tripwire[http]"
     ) from exc
 
 try:
@@ -285,7 +285,7 @@ def _identify_patcher(method: object) -> str:
 
 
 class HttpPlugin(BasePlugin):
-    """HTTP interception plugin. Requires python-tripwire[http] extra.
+    """HTTP interception plugin. Requires pytest-tripwire[http] extra.
 
     Patches httpx sync/async transports, requests HTTPAdapter, urllib openers,
     and aiohttp ClientSession (if installed) at the class level. Uses reference

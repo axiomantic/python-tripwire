@@ -273,8 +273,8 @@ class CeleryPlugin(BasePlugin):
         """Install Celery Task.delay and Task.apply_async patches."""
         if not _CELERY_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[celery] to use CeleryPlugin: "
-                "pip install python-tripwire[celery]"
+                "Install pytest-tripwire[celery] to use CeleryPlugin: "
+                "pip install pytest-tripwire[celery]"
             )
         from celery.app.task import Task
 

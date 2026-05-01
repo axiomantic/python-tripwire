@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install python-tripwire[psycopg2]
+pip install pytest-tripwire[psycopg2]
 ```
 
 ## Setup

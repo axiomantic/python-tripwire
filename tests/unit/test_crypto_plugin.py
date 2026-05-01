@@ -64,7 +64,7 @@ def test_activate_raises_when_cryptography_unavailable(monkeypatch: pytest.Monke
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install python-tripwire[crypto] to use CryptoPlugin: pip install python-tripwire[crypto]"
+        "Install pytest-tripwire[crypto] to use CryptoPlugin: pip install pytest-tripwire[crypto]"
     )
 
 

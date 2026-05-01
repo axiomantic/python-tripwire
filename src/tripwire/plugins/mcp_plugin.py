@@ -513,7 +513,7 @@ class McpPlugin(BasePlugin):
         """Install MCP client/server patches."""
         if not _MCP_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[mcp] to use McpPlugin: pip install python-tripwire[mcp]"
+                "Install pytest-tripwire[mcp] to use McpPlugin: pip install pytest-tripwire[mcp]"
             )
         McpPlugin._original_call_tool = _ClientSession.call_tool
         McpPlugin._original_read_resource = _ClientSession.read_resource

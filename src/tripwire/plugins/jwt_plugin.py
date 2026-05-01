@@ -230,7 +230,7 @@ class JwtPlugin(BasePlugin):
         """Install jwt.encode and jwt.decode patches."""
         if not _JWT_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[jwt] to use JwtPlugin: pip install python-tripwire[jwt]"
+                "Install pytest-tripwire[jwt] to use JwtPlugin: pip install pytest-tripwire[jwt]"
             )
         JwtPlugin._original_encode = jwt_lib.encode
         JwtPlugin._original_decode = jwt_lib.decode

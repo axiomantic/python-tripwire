@@ -33,7 +33,7 @@ class TestExplicitEnableError:
         entry = _fake_entry("fakeplugin", "nonexistent_module_xyz")
         with patch("tripwire._registry.PLUGIN_REGISTRY", (entry,)):
             with patch("tripwire._registry.VALID_PLUGIN_NAMES", frozenset({"fakeplugin"})):
-                with pytest.raises(TripwireConfigError, match=r"pip install python-tripwire\[fakeplugin\]"):
+                with pytest.raises(TripwireConfigError, match=r"pip install pytest-tripwire\[fakeplugin\]"):
                     resolve_enabled_plugins({"enabled_plugins": ["fakeplugin"]})
 
     def test_default_enable_missing_dep_silent_skip(self) -> None:

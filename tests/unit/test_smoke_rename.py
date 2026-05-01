@@ -58,7 +58,7 @@ def test_import_tripwire_resolves() -> None:
         f"tripwire imported from {module_path}, expected under {expected_pkg_dir}"
     )
 
-    assert importlib.metadata.version("python-tripwire") == _expected_version()
+    assert importlib.metadata.version("pytest-tripwire") == _expected_version()
 
 
 # C1-T2
@@ -72,9 +72,9 @@ def test_pytest_entrypoint_registered() -> None:
     - A stale legacy entry-point (e.g., `bigfoot`) still being registered.
     - The entry-point existing in metadata but failing to load at pytest start.
     """
-    # Half 1: the pytest11 entry-point is registered against python-tripwire
+    # Half 1: the pytest11 entry-point is registered against pytest-tripwire
     # at the version declared in pyproject.toml.
-    dist = importlib.metadata.distribution("python-tripwire")
+    dist = importlib.metadata.distribution("pytest-tripwire")
     pytest11_eps = [ep for ep in dist.entry_points if ep.group == "pytest11"]
     assert pytest11_eps == [
         importlib.metadata.EntryPoint(

@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install python-tripwire[mcp]
+pip install pytest-tripwire[mcp]
 ```
 
 This installs the `mcp` SDK.

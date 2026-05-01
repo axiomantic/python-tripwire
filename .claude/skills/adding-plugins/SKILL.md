@@ -199,7 +199,7 @@ from tripwire._context import _current_test_verifier
 from tripwire._errors import InteractionMismatchError, UnmockedInteractionError
 from tripwire._verifier import StrictVerifier
 
-# Import the library directly -- all optional deps are in python-tripwire[dev].
+# Import the library directly -- all optional deps are in pytest-tripwire[dev].
 # Never use pytest.importorskip (green mirage).
 import [lib]
 
@@ -490,7 +490,7 @@ mock responses and assert exactly what your code sent.
 ## Installation
 
 ```bash
-pip install python-tripwire[[name]]
+pip install pytest-tripwire[[name]]
 ```
 
 ## Quick Start

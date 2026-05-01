@@ -69,7 +69,7 @@ def test_pyproject_toml_package_name_is_tripwire() -> None:
     pyproject = PROJECT_ROOT / "pyproject.toml"
     data = tomllib.loads(pyproject.read_bytes().decode())
     name = data.get("project", {}).get("name")
-    assert name == "python-tripwire", f"[project].name must be 'python-tripwire', got {name!r}"
+    assert name == "pytest-tripwire", f"[project].name must be 'pytest-tripwire', got {name!r}"
 
 
 def test_pyproject_toml_python_requirement() -> None:

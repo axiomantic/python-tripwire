@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "python-tripwire"
-version = "0.20.1"
+name = "pytest-tripwire"
+version = "0.21.0"
 description = "Full-certainty test mocking: every call recorded and verified"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -33,10 +33,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/axiomantic/python-tripwire"
-Repository = "https://github.com/axiomantic/python-tripwire"
-Issues = "https://github.com/axiomantic/python-tripwire/issues"
-Changelog = "https://github.com/axiomantic/python-tripwire/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/axiomantic/pytest-tripwire"
+Repository = "https://github.com/axiomantic/pytest-tripwire"
+Issues = "https://github.com/axiomantic/pytest-tripwire/issues"
+Changelog = "https://github.com/axiomantic/pytest-tripwire/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 http = [
@@ -105,10 +105,10 @@ mcp = [
     "mcp>=1.0.0",
 ]
 all = [
-    "python-tripwire[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko,mcp]",
+    "pytest-tripwire[http,matchers,websockets,websocket-client,redis,aiohttp,psycopg2,asyncpg,boto3,pika,celery,grpc,pymemcache,pymongo,cffi,jwt,crypto,elasticsearch,dnspython,paramiko,mcp]",
 ]
 all-ft = [
-    "python-tripwire[http,matchers,websockets,websocket-client,redis,boto3,jwt,dnspython,pymemcache,elasticsearch]",
+    "pytest-tripwire[http,matchers,websockets,websocket-client,redis,boto3,jwt,dnspython,pymemcache,elasticsearch]",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -117,7 +117,7 @@ docs = [
     "mike>=2.1",
 ]
 dev = [
-    "python-tripwire[all,docs]",
+    "pytest-tripwire[all,docs]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
@@ -125,7 +125,7 @@ dev = [
     "ruff>=0.1.0",
 ]
 dev-ft = [
-    "python-tripwire[all-ft]",
+    "pytest-tripwire[all-ft]",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",

@@ -215,7 +215,7 @@ assert exc_info.value.valid_states == frozenset({"in_transaction"})
 
 `AsyncWebSocketPlugin` intercepts `websockets.connect` and returns an async context manager that drives the session script.
 
-**Requires:** `pip install python-tripwire[websockets]`
+**Requires:** `pip install pytest-tripwire[websockets]`
 
 **State machine:**
 
@@ -284,7 +284,7 @@ async def test_two_ws_connections():
 
 `SyncWebSocketPlugin` intercepts `websocket.create_connection` from the `websocket-client` library and returns a fake connection object.
 
-**Requires:** `pip install python-tripwire[websocket-client]`
+**Requires:** `pip install pytest-tripwire[websocket-client]`
 
 **State machine:**
 
@@ -493,7 +493,7 @@ The state machine validates that `sendmail` is called from `greeted` (after `ehl
 
 `RedisPlugin` intercepts `redis.Redis.execute_command` at the class level. Unlike the other stateful plugins, Redis commands carry no inherent ordering constraint — GET and SET do not depend on each other's state. `RedisPlugin` therefore extends `BasePlugin` directly and uses a per-command FIFO queue rather than a session handle.
 
-**Requires:** `pip install python-tripwire[redis]`
+**Requires:** `pip install pytest-tripwire[redis]`
 
 **Proxy:** `tripwire.redis`
 

@@ -20,7 +20,7 @@ tripwire is a **testing library** that runs in development and CI environments. 
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, use [GitHub's private security advisory feature](https://github.com/axiomantic/python-tripwire/security/advisories/new) to report the issue confidentially.
+Instead, use [GitHub's private security advisory feature](https://github.com/axiomantic/pytest-tripwire/security/advisories/new) to report the issue confidentially.
 
 Include:
 

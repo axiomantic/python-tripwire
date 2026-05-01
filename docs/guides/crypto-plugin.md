@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-pip install python-tripwire[crypto]
+pip install pytest-tripwire[crypto]
 ```
 
 This installs `cryptography`.

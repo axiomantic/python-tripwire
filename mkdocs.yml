@@ -1,8 +1,8 @@
 site_name: tripwire
 site_description: "Full-certainty test mocking for Python."
 site_url: https://axiomantic.github.io/tripwire/
-repo_url: https://github.com/axiomantic/python-tripwire
-repo_name: axiomantic/python-tripwire
+repo_url: https://github.com/axiomantic/pytest-tripwire
+repo_name: axiomantic/pytest-tripwire
 
 theme:
   name: material

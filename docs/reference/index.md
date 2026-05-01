@@ -1,6 +1,6 @@
 # API Reference
 
-All public symbols are importable from `tripwire` directly. `HttpPlugin` requires the `python-tripwire[http]` extra and is imported from `tripwire.plugins.http`.
+All public symbols are importable from `tripwire` directly. `HttpPlugin` requires the `pytest-tripwire[http]` extra and is imported from `tripwire.plugins.http`.
 
 ## Public symbols
 
@@ -10,7 +10,7 @@ All public symbols are importable from `tripwire` directly. `HttpPlugin` require
 | `SandboxContext` | class | Context manager returned by `verifier.sandbox()`. Activates all plugins for the duration of the `with` block. Supports both sync and async. |
 | `InAnyOrderContext` | class | Context manager returned by `verifier.in_any_order()`. Inside this block, `assert_interaction()` matches any unasserted interaction regardless of timeline order. |
 | `MockPlugin` | class | Intercepts method calls on named proxy objects. Created automatically by `verifier.mock()`. |
-| `HttpPlugin` | class | Intercepts `httpx`, `requests`, and `urllib` HTTP calls. Requires `python-tripwire[http]`. Import from `tripwire.plugins.http`. |
+| `HttpPlugin` | class | Intercepts `httpx`, `requests`, and `urllib` HTTP calls. Requires `pytest-tripwire[http]`. Import from `tripwire.plugins.http`. |
 | `SubprocessPlugin` | class | Intercepts `subprocess.run` and `shutil.which`. Included in core tripwire. Import from `tripwire.plugins.subprocess`. |
 | `subprocess` | proxy | Module-level proxy to `SubprocessPlugin` for the current test. Auto-creates the plugin on first access. |
 | `TripwireError` | exception | Base class for all tripwire exceptions. |

@@ -1,12 +1,14 @@
 # tripwire
 
-[![CI](https://github.com/axiomantic/python-tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/python-tripwire/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/python-tripwire)](https://pypi.org/project/python-tripwire/)
+[![CI](https://github.com/axiomantic/pytest-tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/axiomantic/pytest-tripwire/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/pytest-tripwire)](https://pypi.org/project/pytest-tripwire/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > *"Let me tell you why you're here. You're here because you know something. What you know you can't explain, but you feel it. You've felt it your entire life, that there's something wrong with the world. You don't know what it is, but it's there, like a splinter in your mind, driving you mad."*
 > -- Morpheus, The Matrix (1999)
+
+`pytest-tripwire` is a pytest plugin for full-certainty test mocking: every external call your code makes is recorded, and every recorded interaction must be explicitly asserted. The pytest entry point auto-installs the verifier into every test session, so unmocked I/O and forgotten assertions surface as loud failures instead of silent green checkmarks.
 
 You've had tests pass in CI and then watched the thing they were supposedly testing break in production. You go back and look at the test, and it turns out the mock was wrong, or incomplete, or your production code was making a call the test didn't even know about. The green checkmark was meaningless.
 
@@ -15,8 +17,10 @@ This is what testing with `unittest.mock` is like. It gives you the tools to moc
 tripwire replaces `unittest.mock` with mocking that actually enforces correctness.
 
 ```bash
-pip install python-tripwire[all]
+pip install pytest-tripwire[all]
 ```
+
+The import name stays `tripwire` (`import tripwire`); only the PyPI distribution was renamed. Previously published as `python-tripwire`; that name is now a deprecation shim that pulls in `pytest-tripwire`. Existing users only need to swap their `pip install` line. No code changes.
 
 ## The three guarantees
 
@@ -445,29 +449,29 @@ Per-call arguments override project-level settings. See the [configuration guide
 
 ## Selective Installation
 
-`python-tripwire[all]` installs everything. For a smaller footprint, pick only what you need:
+`pytest-tripwire[all]` installs everything. For a smaller footprint, pick only what you need:
 
 ```bash
-pip install python-tripwire                       # Core plugins (no optional deps)
-pip install python-tripwire[http]                 # + httpx, requests, urllib
-pip install python-tripwire[aiohttp]              # + aiohttp
-pip install python-tripwire[redis]                # + Redis
-pip install python-tripwire[pymemcache]           # + Memcached
-pip install python-tripwire[pymongo]              # + MongoDB
-pip install python-tripwire[elasticsearch]        # + Elasticsearch/OpenSearch
-pip install python-tripwire[psycopg2]             # + PostgreSQL (psycopg2)
-pip install python-tripwire[asyncpg]              # + PostgreSQL (asyncpg)
-pip install python-tripwire[boto3]                # + AWS SDK
-pip install python-tripwire[pika]                 # + RabbitMQ
-pip install python-tripwire[celery]               # + Celery tasks
-pip install python-tripwire[grpc]                 # + gRPC
-pip install python-tripwire[paramiko]             # + SSH
-pip install python-tripwire[jwt]                  # + PyJWT
-pip install python-tripwire[crypto]               # + cryptography
-pip install python-tripwire[cffi]                 # + cffi (C FFI)
-pip install python-tripwire[websockets]           # + async WebSocket
-pip install python-tripwire[websocket-client]     # + sync WebSocket
-pip install python-tripwire[matchers]             # + dirty-equals matchers
+pip install pytest-tripwire                       # Core plugins (no optional deps)
+pip install pytest-tripwire[http]                 # + httpx, requests, urllib
+pip install pytest-tripwire[aiohttp]              # + aiohttp
+pip install pytest-tripwire[redis]                # + Redis
+pip install pytest-tripwire[pymemcache]           # + Memcached
+pip install pytest-tripwire[pymongo]              # + MongoDB
+pip install pytest-tripwire[elasticsearch]        # + Elasticsearch/OpenSearch
+pip install pytest-tripwire[psycopg2]             # + PostgreSQL (psycopg2)
+pip install pytest-tripwire[asyncpg]              # + PostgreSQL (asyncpg)
+pip install pytest-tripwire[boto3]                # + AWS SDK
+pip install pytest-tripwire[pika]                 # + RabbitMQ
+pip install pytest-tripwire[celery]               # + Celery tasks
+pip install pytest-tripwire[grpc]                 # + gRPC
+pip install pytest-tripwire[paramiko]             # + SSH
+pip install pytest-tripwire[jwt]                  # + PyJWT
+pip install pytest-tripwire[crypto]               # + cryptography
+pip install pytest-tripwire[cffi]                 # + cffi (C FFI)
+pip install pytest-tripwire[websockets]           # + async WebSocket
+pip install pytest-tripwire[websocket-client]     # + sync WebSocket
+pip install pytest-tripwire[matchers]             # + dirty-equals matchers
 ```
 
 ## Documentation

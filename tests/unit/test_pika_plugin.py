@@ -690,7 +690,7 @@ def test_pika_available_flag() -> None:
 # ESCAPE: test_pika_mock_proxy_raises_import_error_when_unavailable
 #   CLAIM: Accessing tripwire.pika raises ImportError when pika is not installed.
 #   PATH:  _PikaProxy.__getattr__ -> checks _PIKA_AVAILABLE -> raises ImportError.
-#   CHECK: ImportError raised with message containing "python-tripwire[pika]" and "pip install".
+#   CHECK: ImportError raised with message containing "pytest-tripwire[pika]" and "pip install".
 #   MUTATION: Not checking _PIKA_AVAILABLE would defer the error.
 #   ESCAPE: Wrong message would fail the string check.
 def test_pika_mock_proxy_raises_import_error_when_unavailable(
@@ -704,8 +704,8 @@ def test_pika_mock_proxy_raises_import_error_when_unavailable(
         _ = tripwire.pika.new_session  # noqa: B018
 
     assert str(exc_info.value) == (
-        "python-tripwire[pika] is required to use tripwire.pika. "
-        "Install it with: pip install python-tripwire[pika]"
+        "pytest-tripwire[pika] is required to use tripwire.pika. "
+        "Install it with: pip install pytest-tripwire[pika]"
     )
 
 

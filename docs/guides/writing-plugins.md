@@ -609,7 +609,7 @@ If you use Claude Code or another AI coding assistant, tripwire includes a proje
 
 ## 1st party vs 3rd party plugins
 
-tripwire plugins don't depend on the libraries they intercept at install time. All library dependencies are optional extras (`pip install python-tripwire[http]`, `pip install python-tripwire[redis]`, etc.), so a 1st party plugin for any library costs nothing to users who don't install that extra. This means the usual "heavy dependencies" argument for splitting into a separate package doesn't apply.
+tripwire plugins don't depend on the libraries they intercept at install time. All library dependencies are optional extras (`pip install pytest-tripwire[http]`, `pip install pytest-tripwire[redis]`, etc.), so a 1st party plugin for any library costs nothing to users who don't install that extra. This means the usual "heavy dependencies" argument for splitting into a separate package doesn't apply.
 
 ### When to contribute a 1st party plugin
 
@@ -630,10 +630,10 @@ Create a separate package when:
 
 ### Packaging a 3rd party plugin
 
-A 3rd party plugin is a standard Python package that depends on `python-tripwire`. Users install it alongside tripwire:
+A 3rd party plugin is a standard Python package that depends on `pytest-tripwire`. Users install it alongside tripwire:
 
 ```bash
-pip install python-tripwire tripwire-myservice
+pip install pytest-tripwire tripwire-myservice
 ```
 
 **Project structure:**

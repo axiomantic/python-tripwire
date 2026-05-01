@@ -346,7 +346,7 @@ def test_async_activate_raises_when_unavailable(monkeypatch: pytest.MonkeyPatch)
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install python-tripwire[websockets] to use AsyncWebSocketPlugin: pip install python-tripwire[websockets]"
+        "Install pytest-tripwire[websockets] to use AsyncWebSocketPlugin: pip install pytest-tripwire[websockets]"
     )
 
 
@@ -630,8 +630,8 @@ def test_sync_activate_raises_when_unavailable(monkeypatch: pytest.MonkeyPatch) 
     with pytest.raises(ImportError) as exc_info:
         p.activate()
     assert str(exc_info.value) == (
-        "Install python-tripwire[websocket-client] to use SyncWebSocketPlugin: "
-        "pip install python-tripwire[websocket-client]"
+        "Install pytest-tripwire[websocket-client] to use SyncWebSocketPlugin: "
+        "pip install pytest-tripwire[websocket-client]"
     )
 
 

@@ -396,7 +396,7 @@ class GrpcPlugin(BasePlugin):
         """Install gRPC channel patches."""
         if not _GRPC_AVAILABLE:
             raise ImportError(
-                "Install python-tripwire[grpc] to use GrpcPlugin: pip install python-tripwire[grpc]"
+                "Install pytest-tripwire[grpc] to use GrpcPlugin: pip install pytest-tripwire[grpc]"
             )
         GrpcPlugin._original_insecure_channel = grpc_lib.insecure_channel
         GrpcPlugin._original_secure_channel = grpc_lib.secure_channel

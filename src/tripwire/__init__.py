@@ -450,8 +450,8 @@ class _HttpProxy:
             from tripwire.plugins.http import HttpPlugin as _HttpPlugin
         except ImportError:
             raise ImportError(
-                "python-tripwire[http] is required to use tripwire.http. "
-                "Install it with: pip install python-tripwire[http]"
+                "pytest-tripwire[http] is required to use tripwire.http. "
+                "Install it with: pip install pytest-tripwire[http]"
             ) from None
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _HttpPlugin)
@@ -578,8 +578,8 @@ class _AsyncWebSocketProxy:
 
         if not _WEBSOCKETS_AVAILABLE:
             raise ImportError(
-                "python-tripwire[websockets] is required to use tripwire.async_websocket. "
-                "Install it with: pip install python-tripwire[websockets]"
+                "pytest-tripwire[websockets] is required to use tripwire.async_websocket. "
+                "Install it with: pip install pytest-tripwire[websockets]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _AsyncWebSocketPlugin)
@@ -606,8 +606,8 @@ class _SyncWebSocketProxy:
 
         if not _WEBSOCKET_CLIENT_AVAILABLE:
             raise ImportError(
-                "python-tripwire[websocket-client] is required to use tripwire.sync_websocket. "
-                "Install it with: pip install python-tripwire[websocket-client]"
+                "pytest-tripwire[websocket-client] is required to use tripwire.sync_websocket. "
+                "Install it with: pip install pytest-tripwire[websocket-client]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _SyncWebSocketPlugin)
@@ -634,8 +634,8 @@ class _RedisProxy:
 
         if not _REDIS_AVAILABLE:
             raise ImportError(
-                "python-tripwire[redis] is required to use tripwire.redis. "
-                "Install it with: pip install python-tripwire[redis]"
+                "pytest-tripwire[redis] is required to use tripwire.redis. "
+                "Install it with: pip install pytest-tripwire[redis]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _RedisPlugin)
@@ -704,8 +704,8 @@ class _PikaProxy:
 
         if not _PIKA_AVAILABLE:
             raise ImportError(
-                "python-tripwire[pika] is required to use tripwire.pika. "
-                "Install it with: pip install python-tripwire[pika]"
+                "pytest-tripwire[pika] is required to use tripwire.pika. "
+                "Install it with: pip install pytest-tripwire[pika]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _PikaPlugin)
@@ -732,8 +732,8 @@ class _SshProxy:
 
         if not _PARAMIKO_AVAILABLE:
             raise ImportError(
-                "python-tripwire[ssh] is required to use tripwire.ssh. "
-                "Install it with: pip install python-tripwire[ssh]"
+                "pytest-tripwire[ssh] is required to use tripwire.ssh. "
+                "Install it with: pip install pytest-tripwire[ssh]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _SshPlugin)
@@ -760,8 +760,8 @@ class _GrpcProxy:
 
         if not _GRPC_AVAILABLE:
             raise ImportError(
-                "python-tripwire[grpc] is required to use tripwire.grpc. "
-                "Install it with: pip install python-tripwire[grpc]"
+                "pytest-tripwire[grpc] is required to use tripwire.grpc. "
+                "Install it with: pip install pytest-tripwire[grpc]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _GrpcPlugin)
@@ -788,8 +788,8 @@ class _McpProxy:
 
         if not _MCP_AVAILABLE:
             raise ImportError(
-                "python-tripwire[mcp] is required to use tripwire.mcp. "
-                "Install it with: pip install python-tripwire[mcp]"
+                "pytest-tripwire[mcp] is required to use tripwire.mcp. "
+                "Install it with: pip install pytest-tripwire[mcp]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _McpPlugin)
@@ -816,8 +816,8 @@ class _MongoProxy:
 
         if not _PYMONGO_AVAILABLE:
             raise ImportError(
-                "python-tripwire[mongo] is required to use tripwire.mongo. "
-                "Install it with: pip install python-tripwire[mongo]"
+                "pytest-tripwire[mongo] is required to use tripwire.mongo. "
+                "Install it with: pip install pytest-tripwire[mongo]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MongoPlugin)
@@ -865,8 +865,8 @@ class _MemcacheProxy:
 
         if not _PYMEMCACHE_AVAILABLE:
             raise ImportError(
-                "python-tripwire[pymemcache] is required to use tripwire.memcache. "
-                "Install it with: pip install python-tripwire[pymemcache]"
+                "pytest-tripwire[pymemcache] is required to use tripwire.memcache. "
+                "Install it with: pip install pytest-tripwire[pymemcache]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _MemcachePlugin)
@@ -893,8 +893,8 @@ class _CeleryProxy:
 
         if not _CELERY_AVAILABLE:
             raise ImportError(
-                "python-tripwire[celery] is required to use tripwire.celery. "
-                "Install it with: pip install python-tripwire[celery]"
+                "pytest-tripwire[celery] is required to use tripwire.celery. "
+                "Install it with: pip install pytest-tripwire[celery]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _CeleryPlugin)
@@ -941,8 +941,8 @@ class _Psycopg2Proxy:
 
         if not _PSYCOPG2_AVAILABLE:
             raise ImportError(
-                "python-tripwire[psycopg2] is required to use tripwire.psycopg2. "
-                "Install it with: pip install python-tripwire[psycopg2]"
+                "pytest-tripwire[psycopg2] is required to use tripwire.psycopg2. "
+                "Install it with: pip install pytest-tripwire[psycopg2]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _Psycopg2Plugin)
@@ -969,8 +969,8 @@ class _AsyncpgProxy:
 
         if not _ASYNCPG_AVAILABLE:
             raise ImportError(
-                "python-tripwire[asyncpg] is required to use tripwire.asyncpg. "
-                "Install it with: pip install python-tripwire[asyncpg]"
+                "pytest-tripwire[asyncpg] is required to use tripwire.asyncpg. "
+                "Install it with: pip install pytest-tripwire[asyncpg]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _AsyncpgPlugin)
@@ -997,8 +997,8 @@ class _Boto3Proxy:
 
         if not _BOTO3_AVAILABLE:
             raise ImportError(
-                "python-tripwire[boto3] is required to use tripwire.boto3. "
-                "Install it with: pip install python-tripwire[boto3]"
+                "pytest-tripwire[boto3] is required to use tripwire.boto3. "
+                "Install it with: pip install pytest-tripwire[boto3]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _Boto3Plugin)
@@ -1025,8 +1025,8 @@ class _ElasticsearchProxy:
 
         if not _ELASTICSEARCH_AVAILABLE:
             raise ImportError(
-                "python-tripwire[elasticsearch] is required to use tripwire.elasticsearch. "
-                "Install it with: pip install python-tripwire[elasticsearch]"
+                "pytest-tripwire[elasticsearch] is required to use tripwire.elasticsearch. "
+                "Install it with: pip install pytest-tripwire[elasticsearch]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _ElasticsearchPlugin)
@@ -1053,8 +1053,8 @@ class _JwtProxy:
 
         if not _JWT_AVAILABLE:
             raise ImportError(
-                "python-tripwire[jwt] is required to use tripwire.jwt. "
-                "Install it with: pip install python-tripwire[jwt]"
+                "pytest-tripwire[jwt] is required to use tripwire.jwt. "
+                "Install it with: pip install pytest-tripwire[jwt]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _JwtPlugin)
@@ -1081,8 +1081,8 @@ class _CryptoProxy:
 
         if not _CRYPTOGRAPHY_AVAILABLE:
             raise ImportError(
-                "python-tripwire[crypto] is required to use tripwire.crypto. "
-                "Install it with: pip install python-tripwire[crypto]"
+                "pytest-tripwire[crypto] is required to use tripwire.crypto. "
+                "Install it with: pip install pytest-tripwire[crypto]"
             )
         verifier = _get_test_verifier_or_raise()
         plugin = _get_or_create_plugin(verifier, _CryptoPlugin)

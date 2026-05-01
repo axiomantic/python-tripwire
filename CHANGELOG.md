@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-04-30
+
+### Changed
+- **Breaking (PyPI dist name):** The PyPI distribution is renamed from `python-tripwire` to `pytest-tripwire`. Rationale: pytest plugins are conventionally distributed as `pytest-<name>`, so the new name reflects what this package actually is and surfaces it in pytest plugin indexes.
+- The Python import name is unchanged. Code keeps using `import tripwire`; the pytest11 entry-point is still registered under the name `tripwire`; the `[tool.tripwire]` config namespace is unchanged.
+- Project URLs (`Homepage`, `Repository`, `Issues`, `Changelog`) updated to `https://github.com/axiomantic/pytest-tripwire`.
+- Install/extras messaging in error strings, README, and plugin docs now references `pytest-tripwire[<extra>]`.
+
+### Added
+- A deprecation shim is published under the old `python-tripwire` name. It depends on `pytest-tripwire` so the upgrade path is `pip install -U python-tripwire` (or, preferred, `pip uninstall python-tripwire && pip install pytest-tripwire`).
+
+### Migration
+- Replace `pip install python-tripwire[...]` (or the `uv add` / `poetry add` / `uv pip install` equivalents) with `pip install pytest-tripwire[...]`.
+- No source changes are required: `import tripwire` continues to work, and existing `[tool.tripwire]` configuration in `pyproject.toml` is unchanged.
+
 ## [0.20.1] - 2026-04-29
 
 ### Changed
